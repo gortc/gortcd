@@ -1,0 +1,11 @@
+*-fuzz.zip
+.idea
+benchmark.*.write
+*.test
+*.out
+bench.go-*
+PACKAGES
+stund/stund
+stun-cli/stun-cli
+stun-decode/stun-decode
+stun-bench/stun-bench
