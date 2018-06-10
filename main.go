@@ -38,8 +38,9 @@ var (
 	errNotSTUNMessage = errors.New("not stun message")
 )
 
-func basicProcess(addr net.Addr, b []byte, req, res *stun.Message) error {
+func (s *Server) basicProcess(addr net.Addr, b []byte, req, res *stun.Message) error {
 	if !stun.IsMessage(b) {
+		s.log.Debug("not looks like stun message", zap.Stringer("addr", addr))
 		return errNotSTUNMessage
 	}
 	if _, err := req.Write(b); err != nil {
@@ -54,7 +55,8 @@ func basicProcess(addr net.Addr, b []byte, req, res *stun.Message) error {
 		ip = a.IP
 		port = a.Port
 	default:
-		panic(fmt.Sprintf("unknown addr: %v", addr))
+		s.log.Error("unknown addr", zap.Stringer("addr", addr))
+		return errors.Errorf("unknown addr %s", addr)
 	}
 	return res.Build(
 		stun.NewTransactionIDSetter(req.TransactionID),
@@ -86,7 +88,7 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 		s.log.Warn("write failed", zap.Error(err))
 		return err
 	}
-	if err = basicProcess(addr, buf[:n], req, res); err != nil {
+	if err = s.basicProcess(addr, buf[:n], req, res); err != nil {
 		if err == errNotSTUNMessage {
 			return nil
 		}
