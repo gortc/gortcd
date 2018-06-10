@@ -145,12 +145,24 @@ func main() {
 			log.Println(http.ListenAndServe("localhost:6060", nil))
 		}()
 	}
+	l, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+	defaultLogger = l
 	switch *network {
 	case "udp":
 		normalized := normalize(*address)
-		fmt.Println("gortc/stund listening on", normalized, "via", *network)
-		log.Fatal(ListenUDPAndServe(*network, normalized))
+		l.Info("gortc/gortcd listening",
+			zap.String("addr", normalized),
+			zap.String("network", *network),
+		)
+		if err = ListenUDPAndServe(*network, normalized); err != nil {
+			l.Fatal("failed to listen", zap.Error(err))
+		}
 	default:
-		log.Fatalln("unsupported network:", *network)
+		l.Fatal("unsupported network",
+			zap.String("network", *network),
+		)
 	}
 }
