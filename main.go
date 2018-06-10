@@ -78,7 +78,6 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 		s.log.Warn("readFrom failed", zap.Error(err))
 		return nil
 	}
-	// s.log().Printf("read %d bytes from %s", n, addr)
 	s.log.Debug("read",
 		zap.Int("n", n),
 		zap.Stringer("addr", addr),
