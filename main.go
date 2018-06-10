@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -142,14 +141,21 @@ func normalize(address string) string {
 
 func main() {
 	flag.Parse()
-	if *profile {
-		go func() {
-			log.Println(http.ListenAndServe("localhost:6060", nil))
-		}()
-	}
 	l, err := zap.NewDevelopment()
 	if err != nil {
 		panic(err)
+	}
+	if *profile {
+		pprofAddr := "localhost:6060"
+		l.Warn("running pprof", zap.String("addr", pprofAddr))
+		go func() {
+			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+				l.Error("pprof failed to listen",
+					zap.String("addr", pprofAddr),
+					zap.Error(err),
+				)
+			}
+		}()
 	}
 	defaultLogger = l
 	switch *network {
