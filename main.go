@@ -15,9 +15,10 @@ import (
 )
 
 var (
-	network = flag.String("net", "udp", "network to listen")
-	address = flag.String("addr", fmt.Sprintf("0.0.0.0:%d", stun.DefaultPort), "address to listen")
-	profile = flag.Bool("profile", false, "run pprof on localhost:6060")
+	network     = flag.String("net", "udp", "network to listen")
+	address     = flag.String("addr", fmt.Sprintf("0.0.0.0:%d", stun.DefaultPort), "address to listen")
+	profile     = flag.Bool("profile", false, "run pprof")
+	profileAddr = flag.String("profile.addr", "localhost:6060", "address to listen for pprof")
 )
 
 // Server is RFC 5389 basic server implementation.
@@ -32,12 +33,11 @@ type Server struct {
 }
 
 var (
-	defaultLogger     *zap.Logger
-	software          = stun.NewSoftware("gortc/stund")
+	software          = stun.NewSoftware("gortc/gortcd")
 	errNotSTUNMessage = errors.New("not stun message")
 )
 
-func (s *Server) basicProcess(addr net.Addr, b []byte, req, res *stun.Message) error {
+func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
 	if !stun.IsMessage(b) {
 		s.log.Debug("not looks like stun message", zap.Stringer("addr", addr))
 		return errNotSTUNMessage
@@ -87,11 +87,11 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 		s.log.Warn("write failed", zap.Error(err))
 		return err
 	}
-	if err = s.basicProcess(addr, buf[:n], req, res); err != nil {
+	if err = s.process(addr, buf[:n], req, res); err != nil {
 		if err == errNotSTUNMessage {
 			return nil
 		}
-		s.log.Error("basicProcess failed", zap.Error(err))
+		s.log.Error("process failed", zap.Error(err))
 		return nil
 	}
 	_, err = c.WriteTo(res.Raw, addr)
@@ -118,13 +118,13 @@ func (s *Server) Serve(c net.PacketConn) error {
 }
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
-func ListenUDPAndServe(serverNet, laddr string) error {
+func ListenUDPAndServe(serverNet, laddr string, logger *zap.Logger) error {
 	c, err := net.ListenPacket(serverNet, laddr)
 	if err != nil {
 		return err
 	}
 	s := &Server{
-		log: defaultLogger,
+		log: logger,
 	}
 	return s.Serve(c)
 }
@@ -146,7 +146,7 @@ func main() {
 		panic(err)
 	}
 	if *profile {
-		pprofAddr := "localhost:6060"
+		pprofAddr := *profileAddr
 		l.Warn("running pprof", zap.String("addr", pprofAddr))
 		go func() {
 			if err := http.ListenAndServe(pprofAddr, nil); err != nil {
@@ -157,7 +157,6 @@ func main() {
 			}
 		}()
 	}
-	defaultLogger = l
 	switch *network {
 	case "udp":
 		normalized := normalize(*address)
@@ -165,7 +164,7 @@ func main() {
 			zap.String("addr", normalized),
 			zap.String("network", *network),
 		)
-		if err = ListenUDPAndServe(*network, normalized); err != nil {
+		if err = ListenUDPAndServe(*network, normalized, l); err != nil {
 			l.Fatal("failed to listen", zap.Error(err))
 		}
 	default:
