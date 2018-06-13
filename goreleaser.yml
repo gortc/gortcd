@@ -34,19 +34,7 @@ archive:
   format_overrides:
     - goos: windows
       format: zip
-  name_template: "{{.Binary}}_{{.Version}}_{{.Os}}-{{.Arch}}"
-  replacements:
-    amd64: 64bit
-    386: 32bit
-    arm: ARM
-    arm64: ARM64
-    darwin: macOS
-    linux: Linux
-    windows: Windows
-    openbsd: OpenBSD
-    netbsd: NetBSD
-    freebsd: FreeBSD
-    dragonfly: DragonFlyBSD
+  name_template: "{{.Binary}}-{{.Version}}-{{.Os}}-{{.Arch}}"
   files:
     - README.md
     - LICENSE
