@@ -20,8 +20,9 @@ build:
     - goos: openbsd
       goarch: arm
       goarm: 6
-
-fpm:
+dockers:
+  - image: gortc/gortcd
+nfpm:
   formats:
       - deb
   vendor: "gortc.io"
