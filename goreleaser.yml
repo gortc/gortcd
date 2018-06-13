@@ -16,19 +16,28 @@ build:
     - goos: openbsd
       goarch: arm
       goarm: 6
+
 sign:
   artifacts: checksum
+
 dockers:
   - image: gortc/gortcd
     dockerfile: release.Dockerfile
+
 nfpm:
   formats:
       - deb
+  files:
+    provision/gortcd.service: /etc/systemd/system/gortcd.service
+  scripts:
+    postinstall: "provision/postinstall.sh"
   vendor: "gortc.io"
   homepage: "https://gortc.io/"
   maintainer: "Aleksandr Razumov <ar@cydev.ru>"
   description: "TURN and STUN server in go."
   license: "BSD 3-Clause"
+  name_template: "{{.ProjectName}}-{{.Version }}-{{ .Os }}-{{ .Arch }}"
+
 archive:
   format: tar.gz
   format_overrides:

@@ -1,0 +1,13 @@
+[Unit]
+Description=TURN and STUN server in go.
+Documentation=https://github.com/gortc/gortcd
+After=syslog.target network.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/gortcd
+Restart=on-failure
+LimitNOFILE=65536
+RestartSec=5s
+PrivateTmp=yes
+NotifyAccess=main
