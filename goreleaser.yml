@@ -20,6 +20,7 @@ sign:
   artifacts: checksum
 dockers:
   - image: gortc/gortcd
+    dockerfile: Dockerfile
 nfpm:
   formats:
       - deb
