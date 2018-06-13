@@ -16,6 +16,8 @@ build:
     - goos: openbsd
       goarch: arm
       goarm: 6
+sign:
+  artifacts: checksum
 dockers:
   - image: gortc/gortcd
 nfpm:
