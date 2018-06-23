@@ -2,11 +2,10 @@
 WIP TURN and STUN server in go
 
 # Description
-Server is RFC 5389 basic server implementation.
+Work in progress STUN and TURN server implementation.
+Goal is feature parity with coturn and more.
 
-Current implementation is UDP only and not utilizes FINGERPRINT mechanism,
-nor ALTERNATE-SERVER, nor credentials mechanisms. It does not support
-backwards compatibility with RFC 3489
+Currently in active development, use only for experiments.
 
 # Install
 ## Docker
