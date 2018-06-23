@@ -1,0 +1,31 @@
+version: '3'
+
+services:
+  turn-peer:
+    entrypoint:
+      - integration-test
+      - peer
+    depends_on:
+      - turn-server
+    links:
+      - turn-server
+    build:
+      context: ..
+      dockerfile: integration-test/Dockerfile
+  turn-client:
+    depends_on:
+      - turn-server
+      - turn-peer
+    links:
+      - turn-server
+      - turn-peer
+    build:
+      context: ..
+      dockerfile: integration-test/Dockerfile
+  turn-server:
+    image: bprodoehl/turnserver
+    ports:
+      - "3478:3478"
+      - "3478:3478/udp"
+    environment:
+      - SKIP_AUTO_IP=1

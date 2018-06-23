@@ -1,0 +1,24 @@
+language: go
+
+sudo: required
+
+services:
+  - docker
+
+go:
+  - 1.9.x
+  - 1.10.x
+
+before_install:
+  - go get github.com/mattn/goveralls
+  - go get golang.org/x/tools/cmd/cover
+
+install:
+ - go get -v -t .
+
+script:
+ - $HOME/gopath/bin/goveralls -service=travis-ci -v -package .
+ - if [[ $TRAVIS_GO_VERSION == 1.10.* ]]; then cd integration-test && ./test.sh; fi
+
+matrix:
+  fast_finish: true

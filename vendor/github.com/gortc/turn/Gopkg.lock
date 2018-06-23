@@ -2,22 +2,10 @@
 
 
 [[projects]]
+  branch = "master"
   name = "github.com/gortc/stun"
   packages = ["."]
-  revision = "58f2b2ab47223f637a3a532cf9352c6dadfa9e67"
-  version = "v1.6.4"
-
-[[projects]]
-  name = "github.com/gortc/turn"
-  packages = ["."]
-  revision = "3e9d5ccdc8f708644176ae8727d995de49564843"
-  version = "v0.1.3"
-
-[[projects]]
-  name = "github.com/pkg/errors"
-  packages = ["."]
-  revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
-  version = "v0.8.0"
+  revision = "2f15c6031893bf041bbbeb945478f92471f961d1"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -33,20 +21,13 @@
 
 [[projects]]
   name = "go.uber.org/zap"
-  packages = [
-    ".",
-    "buffer",
-    "internal/bufferpool",
-    "internal/color",
-    "internal/exit",
-    "zapcore"
-  ]
+  packages = [".","buffer","internal/bufferpool","internal/color","internal/exit","zapcore"]
   revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
   version = "v1.8.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "950c69d4dc0143dd8117048e349638fad3b8e26d1d8943a006c4fa632116c53e"
+  inputs-digest = "2b87447056afaff0eb11c94725ccf398ff232bb7fbe47a65cdfc4214ddae7f61"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -23,16 +23,8 @@
 
 [[constraint]]
   name = "github.com/gortc/stun"
-  version = "1.6.4"
-
-[[constraint]]
-  name = "github.com/pkg/errors"
-  version = "0.8.0"
+  version = "1.6.2"
 
 [[constraint]]
   name = "go.uber.org/zap"
   version = "1.8.0"
-
-[[constraint]]
-  name = "github.com/gortc/turn"
-  version = "0.1.3"
