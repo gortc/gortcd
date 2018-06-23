@@ -1,5 +1,4 @@
 build:
-  main: main.go
   binary: gortcd
   env:
     - CGO_ENABLED=0
