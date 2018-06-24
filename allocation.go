@@ -10,28 +10,6 @@ import (
 	"github.com/gortc/turn"
 )
 
-// Proto is protocol identifier.
-type Proto int
-
-const (
-	UDP Proto = iota
-	TCP
-	DTLS
-)
-
-func (p Proto) String() string {
-	switch p {
-	case UDP:
-		return "udp"
-	case TCP:
-		return "tcp"
-	case DTLS:
-		return "dtls"
-	default:
-		return fmt.Sprintf("%x", int(p))
-	}
-}
-
 // Addr is ip:port.
 type Addr struct {
 	IP   net.IP
