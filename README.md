@@ -10,5 +10,5 @@ Currently in active development, use only for experiments.
 # Install
 ## Docker
 ```
-docker run -d -p 3478:3478 gortc/gortcd
+docker run -d -p 3478:3478/udp gortc/gortcd
 ```
