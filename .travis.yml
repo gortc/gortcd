@@ -17,7 +17,7 @@ install:
  - go get -v -t .
 
 script:
- - $HOME/gopath/bin/goveralls -service=travis-ci -v -package .
+ - $HOME/gopath/bin/goveralls -service=travis-ci -v
  - if [[ $TRAVIS_GO_VERSION == 1.10.* ]]; then cd integration-test && ./test.sh; fi
 
 matrix:

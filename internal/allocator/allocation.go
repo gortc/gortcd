@@ -1,4 +1,4 @@
-package main
+package allocator
 
 import (
 	"fmt"
@@ -16,6 +16,7 @@ type Addr struct {
 	Port int
 }
 
+// Equal returns true if b == a.
 func (a Addr) Equal(b Addr) bool {
 	if a.Port != b.Port {
 		return false
@@ -48,14 +49,12 @@ type PeerHandler interface {
 //
 // See RFC 5766 Section 2.3
 type Permission struct {
-	Addr     Addr
-	Lifetime time.Time
-	Conn     net.Conn
-	Log      *zap.Logger
+	Addr    Addr
+	Timeout time.Time
 }
 
-func (p Permission) Close() error {
-	return p.Conn.Close()
+func (p Permission) String() string {
+	return fmt.Sprintf("%s [%s]", p.Addr, p.Timeout.Format(time.RFC3339))
 }
 
 // Allocation as described in "Allocations" section.
@@ -66,18 +65,25 @@ type Allocation struct {
 	Permissions []Permission
 	Channels    []Binding
 	Callback    PeerHandler
+	Log         *zap.Logger
+	Conn        net.PacketConn
 }
 
-func (a Allocation) ReadUntilClosed(p Permission) {
+func (a Allocation) ReadUntilClosed() {
+	a.Log.Debug("ReadUntilClosed")
 	buf := make([]byte, 1024)
 	for {
-		p.Conn.SetReadDeadline(p.Lifetime)
-		n, err := p.Conn.Read(buf)
+		a.Conn.SetReadDeadline(time.Now().Add(time.Minute))
+		n, addr, err := a.Conn.ReadFrom(buf)
 		if err != nil {
-			p.Log.Error("read", zap.Error(err))
+			a.Log.Error("read", zap.Error(err))
 			break
 		}
-		a.Callback.HandlePeerData(buf[:n], a.Tuple, p.Addr)
+		udpAddr := addr.(*net.UDPAddr)
+		a.Callback.HandlePeerData(buf[:n], a.Tuple, Addr{
+			IP:   udpAddr.IP,
+			Port: udpAddr.Port,
+		})
 	}
 }
 

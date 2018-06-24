@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	_ "net/http/pprof"
@@ -12,7 +13,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/gortc/gortcd/internal/allocator"
+	"github.com/gortc/ice"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
@@ -35,11 +39,10 @@ type Server struct {
 	LogAllErrors bool
 	log          *zap.Logger
 	allocsMux    sync.Mutex
-	allocs       []Allocation
-
-	ip          net.IP
-	currentPort int
-	conn        net.PacketConn
+	allocs       *allocator.Allocator
+	ip           net.IP
+	currentPort  int64
+	conn         net.PacketConn
 }
 
 var (
@@ -47,68 +50,8 @@ var (
 	errNotSTUNMessage = errors.New("not stun message")
 )
 
-func (s *Server) dealloc(client Addr) {
-	var (
-		newAllocs []Allocation
-		toClose   []net.Conn
-	)
-
-	s.allocsMux.Lock()
-	for _, a := range s.allocs {
-		if !a.Tuple.Client.Equal(client) {
-			newAllocs = append(newAllocs, a)
-			continue
-		}
-		for _, p := range a.Permissions {
-			toClose = append(toClose, p.Conn)
-		}
-	}
-	n := copy(s.allocs, newAllocs)
-	s.allocs = s.allocs[:n]
-	s.allocsMux.Unlock()
-
-	for _, c := range toClose {
-		if err := c.Close(); err != nil {
-			s.log.Warn("failed to close conn",
-				zap.Error(err),
-			)
-		}
-	}
-}
-
 func (s *Server) collect(t time.Time) {
-	var (
-		newAllocs []Allocation
-		toClose   []net.Conn
-	)
-
-	s.allocsMux.Lock()
-	for _, a := range s.allocs {
-		var newPermissions []Permission
-		for _, p := range a.Permissions {
-			if p.Lifetime.After(t) {
-				newPermissions = append(newPermissions, p)
-				continue
-			}
-			toClose = append(toClose, p.Conn)
-		}
-		n := copy(a.Permissions, newPermissions)
-		a.Permissions = a.Permissions[:n]
-		if n > 0 {
-			newAllocs = append(newAllocs, a)
-		}
-	}
-	n := copy(s.allocs, newAllocs)
-	s.allocs = s.allocs[:n]
-	s.allocsMux.Unlock()
-
-	for _, c := range toClose {
-		if err := c.Close(); err != nil {
-			s.log.Warn("failed to close conn",
-				zap.Error(err),
-			)
-		}
-	}
+	s.allocs.Collect(t)
 }
 
 var (
@@ -118,55 +61,21 @@ var (
 
 func (s *Server) sendByPermission(
 	data turn.Data,
-	client Addr,
+	client allocator.Addr,
 	addr turn.PeerAddress,
 ) error {
-	var (
-		conn net.Conn
-	)
-
 	s.log.Info("searching for allocation",
 		zap.Stringer("client", client),
 		zap.Stringer("addr", addr),
 	)
-	s.allocsMux.Lock()
-	for _, a := range s.allocs {
-		if !a.Tuple.Client.Equal(client) {
-			continue
-		}
-		// Got client allocation.
-		allowed := false
-		s.log.Info("searching for permission",
-			zap.Int("len", len(a.Permissions)),
-		)
-		for _, p := range a.Permissions {
-			s.log.Debug("comparing",
-				zap.Stringer("a", Addr(addr)),
-				zap.Stringer("b", p.Addr),
-			)
-			if !Addr(addr).Equal(p.Addr) {
-				continue
-			}
-			allowed = true
-			conn = p.Conn
-		}
-		if !allowed {
-			s.allocsMux.Unlock()
-			return errors.Errorf("not allowed: %s", addr)
-		}
+	_, err := s.allocs.Send(client, allocator.Addr(addr), data)
+	if err != nil {
+		return err
 	}
-	s.allocsMux.Unlock()
-
-	if conn != nil {
-		_, err := conn.Write(data)
-		if err != nil {
-			return errors.Wrap(err, "failed to write")
-		}
-	}
-	return nil
+	return err
 }
 
-func (s *Server) HandlePeerData(d []byte, t FiveTuple, a Addr) {
+func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Addr) {
 	destination := &net.UDPAddr{
 		IP:   t.Client.IP,
 		Port: t.Client.Port,
@@ -215,10 +124,11 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		s.log.Error("unknown addr", zap.Stringer("addr", addr))
 		return errors.Errorf("unknown addr %s", addr)
 	}
-	client := Addr{
+	client := allocator.Addr{
 		Port: port,
 		IP:   ip,
 	}
+	now := time.Now()
 	s.log.Info("got message",
 		zap.Stringer("m", req),
 		zap.Stringer("addr", client),
@@ -244,89 +154,52 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		s.log.Info("processing allocate request")
 		if err := realm.GetFrom(req); err != nil && *checkRealm {
 			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
-				stun.NewRealm("realm"),
-				stun.NewNonce("nonce"),
 				stun.CodeUnauthorised,
 				stun.Fingerprint,
 			)
 		}
 		s.log.Info("got allocate", zap.Stringer("realm", realm))
-		s.allocsMux.Lock()
-		tuple := FiveTuple{
-			Client: Addr{
-				Port: port,
-				IP:   ip,
-			},
-			Server: Addr{
-				IP:   s.ip,
-				Port: s.currentPort,
-			},
-			Proto: transport.Protocol,
+		server, err := s.allocs.New(
+			client, transport.Protocol, s,
+		)
+		if err != nil {
+			s.log.Error("failed to allocate", zap.Error(err))
+			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+				stun.CodeServerError,
+				stun.Fingerprint,
+			)
 		}
-		s.allocs = append(s.allocs, Allocation{
-			Tuple:    tuple,
-			Callback: s,
-		})
-		s.currentPort++
-		s.allocsMux.Unlock()
-
 		return res.Build(req, allocSuccess,
-			&stun.XORMappedAddress{
-				IP:   tuple.Client.IP,
-				Port: tuple.Client.Port,
-			},
-			&turn.RelayedAddress{
-				IP:   tuple.Server.IP,
-				Port: tuple.Server.Port,
-			},
+			(*stun.XORMappedAddress)(&server),
+			(*turn.RelayedAddress)(&client),
 			stun.Fingerprint,
 		)
 	case turn.CreatePermissionRequest:
 		var (
-			addr turn.PeerAddress
+			addr     turn.PeerAddress
+			lifetime turn.Lifetime
 		)
-		if err := req.Parse(&addr); err != nil {
-			return errors.Wrap(err, "failed to parse send indication")
+		if err := addr.GetFrom(req); err != nil {
+			return errors.Wrap(err, "failed to ger create permission request addr")
+		}
+		switch err := lifetime.GetFrom(req); err {
+		case nil:
+			if lifetime.Duration > time.Hour {
+				// Requested lifetime is too big.
+				return res.Build(req, stun.NewType(stun.MethodCreatePermission, stun.ClassErrorResponse),
+					stun.CodeBadRequest,
+					stun.Fingerprint,
+				)
+			}
+		case stun.ErrAttributeNotFound:
+			lifetime.Duration = time.Minute // default
+		default:
+			return errors.Wrap(err, "failed to get lifetime")
 		}
 		s.log.Info("processing create permission request")
-		permission := Permission{
-			Lifetime: time.Now().Add(time.Minute * 5),
-			Addr:     Addr(addr),
-			Log: s.log.With(
-				zap.Stringer("client", client),
-				zap.Stringer("addr", Addr(addr)),
-			),
+		if err := s.allocs.CreatePermission(client, allocator.Addr(addr), now.Add(lifetime.Duration)); err != nil {
+			return errors.Wrap(err, "failed to create allocation")
 		}
-		s.allocsMux.Lock()
-		for i, a := range s.allocs {
-			if !a.Tuple.Client.Equal(client) {
-				continue
-			}
-			switch a.Tuple.Proto {
-			case turn.ProtoUDP:
-				// TODO: Don't lock on this.
-				conn, err := net.DialUDP("udp", &net.UDPAddr{
-					Port: a.Tuple.Server.Port,
-					IP:   a.Tuple.Server.IP,
-				}, &net.UDPAddr{
-					Port: addr.Port,
-					IP:   addr.IP,
-				})
-				if err != nil {
-					s.allocsMux.Unlock()
-					return errors.Wrap(err, "failed to dial")
-				}
-				s.log.Info("created permission connection", zap.Stringer("t", a.Tuple))
-				permission.Conn = conn
-			default:
-				s.allocsMux.Unlock()
-				return errors.Errorf("proto %s not implemented", a.Tuple.Proto)
-			}
-			a.Permissions = append(a.Permissions, permission)
-			go a.ReadUntilClosed(permission)
-			s.allocs[i] = a
-		}
-		s.allocsMux.Unlock()
 		return res.Build(req,
 			stun.NewType(stun.MethodCreatePermission, stun.ClassSuccessResponse),
 		)
@@ -334,7 +207,6 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		var (
 			addr     turn.PeerAddress
 			lifetime turn.Lifetime
-			deAlloc  bool
 		)
 		if err := req.Parse(&addr); err != nil && err != stun.ErrAttributeNotFound {
 			return errors.Wrap(err, "failed to parse refresh request")
@@ -344,26 +216,12 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 				return errors.Wrap(err, "failed to parse")
 			}
 		}
-		deAlloc = lifetime.Duration == 0
-		if deAlloc {
-			s.dealloc(client)
-		} else {
-			t := time.Now()
-			s.allocsMux.Lock()
-			for _, a := range s.allocs {
-				if !a.Tuple.Client.Equal(client) {
-					continue
-				}
-				for i := range a.Permissions {
-					p := a.Permissions[i]
-					if !Addr(addr).Equal(p.Addr) {
-						continue
-					}
-					p.Lifetime = t
-					a.Permissions[i] = p
-				}
-			}
-			s.allocsMux.Unlock()
+		switch lifetime.Duration {
+		case 0:
+			s.allocs.Remove(client)
+		default:
+			t := now.Add(lifetime.Duration)
+			s.allocs.Refresh(client, allocator.Addr(addr), t)
 		}
 		return res.Build(req,
 			stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
@@ -381,7 +239,6 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 				zap.Error(err),
 			)
 		}
-		res.Reset()
 		return nil
 	default:
 		return errors.Errorf("unknown request type %s", req.Type)
@@ -446,11 +303,18 @@ func ListenUDPAndServe(serverNet, laddr string, logger *zap.Logger) error {
 	if err != nil {
 		return err
 	}
+	netAlloc, err := allocator.NewNetAllocator(
+		logger.Named("port"), c.LocalAddr(), allocator.SystemPortAllocator{},
+	)
+	if err != nil {
+		return err
+	}
 	s := &Server{
 		log:         logger,
 		ip:          net.IPv4(0, 0, 0, 0),
 		currentPort: 50000,
 		conn:        c,
+		allocs:      allocator.NewAllocator(logger.Named("allocator"), netAlloc),
 	}
 	return s.Serve(c)
 }
@@ -467,7 +331,15 @@ func normalize(address string) string {
 
 func main() {
 	flag.Parse()
-	l, err := zap.NewDevelopment()
+	logCfg := zap.NewDevelopmentConfig()
+	logCfg.DisableCaller = true
+	logCfg.DisableStacktrace = true
+	start := time.Now()
+	logCfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
+		d := int64(time.Since(start).Nanoseconds() / 1e6)
+		enc.AppendString(fmt.Sprintf("%04d", d))
+	}
+	l, err := logCfg.Build()
 	if err != nil {
 		panic(err)
 	}
@@ -486,6 +358,19 @@ func main() {
 	switch *network {
 	case "udp":
 		normalized := normalize(*address)
+		if strings.HasPrefix(normalized, "0.0.0.0") {
+			l.Warn("picking addr from ICE")
+			// Picking first addr from ice candidate.
+			addrs, err := ice.DefaultGatherer.Gather()
+			if err != nil {
+				log.Fatal(err)
+			}
+			for _, a := range addrs {
+				l.Warn("got", zap.Stringer("a", a))
+			}
+			firstAddr := addrs[len(addrs)-1]
+			normalized = strings.Replace(normalized, "0.0.0.0", firstAddr.IP.String(), -1)
+		}
 		l.Info("gortc/gortcd listening",
 			zap.String("addr", normalized),
 			zap.String("network", *network),

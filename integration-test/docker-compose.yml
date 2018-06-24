@@ -25,6 +25,4 @@ services:
   turn-server:
     build:
       context: ..
-      dockerfile: Dockerfile
-    environment:
-      - SKIP_AUTO_IP=1
+      dockerfile: integration-test/server.Dockerfile
