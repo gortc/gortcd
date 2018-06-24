@@ -101,7 +101,7 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	if _, err := s.conn.WriteTo(m.Raw, destination); err != nil {
 		l.Error("failed to write", zap.Error(err))
 	}
-	l.Info("sent", zap.Stringer("m", m))
+	l.Info("sent data from peer", zap.Stringer("m", m))
 }
 
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
@@ -290,11 +290,11 @@ func (s *Server) Serve(c net.PacketConn) error {
 	for {
 		if err := s.serveConn(c, res, req); err != nil {
 			s.log.Error("serveConn failed", zap.Error(err))
-			return err
 		}
 		res.Reset()
 		req.Reset()
 	}
+	return nil
 }
 
 // ListenUDPAndServe listens on laddr and process incoming packets.

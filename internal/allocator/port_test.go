@@ -10,6 +10,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"io"
+
 	"github.com/gortc/turn"
 )
 
@@ -25,7 +27,8 @@ type dummyConn struct {
 var errDummyConnClosed = errors.New("closed")
 
 func (dummyConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
-	panic("implement me")
+	// TODO: improve
+	return 0, nil, io.EOF
 }
 
 func (c *dummyConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
@@ -56,7 +59,7 @@ func (dummyConn) SetDeadline(t time.Time) error {
 }
 
 func (dummyConn) SetReadDeadline(t time.Time) error {
-	panic("implement me")
+	return nil
 }
 
 func (dummyConn) SetWriteDeadline(t time.Time) error {

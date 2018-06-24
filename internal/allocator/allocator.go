@@ -51,6 +51,11 @@ func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
 	if conn == nil {
 		return 0, ErrPermissionNotFound
 	}
+	a.log.Debug("sending data",
+		zap.Stringer("client", client),
+		zap.Stringer("addr", addr),
+		zap.Int("len", len(data)),
+	)
 	return conn.WriteTo(data, &net.UDPAddr{
 		IP:   addr.IP,
 		Port: addr.Port,
@@ -130,13 +135,15 @@ func (a *Allocator) New(client Addr, proto turn.Protocol, callback PeerHandler) 
 		Server: addr,
 		Proto:  proto,
 	}
-	a.allocs = append(a.allocs, Allocation{
+	allocation := Allocation{
 		Log:      a.log,
 		Tuple:    tuple,
 		Callback: callback,
 		Conn:     conn,
-	})
+	}
+	a.allocs = append(a.allocs, allocation)
 	a.allocsMux.Unlock()
+	go allocation.ReadUntilClosed()
 	return addr, nil
 }
 

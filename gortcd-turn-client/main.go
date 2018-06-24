@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"time"
@@ -15,6 +14,18 @@ import (
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
+
+type echoHandler struct {
+	l    *zap.Logger
+	echo chan struct{}
+}
+
+func (h *echoHandler) HandleEvent(e stun.Event) {
+	if e.Error != nil {
+		h.l.Fatal("error", zap.Error(e.Error))
+	}
+	h.echo <- struct{}{}
+}
 
 var rootCmd = &cobra.Command{
 	Use: "gortcd-turn-client",
@@ -65,9 +76,22 @@ var rootCmd = &cobra.Command{
 			}
 			return
 		}
-		c, err := stun.Dial("udp", viper.GetString("server"))
+		conn, err := net.Dial("udp", viper.GetString("server"))
 		if err != nil {
-			log.Fatal(err)
+			logger.Fatal("failed to dial", zap.Error(err))
+		}
+		h := &echoHandler{
+			l:    logger,
+			echo: make(chan struct{}),
+		}
+		c, err := stun.NewClient(stun.ClientOptions{
+			Connection: conn,
+			Agent: stun.NewAgent(stun.AgentOptions{
+				Handler: h,
+			}),
+		})
+		if err != nil {
+			logger.Fatal("failed to create client", zap.Error(err))
 		}
 		defer c.Close()
 		var (
@@ -115,11 +139,17 @@ var rootCmd = &cobra.Command{
 		if err := c.Indicate(stun.MustBuild(
 			stun.TransactionID,
 			turn.SendIndication,
-			sentData, stun.Fingerprint,
+			peerAddr, sentData, stun.Fingerprint,
 		)); err != nil {
 			logger.Fatal("failed to indicate", zap.Error(err))
 		}
 		logger.Info("sent indication")
+		select {
+		case <-h.echo:
+			logger.Info("ok")
+		case <-time.After(time.Second):
+			logger.Fatal("timed out")
+		}
 	},
 }
 
