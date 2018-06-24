@@ -1,3 +1,6 @@
+// Package allocator implements turn allocation management.
+//
+// Will be eventually stabilized and moved to gortc/turn package.
 package allocator
 
 import (
