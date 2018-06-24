@@ -1,20 +1,11 @@
 #!/usr/bin/env bash
 
-function go_version {
-    version=$(go version)
-    regex="go([0-9].[0-9].[0-9])"
-    if [[ $version =~ $regex ]]; then
-         echo ${BASH_REMATCH[1]}
-    fi
-}
-
-if [ -n "$TRAVIS_GO_VERSION" ]; then
-    export TRAVIS_GO_VERSION=$(go_version)
-fi
+export CURRENT_GO_VERSION=$(echo -n "$(go version)" | grep -o 'go1\.[0-9|\.]*' || true)
+CURRENT_GO_VERSION=${CURRENT_GO_VERSION#go}
+GO_VERSION=${GO_VERSION:-$CURRENT_GO_VERSION}
 
 # set golang version from env
-export CI_GO_VERSION="${TRAVIS_GO_VERSION:-latest}"
-
+export CI_GO_VERSION="${GO_VERSION:-latest}"
 
 # define some colors to use for output
 RED='\033[0;31m'
