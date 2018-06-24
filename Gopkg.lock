@@ -10,8 +10,8 @@
 [[projects]]
   name = "github.com/gortc/ice"
   packages = ["."]
-  revision = "68d07a85965ef9417cb995049ec998d24c1104c6"
-  version = "v0.0.2"
+  revision = "469167c2a0911705a2f5fa303f0afa37a86b1133"
+  version = "v0.2.0"
 
 [[projects]]
   name = "github.com/gortc/stun"
@@ -196,6 +196,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "efc6c4c987fdb3e5412e7b12abd98009174bd488546bf5d192be4aa16edf2b11"
+  inputs-digest = "12ee5466c65c2bd28d497edde5295a7bbd07e39703ddd75cc8fee0426ddc21b4"
   solver-name = "gps-cdcl"
   solver-version = 1

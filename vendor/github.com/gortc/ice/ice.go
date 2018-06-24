@@ -220,6 +220,7 @@ func (a Attributes) Value(k []byte) []byte {
 	return nil
 }
 
+// Equal returns true if a equals b.
 func (a Attributes) Equal(b Attributes) bool {
 	if len(a) != len(b) {
 		return false
