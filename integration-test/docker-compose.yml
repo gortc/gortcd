@@ -12,6 +12,10 @@ services:
     build:
       context: ..
       dockerfile: integration-test/Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    environment:
+      - CI_GO_VERSION
   turn-client:
     depends_on:
       - turn-server
@@ -22,7 +26,15 @@ services:
     build:
       context: ..
       dockerfile: integration-test/Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    environment:
+      - CI_GO_VERSION
   turn-server:
     build:
       context: ..
       dockerfile: integration-test/server.Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    environment:
+      - CI_GO_VERSION

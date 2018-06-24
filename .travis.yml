@@ -18,7 +18,7 @@ install:
 
 script:
  - $HOME/gopath/bin/goveralls -service=travis-ci -v
- - if [[ $TRAVIS_GO_VERSION == 1.10.* ]]; then cd integration-test && ./test.sh; fi
+ - cd integration-test && ./test.sh
 
 matrix:
   fast_finish: true

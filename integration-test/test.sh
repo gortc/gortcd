@@ -1,9 +1,15 @@
 #!/usr/bin/env bash
 
+# set golang version from env
+export CI_GO_VERSION="${TRAVIS_GO_VERSION:-latest}"
+
+
 # define some colors to use for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
+
+printf "${GREEN}Go version \"${CI_GO_VERSION}\"${NC}\n"
 
 # kill and remove any running containers
 cleanup () {
