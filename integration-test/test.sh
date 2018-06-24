@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+function go_version {
+    version=$(go version)
+    regex="(go[0-9].[0-9].[0-9])"
+    if [[ $version =~ $regex ]]; then
+         echo ${BASH_REMATCH[1]}
+    fi
+}
+
+if [ -n "$TRAVIS_GO_VERSION" ]; then
+    export TRAVIS_GO_VERSION=$(go_version)
+fi
+
 # set golang version from env
 export CI_GO_VERSION="${TRAVIS_GO_VERSION:-latest}"
 
