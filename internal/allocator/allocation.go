@@ -2,6 +2,7 @@ package allocator
 
 import (
 	"fmt"
+	"io"
 	"net"
 	"time"
 
@@ -75,7 +76,7 @@ func (a Allocation) ReadUntilClosed() {
 	for {
 		a.Conn.SetReadDeadline(time.Now().Add(time.Minute))
 		n, addr, err := a.Conn.ReadFrom(buf)
-		if err != nil {
+		if err != nil && err != io.EOF {
 			a.Log.Error("read", zap.Error(err))
 			break
 		}

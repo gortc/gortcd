@@ -10,8 +10,6 @@ import (
 
 	"go.uber.org/zap"
 
-	"io"
-
 	"github.com/gortc/turn"
 )
 
@@ -24,11 +22,19 @@ type dummyConn struct {
 	closedMux sync.Mutex
 }
 
-var errDummyConnClosed = errors.New("closed")
+var (
+	errDummyConnReadFrom = errors.New("ReadFrom")
+	errDummyConnClosed   = errors.New("closed")
+)
 
-func (dummyConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+func (c *dummyConn) ReadFrom(p []byte) (n int, addr net.Addr, err error) {
+	c.closedMux.Lock()
+	defer c.closedMux.Unlock()
+	if c.closed {
+		return 0, nil, errDummyConnClosed
+	}
 	// TODO: improve
-	return 0, nil, io.EOF
+	return 0, nil, errDummyConnReadFrom
 }
 
 func (c *dummyConn) WriteTo(p []byte, addr net.Addr) (n int, err error) {
