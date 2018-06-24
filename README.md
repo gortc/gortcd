@@ -1,3 +1,6 @@
+[![Coverage Status](https://coveralls.io/repos/github/gortc/gortcd/badge.svg)](https://coveralls.io/github/gortc/gortcd)
+[![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
+
 # gortcd
 WIP TURN and STUN server in go
 
