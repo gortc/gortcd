@@ -359,17 +359,40 @@ func main() {
 	case "udp":
 		normalized := normalize(*address)
 		if strings.HasPrefix(normalized, "0.0.0.0") {
+			l.Warn("running on all interfaces")
 			l.Warn("picking addr from ICE")
 			// Picking first addr from ice candidate.
 			addrs, err := ice.DefaultGatherer.Gather()
 			if err != nil {
 				log.Fatal(err)
 			}
+			wg := new(sync.WaitGroup)
 			for _, a := range addrs {
 				l.Warn("got", zap.Stringer("a", a))
+				if a.IP.IsLoopback() {
+					continue
+				}
+				if a.IP.IsLinkLocalMulticast() || a.IP.IsLinkLocalUnicast() {
+					continue
+				}
+				if a.IP.To4() == nil {
+					continue
+				}
+				l.Warn("using", zap.Stringer("a", a))
+				wg.Add(1)
+				go func(addr string) {
+					defer wg.Done()
+					l.Info("gortc/gortcd listening",
+						zap.String("addr", addr),
+						zap.String("network", *network),
+					)
+					if err = ListenUDPAndServe(*network, addr, l); err != nil {
+						l.Fatal("failed to listen", zap.Error(err))
+					}
+				}(strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1))
 			}
-			firstAddr := addrs[len(addrs)-1]
-			normalized = strings.Replace(normalized, "0.0.0.0", firstAddr.IP.String(), -1)
+			wg.Wait()
+			return
 		}
 		l.Info("gortc/gortcd listening",
 			zap.String("addr", normalized),
