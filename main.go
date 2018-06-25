@@ -362,7 +362,7 @@ func main() {
 			l.Warn("running on all interfaces")
 			l.Warn("picking addr from ICE")
 			// Picking first addr from ice candidate.
-			addrs, err := ice.DefaultGatherer.Gather()
+			addrs, err := ice.Gather()
 			if err != nil {
 				log.Fatal(err)
 			}
