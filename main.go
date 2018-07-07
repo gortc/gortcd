@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/gortc/gortcd/internal/allocator"
+	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/ice"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
@@ -25,9 +26,12 @@ var (
 	network     = flag.String("net", "udp", "network to listen")
 	address     = flag.String("addr", fmt.Sprintf("0.0.0.0:%d", stun.DefaultPort), "address to listen")
 	profile     = flag.Bool("profile", false, "run pprof")
-	checkRealm  = flag.Bool("check-realm", false, "check realm")
 	profileAddr = flag.String("profile.addr", "localhost:6060", "address to listen for pprof")
 )
+
+type authService interface {
+	Auth(r *auth.Request) (stun.MessageIntegrity, error)
+}
 
 // Server is RFC 5389 basic server implementation.
 //
@@ -43,6 +47,7 @@ type Server struct {
 	ip           net.IP
 	currentPort  int64
 	conn         net.PacketConn
+	auth         authService
 }
 
 var (
@@ -105,6 +110,10 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 }
 
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
+	var (
+		nonce       = stun.NewNonce("nonce")
+		serverRealm = stun.NewRealm("realm")
+	)
 	if !stun.IsMessage(b) {
 		s.log.Debug("not looks like stun message", zap.Stringer("addr", addr))
 		return errNotSTUNMessage
@@ -147,15 +156,25 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		var (
 			transport turn.RequestedTransport
 			realm     stun.Realm
+			username  stun.Username
 		)
 		if err := transport.GetFrom(req); err != nil {
 			return errors.Wrap(err, "failed to get requested transport")
 		}
 		s.log.Info("processing allocate request")
-		if err := realm.GetFrom(req); err != nil && *checkRealm {
+		if err := req.Parse(&realm, &username); err != nil {
 			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
 				stun.CodeUnauthorised,
-				stun.Fingerprint,
+				nonce, serverRealm, stun.Fingerprint,
+			)
+		}
+		integrity, err := s.auth.Auth(&auth.Request{
+			Realm: realm, Username: username,
+		})
+		if err != nil || integrity.Check(req) != nil {
+			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+				stun.CodeUnauthorised,
+				nonce, serverRealm, stun.Fingerprint,
 			)
 		}
 		s.log.Info("got allocate", zap.Stringer("realm", realm))
@@ -166,13 +185,13 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 			s.log.Error("failed to allocate", zap.Error(err))
 			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
 				stun.CodeServerError,
-				stun.Fingerprint,
+				nonce, serverRealm, integrity, stun.Fingerprint,
 			)
 		}
 		return res.Build(req, allocSuccess,
 			(*stun.XORMappedAddress)(&server),
 			(*turn.RelayedAddress)(&client),
-			stun.Fingerprint,
+			nonce, serverRealm, integrity, stun.Fingerprint,
 		)
 	case turn.CreatePermissionRequest:
 		var (
@@ -315,6 +334,9 @@ func ListenUDPAndServe(serverNet, laddr string, logger *zap.Logger) error {
 		currentPort: 50000,
 		conn:        c,
 		allocs:      allocator.NewAllocator(logger.Named("allocator"), netAlloc),
+		auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
 	}
 	return s.Serve(c)
 }

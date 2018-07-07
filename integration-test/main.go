@@ -61,6 +61,8 @@ func main() {
 		serverAddr *net.UDPAddr
 		echoAddr   *net.UDPAddr
 		code       stun.ErrorCodeAttribute
+		username   = stun.NewUsername("username")
+		password   = "secret"
 		req        = new(stun.Message)
 		res        = new(stun.Message)
 	)
@@ -142,9 +144,34 @@ func main() {
 
 	// Constructing allocate request with integrity
 	if err := do(logger, req, res, c,
+		username,
 		stun.TransactionID,
 		turn.AllocateRequest,
 		turn.RequestedTransportUDP,
+	); err != nil {
+		logger.Fatal("failed to do request", zap.Error(err))
+	}
+	if !isErr(res) {
+		logger.Fatal("got no-error response")
+	}
+	var (
+		nonce stun.Nonce
+		realm stun.Realm
+	)
+	if err := res.Parse(&nonce, &realm); err != nil {
+		logger.Fatal("failed to get nonce and realm")
+	}
+	integrity := stun.NewLongTermIntegrity(username.String(), realm.String(), password)
+	// Constructing allocate request with integrity
+	if err := do(logger, req, res, c,
+		username,
+		nonce,
+		realm,
+		stun.TransactionID,
+		turn.AllocateRequest,
+		turn.RequestedTransportUDP,
+		integrity,
+		stun.Fingerprint,
 	); err != nil {
 		logger.Fatal("failed to do request", zap.Error(err))
 	}
@@ -152,6 +179,7 @@ func main() {
 		code.GetFrom(res)
 		logger.Fatal("got error response", zap.Stringer("err", code))
 	}
+
 	// Decoding relayed and mapped address.
 	var (
 		reladdr turn.RelayedAddress
