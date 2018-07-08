@@ -14,7 +14,7 @@ type StaticCredential struct {
 
 type Static struct {
 	mux         sync.RWMutex
-	credentials map[string]StaticCredential
+	credentials map[string]stun.MessageIntegrity
 }
 
 type Request struct {
@@ -28,18 +28,19 @@ type Response struct {
 
 func (s *Static) Auth(r *Request) (stun.MessageIntegrity, error) {
 	s.mux.RLock()
-	c := s.credentials[r.Username.String()]
+	i := s.credentials[r.Username.String()]
 	s.mux.RUnlock()
-	i := stun.NewLongTermIntegrity(c.Username, c.Realm, c.Password)
 	return i, nil
 }
 
 func NewStatic(credentials []StaticCredential) *Static {
 	s := &Static{
-		credentials: make(map[string]StaticCredential, len(credentials)),
+		credentials: make(map[string]stun.MessageIntegrity, len(credentials)),
 	}
 	for _, c := range credentials {
-		s.credentials[c.Username] = c
+		s.credentials[c.Username] = stun.NewLongTermIntegrity(
+			c.Username, c.Realm, c.Password,
+		)
 	}
 	return s
 }
