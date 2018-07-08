@@ -27,9 +27,9 @@ type Response struct {
 	Integrity stun.MessageIntegrity
 }
 
-func (s *Static) Auth(r *Request) (stun.MessageIntegrity, error) {
+func (s *Static) Auth(realm stun.Realm, username stun.Username) (stun.MessageIntegrity, error) {
 	s.mux.RLock()
-	i := s.credentials[r.Username.String()]
+	i := s.credentials[username.String()]
 	s.mux.RUnlock()
 	return i, nil
 }
