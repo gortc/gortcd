@@ -2,8 +2,9 @@
 package auth
 
 import (
-	"github.com/gortc/stun"
 	"sync"
+
+	"github.com/gortc/stun"
 )
 
 type StaticCredential struct {

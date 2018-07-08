@@ -22,11 +22,14 @@ import (
 	"github.com/gortc/turn"
 )
 
+const defaultAuthList = "username:realm:secret,username2:realm:secret2"
+
 var (
 	network     = flag.String("net", "udp", "network to listen")
 	address     = flag.String("addr", fmt.Sprintf("0.0.0.0:%d", stun.DefaultPort), "address to listen")
 	profile     = flag.Bool("profile", false, "run pprof")
 	profileAddr = flag.String("profile.addr", "localhost:6060", "address to listen for pprof")
+	authList    = flag.String("auth", defaultAuthList, "long-term credentials")
 )
 
 type authService interface {
@@ -328,15 +331,23 @@ func ListenUDPAndServe(serverNet, laddr string, logger *zap.Logger) error {
 	if err != nil {
 		return err
 	}
+
+	var credentials []auth.StaticCredential
+	for _, s := range strings.Split(*authList, ",") {
+		parts := strings.Split(s, ":")
+		credentials = append(credentials, auth.StaticCredential{
+			Username: parts[0],
+			Realm:    parts[1],
+			Password: parts[2],
+		})
+	}
 	s := &Server{
 		log:         logger,
 		ip:          net.IPv4(0, 0, 0, 0),
 		currentPort: 50000,
 		conn:        c,
 		allocs:      allocator.NewAllocator(logger.Named("allocator"), netAlloc),
-		auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
+		auth:        auth.NewStatic(credentials),
 	}
 	return s.Serve(c)
 }
