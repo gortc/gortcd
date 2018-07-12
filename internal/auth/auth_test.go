@@ -14,6 +14,16 @@ func TestStatic_Auth(t *testing.T) {
 		i = stun.NewLongTermIntegrity("username", "realm", "password")
 		u = stun.NewUsername("username")
 	)
+	t.Run("ZeroAlloc", func(t *testing.T) {
+		m := stun.MustBuild(stun.BindingRequest, u, i)
+		if testing.AllocsPerRun(10, func() {
+			if _, err := s.Auth(m); err != nil {
+				t.Fatal(err)
+			}
+		}) > 0 {
+			t.Fatal("unexpected allocations")
+		}
+	})
 	for _, tc := range []struct {
 		name string
 		m    *stun.Message

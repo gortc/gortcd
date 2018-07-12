@@ -41,8 +41,10 @@ func b2s(b []byte) string {
 func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 	var (
 		username stun.Username
+		err      error
 	)
-	if err := username.GetFrom(m); err != nil {
+	// Getting username attr directly to remove unneeded allocs.
+	if username, err = m.Get(stun.AttrUsername); err != nil {
 		return nil, err
 	}
 	s.mux.RLock()
