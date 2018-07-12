@@ -2,6 +2,7 @@
 package auth
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/gortc/stun"
@@ -27,11 +28,20 @@ type Response struct {
 	Integrity stun.MessageIntegrity
 }
 
-func (s *Static) Auth(realm stun.Realm, username stun.Username) (stun.MessageIntegrity, error) {
+func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
+	var (
+		username stun.Username
+	)
+	if err := username.GetFrom(m); err != nil {
+		return nil, err
+	}
 	s.mux.RLock()
 	i := s.credentials[username.String()]
 	s.mux.RUnlock()
-	return i, nil
+	if i == nil {
+		return nil, errors.New("user not found")
+	}
+	return i, i.Check(m)
 }
 
 func NewStatic(credentials []StaticCredential) *Static {

@@ -50,7 +50,7 @@ func New(o Options) (*Server, error) {
 }
 
 type Auth interface {
-	Auth(realm stun.Realm, username stun.Username) (stun.MessageIntegrity, error)
+	Auth(m *stun.Message) (stun.MessageIntegrity, error)
 }
 
 var (
@@ -158,27 +158,20 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	case turn.AllocateRequest:
 		var (
 			transport turn.RequestedTransport
-			realm     stun.Realm
-			username  stun.Username
 		)
 		if err := transport.GetFrom(req); err != nil {
-			return errors.Wrap(err, "failed to get requested transport")
+			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+				stun.CodeBadRequest,
+				nonce, serverRealm, stun.Fingerprint,
+			)
 		}
-		s.log.Info("processing allocate request")
-		if err := req.Parse(&realm, &username); err != nil {
+		integrity, err := s.auth.Auth(req)
+		if err != nil {
 			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
 				stun.CodeUnauthorised,
 				nonce, serverRealm, stun.Fingerprint,
 			)
 		}
-		integrity, err := s.auth.Auth(realm, username)
-		if err != nil || integrity.Check(req) != nil {
-			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
-				stun.CodeUnauthorised,
-				nonce, serverRealm, stun.Fingerprint,
-			)
-		}
-		s.log.Info("got allocate", zap.Stringer("realm", realm))
 		server, err := s.allocs.New(
 			client, transport.Protocol, s,
 		)
