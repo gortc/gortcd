@@ -49,27 +49,29 @@ func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stu
 	return nil
 }
 
+func listenUDP(t *testing.T, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
+	addr := "127.0.0.1:0"
+	if len(addrs) > 0 {
+		addr = addrs[0]
+	}
+	rAddr, err := net.ResolveUDPAddr("udp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn, err := net.ListenUDP("udp", rAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	udpAddr, err := net.ResolveUDPAddr("udp", conn.LocalAddr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return conn, udpAddr
+}
+
 func TestServerIntegration(t *testing.T) {
-	echoAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	echoConn, err := net.ListenUDP("udp", echoAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
-	echoUDPAddr, err := net.ResolveUDPAddr("udp", echoConn.LocalAddr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
-	serverAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	serverConn, err := net.ListenUDP("udp", serverAddr)
-	if err != nil {
-		t.Fatal(err)
-	}
+	echoConn, echoUDPAddr := listenUDP(t)
+	serverConn, serverUDPAddr := listenUDP(t)
 	logger, err := zap.NewDevelopment()
 	if err != nil {
 		t.Fatal(err)
@@ -115,11 +117,6 @@ func TestServerIntegration(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-
-	serverUDPAddr, err := net.ResolveUDPAddr("udp", serverConn.LocalAddr().String())
-	if err != nil {
-		t.Fatal(err)
-	}
 	c, err := net.DialUDP("udp", nil, serverUDPAddr)
 	if err != nil {
 		logger.Fatal("failed to dial to TURN server",
