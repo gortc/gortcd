@@ -4,6 +4,7 @@ package auth
 import (
 	"errors"
 	"sync"
+	"unsafe"
 
 	"github.com/gortc/stun"
 )
@@ -28,6 +29,15 @@ type Response struct {
 	Integrity stun.MessageIntegrity
 }
 
+// b2s converts byte slice to a string without memory allocation.
+// See https://groups.google.com/forum/#!msg/Golang-Nuts/ENgbUzYvCuU/90yGx7GUAgAJ .
+//
+// Note it may break if string and/or slice header will change
+// in the future go versions.
+func b2s(b []byte) string {
+	return *(*string)(unsafe.Pointer(&b))
+}
+
 func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 	var (
 		username stun.Username
@@ -36,7 +46,7 @@ func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 		return nil, err
 	}
 	s.mux.RLock()
-	i := s.credentials[username.String()]
+	i := s.credentials[b2s(username)]
 	s.mux.RUnlock()
 	if i == nil {
 		return nil, errors.New("user not found")
