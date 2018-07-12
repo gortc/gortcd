@@ -639,6 +639,7 @@ func BenchmarkMessage_WriteHeader(b *testing.B) {
 			Method: MethodBinding,
 		},
 	}
+	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		m.WriteHeader()
 	}
@@ -924,6 +925,55 @@ func BenchmarkMessage_AddTo(b *testing.B) {
 	m.CloneTo(a)
 	for i := 0; i < b.N; i++ {
 		if err := m.AddTo(a); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func TestDecode(t *testing.T) {
+	t.Run("Nil", func(t *testing.T) {
+		if err := Decode(nil, nil); err != ErrDecodeToNil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	})
+	m := New()
+	m.Type = MessageType{Method: MethodBinding, Class: ClassRequest}
+	m.TransactionID = NewTransactionID()
+	m.Add(AttrErrorCode, []byte{0xff, 0xfe, 0xfa})
+	m.WriteHeader()
+	mDecoded := New()
+	if err := Decode(m.Raw, mDecoded); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if !mDecoded.Equal(m) {
+		t.Error("decoded result is not equal to encoded message")
+	}
+	t.Run("ZeroAlloc", func(t *testing.T) {
+		allocs := testing.AllocsPerRun(10, func() {
+			mDecoded.Reset()
+			if err := Decode(m.Raw, mDecoded); err != nil {
+				t.Error(err)
+			}
+		})
+		if allocs > 0 {
+			t.Error("unexpected allocations")
+		}
+	})
+}
+
+func BenchmarkDecode(b *testing.B) {
+	m := New()
+	m.Type = MessageType{Method: MethodBinding, Class: ClassRequest}
+	m.TransactionID = NewTransactionID()
+	m.Add(AttrErrorCode, []byte{0xff, 0xfe, 0xfa})
+	m.WriteHeader()
+	mDecoded := New()
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		mDecoded.Reset()
+		if err := Decode(m.Raw, mDecoded); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -47,6 +47,18 @@ func New() *Message {
 	}
 }
 
+// ErrDecodeToNil occurs on Decode(data, nil) call.
+var ErrDecodeToNil = errors.New("attempt to decode to nil message")
+
+// Decode decodes Message from data to m, returning error if any.
+func Decode(data []byte, m *Message) error {
+	if m == nil {
+		return ErrDecodeToNil
+	}
+	m.Raw = append(m.Raw[:0], data...)
+	return m.Decode()
+}
+
 // Message represents a single STUN packet. It uses aggressive internal
 // buffering to enable zero-allocation encoding and decoding,
 // so there are some usage constraints:
@@ -370,7 +382,7 @@ func (m *Message) Write(tBuf []byte) (int, error) {
 // CloneTo clones m to b securing any further m mutations.
 func (m *Message) CloneTo(b *Message) error {
 	// TODO(ar): implement low-level copy.
-	b.Raw = append(b.Raw[:], m.Raw...)
+	b.Raw = append(b.Raw[:0], m.Raw...)
 	return b.Decode()
 }
 

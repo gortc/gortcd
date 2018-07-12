@@ -15,9 +15,12 @@
 
 [[projects]]
   name = "github.com/gortc/stun"
-  packages = ["."]
-  revision = "58f2b2ab47223f637a3a532cf9352c6dadfa9e67"
-  version = "v1.6.4"
+  packages = [
+    ".",
+    "internal/hmac"
+  ]
+  revision = "77977999e682954f4a65b0da67804dba5319d71a"
+  version = "v1.8.2"
 
 [[projects]]
   name = "github.com/gortc/turn"
