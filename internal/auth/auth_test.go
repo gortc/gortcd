@@ -60,3 +60,21 @@ func TestStatic_Auth(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkStatic_Auth(b *testing.B) {
+	var (
+		s = NewStatic([]StaticCredential{
+			{Username: "username", Realm: "realm", Password: "password"},
+		})
+		i = stun.NewLongTermIntegrity("username", "realm", "password")
+		u = stun.NewUsername("username")
+		m = stun.MustBuild(stun.BindingRequest, u, i)
+	)
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		_, err := s.Auth(m)
+		if err != nil {
+			b.Fatal(err)
+		}
+	}
+}
