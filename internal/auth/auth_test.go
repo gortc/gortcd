@@ -13,9 +13,10 @@ func TestStatic_Auth(t *testing.T) {
 		})
 		i = stun.NewLongTermIntegrity("username", "realm", "password")
 		u = stun.NewUsername("username")
+		r = stun.NewRealm("realm")
 	)
 	t.Run("ZeroAlloc", func(t *testing.T) {
-		m := stun.MustBuild(stun.BindingRequest, u, i)
+		m := stun.MustBuild(stun.BindingRequest, u, r, i)
 		if testing.AllocsPerRun(10, func() {
 			if _, err := s.Auth(m); err != nil {
 				t.Fatal(err)
@@ -31,24 +32,29 @@ func TestStatic_Auth(t *testing.T) {
 	}{
 		{
 			name: "positive",
-			m:    stun.MustBuild(stun.BindingRequest, u, i),
+			m:    stun.MustBuild(stun.BindingRequest, u, r, i),
 			ok:   true,
 		},
 		{
 			name: "negative",
-			m: stun.MustBuild(stun.BindingRequest, u,
+			m: stun.MustBuild(stun.BindingRequest, u, r,
 				stun.NewLongTermIntegrity("username", "realm", "password2"),
 			),
 			ok: false,
 		},
 		{
 			name: "bad username",
-			m:    stun.MustBuild(stun.BindingRequest, stun.NewUsername("user"), i),
+			m:    stun.MustBuild(stun.BindingRequest, stun.NewUsername("user"), r, i),
+			ok:   false,
+		},
+		{
+			name: "bad realm",
+			m:    stun.MustBuild(stun.BindingRequest, u, stun.NewRealm("realm1"), i),
 			ok:   false,
 		},
 		{
 			name: "no username",
-			m:    stun.MustBuild(stun.BindingRequest, i),
+			m:    stun.MustBuild(stun.BindingRequest, r, i),
 			ok:   false,
 		},
 	} {
@@ -63,7 +69,7 @@ func TestStatic_Auth(t *testing.T) {
 			if err != nil {
 				t.Error(err)
 			}
-			r := stun.MustBuild(tc.m, u, gotI)
+			r := stun.MustBuild(tc.m, u, r, gotI)
 			if _, err = s.Auth(r); err != nil {
 				t.Error(err)
 			}
@@ -78,7 +84,8 @@ func BenchmarkStatic_Auth(b *testing.B) {
 		})
 		i = stun.NewLongTermIntegrity("username", "realm", "password")
 		u = stun.NewUsername("username")
-		m = stun.MustBuild(stun.BindingRequest, u, i)
+		r = stun.NewRealm("realm")
+		m = stun.MustBuild(stun.BindingRequest, u, r, i)
 	)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {

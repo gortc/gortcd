@@ -14,9 +14,14 @@ type StaticCredential struct {
 	Realm    string
 }
 
+type staticKey struct {
+	username string
+	realm    string
+}
+
 type Static struct {
 	mux         sync.RWMutex
-	credentials map[string]stun.MessageIntegrity
+	credentials map[staticKey]stun.MessageIntegrity
 }
 
 type Request struct {
@@ -29,16 +34,19 @@ type Response struct {
 }
 
 func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
-	var (
-		username stun.Username
-		err      error
-	)
-	// Getting username attr directly to remove unneeded allocs.
-	if username, err = m.Get(stun.AttrUsername); err != nil {
+	username, err := m.Get(stun.AttrUsername)
+	if err != nil {
+		return nil, err
+	}
+	realm, err := m.Get(stun.AttrRealm)
+	if err != nil {
 		return nil, err
 	}
 	s.mux.RLock()
-	i := s.credentials[string(username)]
+	i := s.credentials[staticKey{
+		username: string(username),
+		realm:    string(realm),
+	}]
 	s.mux.RUnlock()
 	if i == nil {
 		return nil, errors.New("user not found")
@@ -48,10 +56,13 @@ func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 
 func NewStatic(credentials []StaticCredential) *Static {
 	s := &Static{
-		credentials: make(map[string]stun.MessageIntegrity, len(credentials)),
+		credentials: make(map[staticKey]stun.MessageIntegrity, len(credentials)),
 	}
 	for _, c := range credentials {
-		s.credentials[c.Username] = stun.NewLongTermIntegrity(
+		s.credentials[staticKey{
+			username: c.Username,
+			realm:    c.Realm,
+		}] = stun.NewLongTermIntegrity(
 			c.Username, c.Realm, c.Password,
 		)
 	}
