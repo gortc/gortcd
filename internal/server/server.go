@@ -118,6 +118,7 @@ func (s *Server) processBindingRequest(addr allocator.Addr, req, res *stun.Messa
 }
 
 type context struct {
+	time     time.Time
 	client   allocator.Addr
 	request  *stun.Message
 	response *stun.Message
@@ -161,6 +162,37 @@ func (s *Server) processAllocateRequest(ctx context) error {
 	)
 }
 
+func (s *Server) processCreatePermissionRequest(ctx context) error {
+	var (
+		addr     turn.PeerAddress
+		lifetime turn.Lifetime
+	)
+	if err := addr.GetFrom(ctx.request); err != nil {
+		return errors.Wrap(err, "failed to ger create permission request addr")
+	}
+	switch err := lifetime.GetFrom(ctx.request); err {
+	case nil:
+		if lifetime.Duration > time.Hour {
+			// Requested lifetime is too big.
+			return ctx.response.Build(ctx.request, stun.NewType(stun.MethodCreatePermission, stun.ClassErrorResponse),
+				stun.CodeBadRequest,
+				stun.Fingerprint,
+			)
+		}
+	case stun.ErrAttributeNotFound:
+		lifetime.Duration = time.Minute // default
+	default:
+		return errors.Wrap(err, "failed to get lifetime")
+	}
+	s.log.Info("processing create permission request")
+	if err := s.allocs.CreatePermission(ctx.client, allocator.Addr(addr), ctx.time.Add(lifetime.Duration)); err != nil {
+		return errors.Wrap(err, "failed to create allocation")
+	}
+	return ctx.response.Build(ctx.request,
+		stun.NewType(stun.MethodCreatePermission, stun.ClassSuccessResponse),
+	)
+}
+
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
 	var (
 		nonce       = stun.NewNonce("nonce")
@@ -195,6 +227,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		zap.Stringer("addr", client),
 	)
 	ctx := context{
+		time:     now,
 		client:   client,
 		response: res,
 		request:  req,
@@ -207,34 +240,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	case turn.AllocateRequest:
 		return s.processAllocateRequest(ctx)
 	case turn.CreatePermissionRequest:
-		var (
-			addr     turn.PeerAddress
-			lifetime turn.Lifetime
-		)
-		if err := addr.GetFrom(req); err != nil {
-			return errors.Wrap(err, "failed to ger create permission request addr")
-		}
-		switch err := lifetime.GetFrom(req); err {
-		case nil:
-			if lifetime.Duration > time.Hour {
-				// Requested lifetime is too big.
-				return res.Build(req, stun.NewType(stun.MethodCreatePermission, stun.ClassErrorResponse),
-					stun.CodeBadRequest,
-					stun.Fingerprint,
-				)
-			}
-		case stun.ErrAttributeNotFound:
-			lifetime.Duration = time.Minute // default
-		default:
-			return errors.Wrap(err, "failed to get lifetime")
-		}
-		s.log.Info("processing create permission request")
-		if err := s.allocs.CreatePermission(client, allocator.Addr(addr), now.Add(lifetime.Duration)); err != nil {
-			return errors.Wrap(err, "failed to create allocation")
-		}
-		return res.Build(req,
-			stun.NewType(stun.MethodCreatePermission, stun.ClassSuccessResponse),
-		)
+		return s.processCreatePermissionRequest(ctx)
 	case turn.RefreshRequest:
 		var (
 			addr     turn.PeerAddress
