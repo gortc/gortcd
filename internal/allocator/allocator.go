@@ -153,7 +153,7 @@ func (a *Allocator) New(client Addr, proto turn.Protocol, callback PeerHandler) 
 func (a *Allocator) CreatePermission(client, addr Addr, timeout time.Time) error {
 	permission := Permission{
 		Timeout: timeout,
-		Addr:    Addr(addr),
+		Addr:    addr,
 	}
 	a.allocsMux.Lock()
 	defer a.allocsMux.Unlock()
