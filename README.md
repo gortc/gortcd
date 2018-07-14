@@ -1,4 +1,4 @@
-[![Coverage Status](https://coveralls.io/repos/github/gortc/gortcd/badge.svg)](https://coveralls.io/github/gortc/gortcd)
+[![codecov](https://codecov.io/gh/gortc/gortcd/branch/master/graph/badge.svg)](https://codecov.io/gh/gortc/gortcd)
 [![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 
 # gortcd
