@@ -316,7 +316,8 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		}
 		return nil
 	default:
-		return errors.Errorf("unknown request type %s", req.Type)
+		s.log.Warn("unsupported request type")
+		return ctx.buildErr(stun.CodeBadRequest)
 	}
 }
 
