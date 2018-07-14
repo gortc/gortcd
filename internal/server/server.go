@@ -60,11 +60,6 @@ func (s *Server) collect(t time.Time) {
 	s.allocs.Collect(t)
 }
 
-var (
-	bindingSuccess = stun.NewType(stun.MethodBinding, stun.ClassSuccessResponse)
-	allocSuccess   = stun.NewType(stun.MethodAllocate, stun.ClassSuccessResponse)
-)
-
 func (s *Server) sendByPermission(
 	data turn.Data,
 	client allocator.Addr,
@@ -110,10 +105,8 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 }
 
 func (s *Server) processBindingRequest(ctx context) error {
-	return ctx.response.Build(ctx.request, bindingSuccess,
-		software,
+	return ctx.buildOk(
 		(*stun.XORMappedAddress)(&ctx.client),
-		stun.Fingerprint,
 	)
 }
 
@@ -137,11 +130,25 @@ func (c context) apply(s ...stun.Setter) error {
 	return nil
 }
 
-func (c context) build(s ...stun.Setter) error {
+func (c context) buildErr(s ...stun.Setter) error {
+	return c.build(stun.MessageType{
+		Class:  stun.ClassErrorResponse,
+		Method: c.request.Type.Method,
+	}, s...)
+}
+
+func (c context) buildOk(s ...stun.Setter) error {
+	return c.build(stun.MessageType{
+		Class:  stun.ClassSuccessResponse,
+		Method: c.request.Type.Method,
+	}, s...)
+}
+
+func (c context) build(t stun.MessageType, s ...stun.Setter) error {
 	c.response.Reset()
 	c.response.WriteHeader()
 	copy(c.response.TransactionID[:], c.request.TransactionID[:])
-	if err := c.apply(&c.nonce, &c.realm); err != nil {
+	if err := c.apply(t, &c.nonce, &c.realm); err != nil {
 		return err
 	}
 	if len(c.software) > 0 {
@@ -162,21 +169,19 @@ func (c context) build(s ...stun.Setter) error {
 
 func (s *Server) processAllocateRequest(ctx context) error {
 	var (
-		errorResp   = stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse)
-		successResp = stun.NewType(stun.MethodAllocate, stun.ClassSuccessResponse)
-		transport   turn.RequestedTransport
+		transport turn.RequestedTransport
 	)
 	if err := transport.GetFrom(ctx.request); err != nil {
-		return ctx.build(errorResp, stun.CodeBadRequest)
+		return ctx.buildErr(stun.CodeBadRequest)
 	}
 	server, err := s.allocs.New(
 		ctx.client, transport.Protocol, s,
 	)
 	if err != nil {
 		s.log.Error("failed to allocate", zap.Error(err))
-		return ctx.build(errorResp, stun.CodeServerError)
+		return ctx.buildErr(stun.CodeServerError)
 	}
-	return ctx.response.Build(ctx.request, successResp,
+	return ctx.buildOk(
 		(*stun.XORMappedAddress)(&server),
 		(*turn.RelayedAddress)(&ctx.client),
 	)
@@ -202,12 +207,10 @@ func (s *Server) processRefreshRequest(ctx context) error {
 		t := ctx.time.Add(lifetime.Duration)
 		if err := s.allocs.Refresh(ctx.client, allocator.Addr(addr), t); err != nil {
 			s.log.Error("failed to refresh allocation", zap.Error(err))
-			return ctx.response.Build(ctx.request, stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
-				stun.CodeServerError,
-			)
+			return ctx.buildErr(stun.CodeServerError)
 		}
 	}
-	return ctx.build(stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse))
+	return ctx.buildOk()
 }
 
 func (s *Server) processCreatePermissionRequest(ctx context) error {
@@ -222,10 +225,7 @@ func (s *Server) processCreatePermissionRequest(ctx context) error {
 	case nil:
 		if lifetime.Duration > time.Hour {
 			// Requested lifetime is too big.
-			return ctx.response.Build(ctx.request, stun.NewType(stun.MethodCreatePermission, stun.ClassErrorResponse),
-				stun.CodeBadRequest,
-				stun.Fingerprint,
-			)
+			return ctx.buildErr(stun.CodeBadRequest)
 		}
 	case stun.ErrAttributeNotFound:
 		lifetime.Duration = time.Minute // default
@@ -236,24 +236,11 @@ func (s *Server) processCreatePermissionRequest(ctx context) error {
 	if err := s.allocs.CreatePermission(ctx.client, allocator.Addr(addr), ctx.time.Add(lifetime.Duration)); err != nil {
 		return errors.Wrap(err, "failed to create allocation")
 	}
-	return ctx.response.Build(ctx.request,
-		stun.NewType(stun.MethodCreatePermission, stun.ClassSuccessResponse),
-	)
+	return ctx.buildOk()
 }
 
 func (s *Server) needAuth(ctx context) bool {
 	return ctx.request.Type != stun.BindingRequest
-}
-
-func (s *Server) authenticateRequest(ctx context) (stun.MessageIntegrity, error) {
-	integrity, err := s.auth.Auth(ctx.request)
-	if err != nil {
-		return nil, ctx.build(stun.MessageType{
-			Method: ctx.request.Type.Method,
-			Class:  stun.ClassErrorResponse,
-		}, stun.CodeUnauthorised)
-	}
-	return integrity, nil
 }
 
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
@@ -296,11 +283,12 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		request:  req,
 		realm:    serverRealm,
 		nonce:    nonce,
+		software: software,
 	}
 	if s.needAuth(ctx) {
-		integrity, err := s.authenticateRequest(ctx)
-		if integrity == nil {
-			return err
+		integrity, err := s.auth.Auth(ctx.request)
+		if err != nil {
+			return ctx.buildErr(stun.CodeUnauthorised)
 		}
 		ctx.integrity = integrity
 	}
