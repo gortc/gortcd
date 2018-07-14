@@ -288,11 +288,14 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		zap.Stringer("addr", ctx.client),
 	)
 	if s.needAuth(ctx) {
-		integrity, err := s.auth.Auth(ctx.request)
-		if err != nil {
+		switch integrity, err := s.auth.Auth(ctx.request); err {
+		case stun.ErrAttributeNotFound:
 			return ctx.buildErr(stun.CodeUnauthorised)
+		case nil:
+			ctx.integrity = integrity
+		default:
+			return ctx.buildErr(stun.CodeWrongCredentials)
 		}
-		ctx.integrity = integrity
 	}
 	switch req.Type {
 	case stun.BindingRequest:
