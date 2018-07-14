@@ -109,6 +109,14 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	l.Info("sent data from peer", zap.Stringer("m", m))
 }
 
+func (s *Server) processBindingRequest(addr allocator.Addr, req, res *stun.Message) error {
+	return res.Build(req, bindingSuccess,
+		software,
+		(*stun.XORMappedAddress)(&addr),
+		stun.Fingerprint,
+	)
+}
+
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
 	var (
 		nonce       = stun.NewNonce("nonce")
@@ -144,14 +152,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	)
 	switch req.Type {
 	case stun.BindingRequest:
-		return res.Build(req, bindingSuccess,
-			software,
-			&stun.XORMappedAddress{
-				IP:   ip,
-				Port: port,
-			},
-			stun.Fingerprint,
-		)
+		return s.processBindingRequest(client, req, res)
 	case turn.AllocateRequest:
 		var (
 			transport turn.RequestedTransport
