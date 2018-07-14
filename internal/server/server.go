@@ -2,7 +2,6 @@ package server
 
 import (
 	"net"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -19,11 +18,10 @@ import (
 // nor ALTERNATE-SERVER, nor credentials mechanisms. It does not support
 // backwards compatibility with RFC 3489.
 type Server struct {
-	log       *zap.Logger
-	allocsMux sync.Mutex
-	allocs    *allocator.Allocator
-	conn      net.PacketConn
-	auth      Auth
+	log    *zap.Logger
+	allocs *allocator.Allocator
+	conn   net.PacketConn
+	auth   Auth
 }
 
 type Options struct {
