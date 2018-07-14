@@ -75,9 +75,6 @@ func (s *Server) sendByPermission(
 		zap.Stringer("addr", addr),
 	)
 	_, err := s.allocs.Send(client, allocator.Addr(addr), data)
-	if err != nil {
-		return err
-	}
 	return err
 }
 
@@ -305,5 +302,4 @@ func (s *Server) Serve() error {
 		res.Reset()
 		req.Reset()
 	}
-	return nil
 }
