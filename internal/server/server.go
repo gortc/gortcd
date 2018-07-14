@@ -300,33 +300,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	case turn.CreatePermissionRequest:
 		return s.processCreatePermissionRequest(ctx)
 	case turn.RefreshRequest:
-		var (
-			addr     turn.PeerAddress
-			lifetime turn.Lifetime
-		)
-		if err := req.Parse(&addr); err != nil && err != stun.ErrAttributeNotFound {
-			return errors.Wrap(err, "failed to parse refresh request")
-		}
-		if err := req.Parse(&addr); err != nil {
-			if err != stun.ErrAttributeNotFound {
-				return errors.Wrap(err, "failed to parse")
-			}
-		}
-		switch lifetime.Duration {
-		case 0:
-			s.allocs.Remove(client)
-		default:
-			t := now.Add(lifetime.Duration)
-			if err := s.allocs.Refresh(client, allocator.Addr(addr), t); err != nil {
-				s.log.Error("failed to refresh allocation", zap.Error(err))
-				return res.Build(req, stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
-					stun.CodeServerError,
-				)
-			}
-		}
-		return res.Build(req,
-			stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
-		)
+		return s.processRefreshRequest(ctx)
 	case turn.SendIndication:
 		var (
 			data turn.Data
