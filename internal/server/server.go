@@ -260,10 +260,6 @@ func (s *Server) needAuth(ctx context) bool {
 }
 
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
-	var (
-		nonce       = stun.NewNonce("nonce")
-		serverRealm = stun.NewRealm("realm")
-	)
 	if !stun.IsMessage(b) {
 		s.log.Debug("not looks like stun message", zap.Stringer("addr", addr))
 		return errNotSTUNMessage
@@ -275,8 +271,8 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		time:     time.Now(),
 		response: res,
 		request:  req,
-		realm:    serverRealm,
-		nonce:    nonce,
+		realm:    stun.NewRealm("realm"),
+		nonce:    stun.NewNonce("nonce"),
 		software: software,
 	}
 	switch a := addr.(type) {
