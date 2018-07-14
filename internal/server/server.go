@@ -117,6 +117,54 @@ func (s *Server) processBindingRequest(addr allocator.Addr, req, res *stun.Messa
 	)
 }
 
+type context struct {
+	client allocator.Addr
+	req    *stun.Message
+	res    *stun.Message
+	nonce  stun.Nonce
+	realm  stun.Realm
+}
+
+func (s *Server) processAllocateRequest(ctx context) error {
+	var (
+		req   = ctx.req
+		res   = ctx.res
+		realm = ctx.realm
+		nonce = ctx.nonce
+	)
+	var (
+		transport turn.RequestedTransport
+	)
+	if err := transport.GetFrom(ctx.req); err != nil {
+		return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+			stun.CodeBadRequest,
+			nonce, realm, stun.Fingerprint,
+		)
+	}
+	integrity, err := s.auth.Auth(ctx.req)
+	if err != nil {
+		return ctx.res.Build(ctx.req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+			stun.CodeUnauthorised,
+			nonce, realm, stun.Fingerprint,
+		)
+	}
+	server, err := s.allocs.New(
+		ctx.client, transport.Protocol, s,
+	)
+	if err != nil {
+		s.log.Error("failed to allocate", zap.Error(err))
+		return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+			stun.CodeServerError,
+			nonce, realm, integrity, stun.Fingerprint,
+		)
+	}
+	return res.Build(req, allocSuccess,
+		(*stun.XORMappedAddress)(&server),
+		(*turn.RelayedAddress)(&ctx.client),
+		nonce, realm, integrity, stun.Fingerprint,
+	)
+}
+
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
 	var (
 		nonce       = stun.NewNonce("nonce")
@@ -150,41 +198,18 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		zap.Stringer("m", req),
 		zap.Stringer("addr", client),
 	)
+	ctx := context{
+		client: client,
+		res:    res,
+		req:    req,
+		realm:  serverRealm,
+		nonce:  nonce,
+	}
 	switch req.Type {
 	case stun.BindingRequest:
 		return s.processBindingRequest(client, req, res)
 	case turn.AllocateRequest:
-		var (
-			transport turn.RequestedTransport
-		)
-		if err := transport.GetFrom(req); err != nil {
-			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
-				stun.CodeBadRequest,
-				nonce, serverRealm, stun.Fingerprint,
-			)
-		}
-		integrity, err := s.auth.Auth(req)
-		if err != nil {
-			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
-				stun.CodeUnauthorised,
-				nonce, serverRealm, stun.Fingerprint,
-			)
-		}
-		server, err := s.allocs.New(
-			client, transport.Protocol, s,
-		)
-		if err != nil {
-			s.log.Error("failed to allocate", zap.Error(err))
-			return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
-				stun.CodeServerError,
-				nonce, serverRealm, integrity, stun.Fingerprint,
-			)
-		}
-		return res.Build(req, allocSuccess,
-			(*stun.XORMappedAddress)(&server),
-			(*turn.RelayedAddress)(&client),
-			nonce, serverRealm, integrity, stun.Fingerprint,
-		)
+		return s.processAllocateRequest(ctx)
 	case turn.CreatePermissionRequest:
 		var (
 			addr     turn.PeerAddress
