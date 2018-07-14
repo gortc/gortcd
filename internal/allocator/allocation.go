@@ -74,7 +74,10 @@ func (a *Allocation) ReadUntilClosed() {
 	a.Log.Debug("ReadUntilClosed")
 	buf := make([]byte, 1024)
 	for {
-		a.Conn.SetReadDeadline(time.Now().Add(time.Minute))
+		if err := a.Conn.SetReadDeadline(time.Now().Add(time.Minute)); err != nil {
+			a.Log.Warn("SetReadDeadline failed", zap.Error(err))
+			break
+		}
 		n, addr, err := a.Conn.ReadFrom(buf)
 		if err != nil && err != io.EOF {
 			a.Log.Error("read", zap.Error(err))
