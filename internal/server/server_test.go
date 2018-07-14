@@ -87,9 +87,6 @@ func TestServerIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	go func() {
-		if err != nil {
-			logger.Fatal("failed to resolve UDP addr", zap.Error(err))
-		}
 		logger.Info("listening as echo server", zap.Stringer("laddr", echoUDPAddr))
 		for {
 			// Starting echo server.
