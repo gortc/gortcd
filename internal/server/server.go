@@ -109,10 +109,10 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	l.Info("sent data from peer", zap.Stringer("m", m))
 }
 
-func (s *Server) processBindingRequest(addr allocator.Addr, req, res *stun.Message) error {
-	return res.Build(req, bindingSuccess,
+func (s *Server) processBindingRequest(ctx context) error {
+	return ctx.response.Build(ctx.request, bindingSuccess,
 		software,
-		(*stun.XORMappedAddress)(&addr),
+		(*stun.XORMappedAddress)(&ctx.client),
 		stun.Fingerprint,
 	)
 }
@@ -236,7 +236,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	}
 	switch req.Type {
 	case stun.BindingRequest:
-		return s.processBindingRequest(client, req, res)
+		return s.processBindingRequest(ctx)
 	case turn.AllocateRequest:
 		return s.processAllocateRequest(ctx)
 	case turn.CreatePermissionRequest:
