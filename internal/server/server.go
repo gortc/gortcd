@@ -118,12 +118,46 @@ func (s *Server) processBindingRequest(ctx context) error {
 }
 
 type context struct {
-	time     time.Time
-	client   allocator.Addr
-	request  *stun.Message
-	response *stun.Message
-	nonce    stun.Nonce
-	realm    stun.Realm
+	time      time.Time
+	client    allocator.Addr
+	request   *stun.Message
+	response  *stun.Message
+	nonce     stun.Nonce
+	realm     stun.Realm
+	integrity stun.MessageIntegrity
+	software  stun.Software
+}
+
+func (c context) apply(s ...stun.Setter) error {
+	for _, a := range s {
+		if err := a.AddTo(c.response); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (c context) build(s ...stun.Setter) error {
+	c.response.Reset()
+	c.response.WriteHeader()
+	copy(c.response.TransactionID[:], c.request.TransactionID[:])
+	if err := c.apply(&c.nonce, &c.realm); err != nil {
+		return err
+	}
+	if len(c.software) > 0 {
+		if err := c.software.AddTo(c.response); err != nil {
+			return err
+		}
+	}
+	if err := c.apply(s...); err != nil {
+		return err
+	}
+	if len(c.integrity) > 0 {
+		if err := c.integrity.AddTo(c.response); err != nil {
+			return err
+		}
+	}
+	return stun.Fingerprint.AddTo(c.response)
 }
 
 func (s *Server) processAllocateRequest(ctx context) error {
@@ -133,33 +167,47 @@ func (s *Server) processAllocateRequest(ctx context) error {
 		transport   turn.RequestedTransport
 	)
 	if err := transport.GetFrom(ctx.request); err != nil {
-		return ctx.response.Build(ctx.request, errorResp,
-			stun.CodeBadRequest,
-			ctx.nonce, ctx.realm, stun.Fingerprint,
-		)
-	}
-	integrity, err := s.auth.Auth(ctx.request)
-	if err != nil {
-		return ctx.response.Build(ctx.request, errorResp,
-			stun.CodeUnauthorised,
-			ctx.nonce, ctx.realm, stun.Fingerprint,
-		)
+		return ctx.build(errorResp, stun.CodeBadRequest)
 	}
 	server, err := s.allocs.New(
 		ctx.client, transport.Protocol, s,
 	)
 	if err != nil {
 		s.log.Error("failed to allocate", zap.Error(err))
-		return ctx.response.Build(ctx.request, errorResp,
-			stun.CodeServerError,
-			ctx.nonce, ctx.realm, integrity, stun.Fingerprint,
-		)
+		return ctx.build(errorResp, stun.CodeServerError)
 	}
 	return ctx.response.Build(ctx.request, successResp,
 		(*stun.XORMappedAddress)(&server),
 		(*turn.RelayedAddress)(&ctx.client),
-		ctx.nonce, ctx.realm, integrity, stun.Fingerprint,
 	)
+}
+
+func (s *Server) processRefreshRequest(ctx context) error {
+	var (
+		addr     turn.PeerAddress
+		lifetime turn.Lifetime
+	)
+	if err := ctx.request.Parse(&addr); err != nil && err != stun.ErrAttributeNotFound {
+		return errors.Wrap(err, "failed to parse refresh request")
+	}
+	if err := ctx.request.Parse(&addr); err != nil {
+		if err != stun.ErrAttributeNotFound {
+			return errors.Wrap(err, "failed to parse")
+		}
+	}
+	switch lifetime.Duration {
+	case 0:
+		s.allocs.Remove(ctx.client)
+	default:
+		t := ctx.time.Add(lifetime.Duration)
+		if err := s.allocs.Refresh(ctx.client, allocator.Addr(addr), t); err != nil {
+			s.log.Error("failed to refresh allocation", zap.Error(err))
+			return ctx.response.Build(ctx.request, stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
+				stun.CodeServerError,
+			)
+		}
+	}
+	return ctx.build(stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse))
 }
 
 func (s *Server) processCreatePermissionRequest(ctx context) error {
@@ -191,6 +239,21 @@ func (s *Server) processCreatePermissionRequest(ctx context) error {
 	return ctx.response.Build(ctx.request,
 		stun.NewType(stun.MethodCreatePermission, stun.ClassSuccessResponse),
 	)
+}
+
+func (s *Server) needAuth(ctx context) bool {
+	return ctx.request.Type != stun.BindingRequest
+}
+
+func (s *Server) authenticateRequest(ctx context) (stun.MessageIntegrity, error) {
+	integrity, err := s.auth.Auth(ctx.request)
+	if err != nil {
+		return nil, ctx.build(stun.MessageType{
+			Method: ctx.request.Type.Method,
+			Class:  stun.ClassErrorResponse,
+		}, stun.CodeUnauthorised)
+	}
+	return integrity, nil
 }
 
 func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
@@ -233,6 +296,13 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		request:  req,
 		realm:    serverRealm,
 		nonce:    nonce,
+	}
+	if s.needAuth(ctx) {
+		integrity, err := s.authenticateRequest(ctx)
+		if integrity == nil {
+			return err
+		}
+		ctx.integrity = integrity
 	}
 	switch req.Type {
 	case stun.BindingRequest:
