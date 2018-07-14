@@ -9,15 +9,14 @@ go:
   - 1.9.x
   - 1.10.x
 
-before_install:
-  - go get github.com/mattn/goveralls
-  - go get golang.org/x/tools/cmd/cover
-
 install: true
 
 script:
- - $HOME/gopath/bin/goveralls -service=travis-ci -v
+ - ./go.test.sh
  - cd integration-test && ./test.sh
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
 
 matrix:
   fast_finish: true
