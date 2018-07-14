@@ -118,34 +118,30 @@ func (s *Server) processBindingRequest(addr allocator.Addr, req, res *stun.Messa
 }
 
 type context struct {
-	client allocator.Addr
-	req    *stun.Message
-	res    *stun.Message
-	nonce  stun.Nonce
-	realm  stun.Realm
+	client   allocator.Addr
+	request  *stun.Message
+	response *stun.Message
+	nonce    stun.Nonce
+	realm    stun.Realm
 }
 
 func (s *Server) processAllocateRequest(ctx context) error {
 	var (
-		req   = ctx.req
-		res   = ctx.res
-		realm = ctx.realm
-		nonce = ctx.nonce
+		errorResp   = stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse)
+		successResp = stun.NewType(stun.MethodAllocate, stun.ClassSuccessResponse)
+		transport   turn.RequestedTransport
 	)
-	var (
-		transport turn.RequestedTransport
-	)
-	if err := transport.GetFrom(ctx.req); err != nil {
-		return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+	if err := transport.GetFrom(ctx.request); err != nil {
+		return ctx.response.Build(ctx.request, errorResp,
 			stun.CodeBadRequest,
-			nonce, realm, stun.Fingerprint,
+			ctx.nonce, ctx.realm, stun.Fingerprint,
 		)
 	}
-	integrity, err := s.auth.Auth(ctx.req)
+	integrity, err := s.auth.Auth(ctx.request)
 	if err != nil {
-		return ctx.res.Build(ctx.req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+		return ctx.response.Build(ctx.request, errorResp,
 			stun.CodeUnauthorised,
-			nonce, realm, stun.Fingerprint,
+			ctx.nonce, ctx.realm, stun.Fingerprint,
 		)
 	}
 	server, err := s.allocs.New(
@@ -153,15 +149,15 @@ func (s *Server) processAllocateRequest(ctx context) error {
 	)
 	if err != nil {
 		s.log.Error("failed to allocate", zap.Error(err))
-		return res.Build(req, stun.NewType(stun.MethodAllocate, stun.ClassErrorResponse),
+		return ctx.response.Build(ctx.request, errorResp,
 			stun.CodeServerError,
-			nonce, realm, integrity, stun.Fingerprint,
+			ctx.nonce, ctx.realm, integrity, stun.Fingerprint,
 		)
 	}
-	return res.Build(req, allocSuccess,
+	return ctx.response.Build(ctx.request, successResp,
 		(*stun.XORMappedAddress)(&server),
 		(*turn.RelayedAddress)(&ctx.client),
-		nonce, realm, integrity, stun.Fingerprint,
+		ctx.nonce, ctx.realm, integrity, stun.Fingerprint,
 	)
 }
 
@@ -199,11 +195,11 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		zap.Stringer("addr", client),
 	)
 	ctx := context{
-		client: client,
-		res:    res,
-		req:    req,
-		realm:  serverRealm,
-		nonce:  nonce,
+		client:   client,
+		response: res,
+		request:  req,
+		realm:    serverRealm,
+		nonce:    nonce,
 	}
 	switch req.Type {
 	case stun.BindingRequest:
