@@ -142,7 +142,7 @@ func main() {
 		zap.Stringer("raddr", c.RemoteAddr()),
 	)
 
-	// Constructing allocate request with integrity
+	// Constructing allocate request without integrity
 	if err := do(logger, req, res, c,
 		username,
 		stun.TransactionID,
@@ -164,9 +164,7 @@ func main() {
 	integrity := stun.NewLongTermIntegrity(username.String(), realm.String(), password)
 	// Constructing allocate request with integrity
 	if err := do(logger, req, res, c,
-		username,
-		nonce,
-		realm,
+		username, nonce, realm,
 		stun.TransactionID,
 		turn.AllocateRequest,
 		turn.RequestedTransportUDP,
@@ -202,7 +200,10 @@ func main() {
 	logger.Info("peer address", zap.Stringer("addr", peerAddr))
 	if err := do(logger, req, res, c, stun.TransactionID,
 		turn.CreatePermissionRequest,
+		username, nonce, realm,
 		peerAddr,
+		integrity,
+		stun.Fingerprint,
 	); err != nil {
 		logger.Fatal("failed to do request", zap.Error(err))
 	}
@@ -218,8 +219,10 @@ func main() {
 	// can be as resetTo(type, attrs)?
 	if err := do(logger, req, res, c, stun.TransactionID,
 		turn.SendIndication,
+		username, nonce, realm,
 		sentData,
 		peerAddr,
+		integrity,
 		stun.Fingerprint,
 	); err != nil {
 		logger.Fatal("failed to build", zap.Error(err))
@@ -242,8 +245,11 @@ func main() {
 
 	// De-allocating.
 	if err := do(logger, req, res, c, stun.TransactionID,
+		username, nonce, realm,
 		turn.RefreshRequest,
 		turn.ZeroLifetime,
+		integrity,
+		stun.Fingerprint,
 	); err != nil {
 		logger.Fatal("failed to do", zap.Error(err))
 	}
