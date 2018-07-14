@@ -255,36 +255,26 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	if _, err := req.Write(b); err != nil {
 		return errors.Wrap(err, "failed to read message")
 	}
-	var (
-		ip   net.IP
-		port int
-	)
-	switch a := addr.(type) {
-	case *net.UDPAddr:
-		ip = a.IP
-		port = a.Port
-	default:
-		s.log.Error("unknown addr", zap.Stringer("addr", addr))
-		return errors.Errorf("unknown addr %s", addr)
-	}
-	client := allocator.Addr{
-		Port: port,
-		IP:   ip,
-	}
-	now := time.Now()
-	s.log.Info("got message",
-		zap.Stringer("m", req),
-		zap.Stringer("addr", client),
-	)
 	ctx := context{
-		time:     now,
-		client:   client,
+		time:     time.Now(),
 		response: res,
 		request:  req,
 		realm:    serverRealm,
 		nonce:    nonce,
 		software: software,
 	}
+	switch a := addr.(type) {
+	case *net.UDPAddr:
+		ctx.client.IP = a.IP
+		ctx.client.Port = a.Port
+	default:
+		s.log.Error("unknown addr", zap.Stringer("addr", addr))
+		return errors.Errorf("unknown addr %s", addr)
+	}
+	s.log.Info("got message",
+		zap.Stringer("m", req),
+		zap.Stringer("addr", ctx.client),
+	)
 	if s.needAuth(ctx) {
 		integrity, err := s.auth.Auth(ctx.request)
 		if err != nil {
@@ -309,7 +299,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		if err := req.Parse(&data, &addr); err != nil {
 			return errors.Wrap(err, "failed to parse send indication")
 		}
-		if err := s.sendByPermission(data, client, addr); err != nil {
+		if err := s.sendByPermission(data, ctx.client, addr); err != nil {
 			s.log.Warn("send failed",
 				zap.Error(err),
 			)
