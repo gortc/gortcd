@@ -239,6 +239,22 @@ func (s *Server) processCreatePermissionRequest(ctx context) error {
 	return ctx.buildOk()
 }
 
+func (s *Server) processSendIndication(ctx context) error {
+	var (
+		data turn.Data
+		addr turn.PeerAddress
+	)
+	if err := ctx.request.Parse(&data, &addr); err != nil {
+		return errors.Wrap(err, "failed to parse send indication")
+	}
+	if err := s.sendByPermission(data, ctx.client, addr); err != nil {
+		s.log.Warn("send failed",
+			zap.Error(err),
+		)
+	}
+	return nil
+}
+
 func (s *Server) needAuth(ctx context) bool {
 	return ctx.request.Type != stun.BindingRequest
 }
@@ -292,19 +308,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	case turn.RefreshRequest:
 		return s.processRefreshRequest(ctx)
 	case turn.SendIndication:
-		var (
-			data turn.Data
-			addr turn.PeerAddress
-		)
-		if err := req.Parse(&data, &addr); err != nil {
-			return errors.Wrap(err, "failed to parse send indication")
-		}
-		if err := s.sendByPermission(data, ctx.client, addr); err != nil {
-			s.log.Warn("send failed",
-				zap.Error(err),
-			)
-		}
-		return nil
+		return s.processSendIndication(ctx)
 	default:
 		s.log.Warn("unsupported request type")
 		return ctx.buildErr(stun.CodeBadRequest)
