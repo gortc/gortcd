@@ -90,7 +90,9 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 		zap.Stringer("d", destination),
 	)
 	l.Info("got peer data")
-	s.conn.SetWriteDeadline(time.Now().Add(time.Second))
+	if err := s.conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
+		l.Error("failed to SetWriteDeadline", zap.Error(err))
+	}
 	m := stun.New()
 	if err := m.Build(
 		stun.TransactionID,
@@ -229,7 +231,12 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 			s.allocs.Remove(client)
 		default:
 			t := now.Add(lifetime.Duration)
-			s.allocs.Refresh(client, allocator.Addr(addr), t)
+			if err := s.allocs.Refresh(client, allocator.Addr(addr), t); err != nil {
+				s.log.Error("failed to refresh allocation", zap.Error(err))
+				return res.Build(req, stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
+					stun.CodeServerError,
+				)
+			}
 		}
 		return res.Build(req,
 			stun.NewType(stun.MethodRefresh, stun.ClassSuccessResponse),
