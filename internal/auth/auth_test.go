@@ -3,6 +3,7 @@ package auth
 import (
 	"testing"
 
+	"github.com/gortc/gortcd/internal/testutil"
 	"github.com/gortc/stun"
 )
 
@@ -17,13 +18,11 @@ func TestStatic_Auth(t *testing.T) {
 	)
 	t.Run("ZeroAlloc", func(t *testing.T) {
 		m := stun.MustBuild(stun.BindingRequest, u, r, i)
-		if testing.AllocsPerRun(10, func() {
+		testutil.ShouldNotAllocate(t, func() {
 			if _, err := s.Auth(m); err != nil {
 				t.Fatal(err)
 			}
-		}) > 0 {
-			t.Fatal("unexpected allocations")
-		}
+		})
 	})
 	for _, tc := range []struct {
 		name string
