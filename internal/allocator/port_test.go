@@ -56,19 +56,19 @@ func (c *dummyConn) Close() error {
 	return nil
 }
 
-func (dummyConn) LocalAddr() net.Addr {
+func (*dummyConn) LocalAddr() net.Addr {
 	panic("implement me")
 }
 
-func (dummyConn) SetDeadline(t time.Time) error {
+func (*dummyConn) SetDeadline(t time.Time) error {
 	panic("implement me")
 }
 
-func (dummyConn) SetReadDeadline(t time.Time) error {
+func (*dummyConn) SetReadDeadline(t time.Time) error {
 	return nil
 }
 
-func (dummyConn) SetWriteDeadline(t time.Time) error {
+func (*dummyConn) SetWriteDeadline(t time.Time) error {
 	panic("implement me")
 }
 

@@ -70,7 +70,7 @@ type Allocation struct {
 	Conn        net.PacketConn
 }
 
-func (a Allocation) ReadUntilClosed() {
+func (a *Allocation) ReadUntilClosed() {
 	a.Log.Debug("ReadUntilClosed")
 	buf := make([]byte, 1024)
 	for {
