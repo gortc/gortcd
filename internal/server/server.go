@@ -2,6 +2,7 @@ package server
 
 import (
 	"net"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -22,12 +23,16 @@ type Server struct {
 	allocs *allocator.Allocator
 	conn   net.PacketConn
 	auth   Auth
+	close  chan struct{}
+	wg     sync.WaitGroup
 }
 
 type Options struct {
-	Log  *zap.Logger
-	Auth Auth
-	Conn net.PacketConn
+	Log         *zap.Logger
+	Auth        Auth
+	Conn        net.PacketConn
+	CollectRate time.Duration
+	ManualStart bool
 }
 
 func New(o Options) (*Server, error) {
@@ -43,6 +48,13 @@ func New(o Options) (*Server, error) {
 		auth:   o.Auth,
 		conn:   o.Conn,
 		allocs: allocs,
+		close:  make(chan struct{}),
+	}
+	if o.CollectRate == 0 {
+		o.CollectRate = time.Second
+	}
+	if !o.ManualStart {
+		s.Start(o.CollectRate)
 	}
 	return s, nil
 }
@@ -55,6 +67,37 @@ var (
 	software          = stun.NewSoftware("gortc/gortcd")
 	errNotSTUNMessage = errors.New("not stun message")
 )
+
+// Start starts background activity.
+func (s *Server) Start(rate time.Duration) {
+	s.startCollect(rate)
+}
+
+func (s *Server) startCollect(rate time.Duration) {
+	s.wg.Add(1)
+	t := time.NewTicker(rate)
+	go func() {
+		defer s.wg.Done()
+		for {
+			select {
+			case now := <-t.C:
+				s.collect(now)
+			case <-s.close: // pass
+			default:
+				return
+			}
+		}
+	}()
+}
+
+// Close stops background activity.
+func (s *Server) Close() error {
+	// TODO(ar): Free resources.
+	close(s.close)
+	s.log.Info("closing")
+	s.wg.Wait()
+	return nil
+}
 
 func (s *Server) collect(t time.Time) {
 	s.allocs.Collect(t)

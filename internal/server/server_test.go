@@ -95,6 +95,11 @@ func TestServerIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
 	go func() {
 		logger.Info("listening as echo server", zap.Stringer("laddr", echoUDPAddr))
 		for {
