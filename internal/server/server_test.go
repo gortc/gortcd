@@ -8,6 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
@@ -269,16 +270,23 @@ func BenchmarkServer_processBindingRequest(b *testing.B) {
 		b.Fatal(err)
 	}
 	var (
-		res  = new(stun.Message)
-		req  = new(stun.Message)
 		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	)
 	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
 	b.ResetTimer()
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
 	for i := 0; i < b.N; i++ {
-		res.Reset()
-		req.Reset()
-		if err := s.process(addr, m.Raw, req, res); err != nil {
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		if err := s.process(ctx); err != nil {
 			b.Fatal(err)
 		}
 	}

@@ -122,6 +122,17 @@ type context struct {
 	software  stun.Software
 }
 
+func (c *context) reset() {
+	c.time = time.Time{}
+	c.client = allocator.Addr{}
+	c.request.Reset()
+	c.response.Reset()
+	c.nonce = c.nonce[:0]
+	c.realm = c.realm[:0]
+	c.integrity = nil
+	c.software = c.software[:0]
+}
+
 func (c *context) apply(s ...stun.Setter) error {
 	for _, a := range s {
 		if err := a.AddTo(c.response); err != nil {
@@ -132,28 +143,24 @@ func (c *context) apply(s ...stun.Setter) error {
 }
 
 func (c *context) buildErr(s ...stun.Setter) error {
-	return c.build(stun.MessageType{
-		Class:  stun.ClassErrorResponse,
-		Method: c.request.Type.Method,
-	}, s...)
+	return c.build(stun.ClassErrorResponse, c.request.Type.Method, s...)
 }
 
 func (c *context) buildOk(s ...stun.Setter) error {
-	return c.build(stun.MessageType{
-		Class:  stun.ClassSuccessResponse,
-		Method: c.request.Type.Method,
-	}, s...)
+	return c.build(stun.ClassSuccessResponse, c.request.Type.Method, s...)
 }
 
-func (c *context) build(t stun.MessageType, s ...stun.Setter) error {
+func (c *context) build(class stun.MessageClass, method stun.Method, s ...stun.Setter) error {
 	if c.request.Type.Class == stun.ClassIndication {
 		// No responses for indication.
 		return nil
 	}
 	c.response.Reset()
+	c.response.Type.Class = class
+	c.response.Type.Method = method
 	c.response.WriteHeader()
 	copy(c.response.TransactionID[:], c.request.TransactionID[:])
-	if err := c.apply(t, &c.nonce, &c.realm); err != nil {
+	if err := c.apply(&c.nonce, &c.realm); err != nil {
 		return err
 	}
 	if len(c.software) > 0 {
@@ -264,36 +271,28 @@ func (s *Server) needAuth(ctx *context) bool {
 	return ctx.request.Type != stun.BindingRequest
 }
 
-func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error {
-	if !stun.IsMessage(b) {
-		s.log.Debug("not looks like stun message", zap.Stringer("addr", addr))
+var (
+	realm        = stun.NewRealm("realm")
+	defaultNonce = stun.NewNonce("nonce")
+)
+
+func (s *Server) process(ctx *context) error {
+	if !stun.IsMessage(ctx.request.Raw) {
+		s.log.Debug("not looks like stun message", zap.Stringer("addr", ctx.client))
 		return errNotSTUNMessage
 	}
-	if _, err := req.Write(b); err != nil {
+	if err := ctx.request.Decode(); err != nil {
 		return errors.Wrap(err, "failed to read message")
 	}
-	ctx := &context{
-		time:     time.Now(),
-		response: res,
-		request:  req,
-		realm:    stun.NewRealm("realm"),
-		nonce:    stun.NewNonce("nonce"),
-		software: software,
-	}
-	switch a := addr.(type) {
-	case *net.UDPAddr:
-		ctx.client.IP = a.IP
-		ctx.client.Port = a.Port
-	default:
-		s.log.Error("unknown addr", zap.Stringer("addr", addr))
-		return errors.Errorf("unknown addr %s", addr)
-	}
+	ctx.software = software
+	ctx.realm = realm
+	ctx.nonce = defaultNonce
 	if ce := s.log.Check(zapcore.InfoLevel, "got message"); ce != nil {
-		ce.Write(zap.Stringer("m", req), zap.Stringer("addr", ctx.client))
+		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
 	}
-	if req.Contains(stun.AttrFingerprint) {
+	if ctx.request.Contains(stun.AttrFingerprint) {
 		// Check fingerprint if provided.
-		if err := stun.Fingerprint.Check(req); err != nil {
+		if err := stun.Fingerprint.Check(ctx.request); err != nil {
 			s.log.Debug("fingerprint check failed", zap.Error(err))
 			return ctx.buildErr(stun.CodeBadRequest)
 		}
@@ -308,7 +307,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 			return ctx.buildErr(stun.CodeWrongCredentials)
 		}
 	}
-	switch req.Type {
+	switch ctx.request.Type {
 	case stun.BindingRequest:
 		return s.processBindingRequest(ctx)
 	case turn.AllocateRequest:
@@ -325,7 +324,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	}
 }
 
-func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
+func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	if c == nil {
 		return nil
 	}
@@ -335,26 +334,31 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 		s.log.Warn("readFrom failed", zap.Error(err))
 		return nil
 	}
+	ctx.request.Raw = buf[:n]
 	s.log.Debug("read",
 		zap.Int("n", n),
 		zap.Stringer("addr", addr),
 	)
-	if _, err = req.Write(buf[:n]); err != nil {
-		s.log.Warn("write failed", zap.Error(err))
-		return err
+	switch a := addr.(type) {
+	case *net.UDPAddr:
+		ctx.client.IP = a.IP
+		ctx.client.Port = a.Port
+	default:
+		s.log.Error("unknown addr", zap.Stringer("addr", addr))
+		return errors.Errorf("unknown addr %s", addr)
 	}
-	if err = s.process(addr, buf[:n], req, res); err != nil {
+	if err = s.process(ctx); err != nil {
 		if err == errNotSTUNMessage {
 			return nil
 		}
 		s.log.Error("process failed", zap.Error(err))
 		return nil
 	}
-	if len(res.Raw) == 0 {
+	if len(ctx.response.Raw) == 0 {
 		// Indication.
 		return nil
 	}
-	_, err = c.WriteTo(res.Raw, addr)
+	_, err = c.WriteTo(ctx.response.Raw, addr)
 	if err != nil {
 		s.log.Warn("writeTo failed", zap.Error(err))
 	}
@@ -364,14 +368,13 @@ func (s *Server) serveConn(c net.PacketConn, res, req *stun.Message) error {
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
 	var (
-		res = new(stun.Message)
-		req = new(stun.Message)
+		ctx = new(context)
 	)
 	for {
-		if err := s.serveConn(s.conn, res, req); err != nil {
+		ctx.time = time.Now()
+		if err := s.serveConn(s.conn, ctx); err != nil {
 			s.log.Error("serveConn failed", zap.Error(err))
 		}
-		res.Reset()
-		req.Reset()
+		ctx.reset()
 	}
 }
