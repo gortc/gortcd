@@ -6,3 +6,7 @@ gortcd
 
 # goreleaser
 dist
+
+# go tests
+*.test
+*.out
