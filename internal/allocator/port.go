@@ -42,6 +42,7 @@ type NetPortAllocator interface {
 	AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error)
 }
 
+// New allocates new free port from internal port allocator.
 func (a *NetAllocator) New(proto turn.Protocol) (Addr, net.PacketConn, error) {
 	n, err := a.ports.AllocatePort(proto, "udp4", a.defaultAddr)
 	if err != nil {
