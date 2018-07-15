@@ -156,10 +156,11 @@ func (c *context) build(class stun.MessageClass, method stun.Method, s ...stun.S
 		return nil
 	}
 	c.response.Reset()
+	// Setting response type and transaction ID.
 	c.response.Type.Class = class
 	c.response.Type.Method = method
-	c.response.WriteHeader()
 	copy(c.response.TransactionID[:], c.request.TransactionID[:])
+	c.response.WriteHeader()
 	if err := c.apply(&c.nonce, &c.realm); err != nil {
 		return err
 	}
