@@ -104,7 +104,7 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	l.Info("sent data from peer", zap.Stringer("m", m))
 }
 
-func (s *Server) processBindingRequest(ctx context) error {
+func (s *Server) processBindingRequest(ctx *context) error {
 	return ctx.buildOk(
 		(*stun.XORMappedAddress)(&ctx.client),
 	)
@@ -121,7 +121,7 @@ type context struct {
 	software  stun.Software
 }
 
-func (c context) apply(s ...stun.Setter) error {
+func (c *context) apply(s ...stun.Setter) error {
 	for _, a := range s {
 		if err := a.AddTo(c.response); err != nil {
 			return err
@@ -130,21 +130,21 @@ func (c context) apply(s ...stun.Setter) error {
 	return nil
 }
 
-func (c context) buildErr(s ...stun.Setter) error {
+func (c *context) buildErr(s ...stun.Setter) error {
 	return c.build(stun.MessageType{
 		Class:  stun.ClassErrorResponse,
 		Method: c.request.Type.Method,
 	}, s...)
 }
 
-func (c context) buildOk(s ...stun.Setter) error {
+func (c *context) buildOk(s ...stun.Setter) error {
 	return c.build(stun.MessageType{
 		Class:  stun.ClassSuccessResponse,
 		Method: c.request.Type.Method,
 	}, s...)
 }
 
-func (c context) build(t stun.MessageType, s ...stun.Setter) error {
+func (c *context) build(t stun.MessageType, s ...stun.Setter) error {
 	if c.request.Type.Class == stun.ClassIndication {
 		// No responses for indication.
 		return nil
@@ -171,7 +171,7 @@ func (c context) build(t stun.MessageType, s ...stun.Setter) error {
 	return stun.Fingerprint.AddTo(c.response)
 }
 
-func (s *Server) processAllocateRequest(ctx context) error {
+func (s *Server) processAllocateRequest(ctx *context) error {
 	var (
 		transport turn.RequestedTransport
 	)
@@ -191,7 +191,7 @@ func (s *Server) processAllocateRequest(ctx context) error {
 	)
 }
 
-func (s *Server) processRefreshRequest(ctx context) error {
+func (s *Server) processRefreshRequest(ctx *context) error {
 	var (
 		addr     turn.PeerAddress
 		lifetime turn.Lifetime
@@ -217,7 +217,7 @@ func (s *Server) processRefreshRequest(ctx context) error {
 	return ctx.buildOk()
 }
 
-func (s *Server) processCreatePermissionRequest(ctx context) error {
+func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	var (
 		addr     turn.PeerAddress
 		lifetime turn.Lifetime
@@ -243,7 +243,7 @@ func (s *Server) processCreatePermissionRequest(ctx context) error {
 	return ctx.buildOk()
 }
 
-func (s *Server) processSendIndication(ctx context) error {
+func (s *Server) processSendIndication(ctx *context) error {
 	var (
 		data turn.Data
 		addr turn.PeerAddress
@@ -259,7 +259,7 @@ func (s *Server) processSendIndication(ctx context) error {
 	return nil
 }
 
-func (s *Server) needAuth(ctx context) bool {
+func (s *Server) needAuth(ctx *context) bool {
 	return ctx.request.Type != stun.BindingRequest
 }
 
@@ -271,7 +271,7 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 	if _, err := req.Write(b); err != nil {
 		return errors.Wrap(err, "failed to read message")
 	}
-	ctx := context{
+	ctx := &context{
 		time:     time.Now(),
 		response: res,
 		request:  req,
