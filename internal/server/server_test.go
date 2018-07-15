@@ -11,6 +11,7 @@ import (
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
+	"github.com/gortc/gortcd/internal/testutil"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
@@ -261,6 +262,50 @@ func TestServerIntegration(t *testing.T) {
 		logger.Fatal("got error response", zap.Stringer("err", code))
 	}
 	logger.Info("closing")
+}
+
+func TestServer_processBindingRequest(t *testing.T) {
+	serverConn, _ := listenUDP(t)
+	defer serverConn.Close()
+	s, err := New(Options{
+		Log:  zap.NewNop(),
+		Conn: serverConn,
+		Auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	)
+	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("ZeroAlloc", func(t *testing.T) {
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		testutil.ShouldNotAllocate(t, func() {
+			s.process(ctx)
+		})
+	})
 }
 
 func BenchmarkServer_processBindingRequest(b *testing.B) {
