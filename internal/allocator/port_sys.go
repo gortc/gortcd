@@ -9,6 +9,7 @@ import (
 // SystemPortAllocator allocates port directly on system.
 type SystemPortAllocator struct{}
 
+// AllocatePort returns new requested initialized NetAllocation.
 func (s SystemPortAllocator) AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error) {
 	addr, err := net.ResolveUDPAddr(network, defaultAddr)
 	if err != nil {
