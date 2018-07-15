@@ -8,6 +8,8 @@ import (
 	"github.com/gortc/stun"
 )
 
+// StaticCredential wraps plain Username, Password and Realm,
+// representing a long-term credential.
 type StaticCredential struct {
 	Username string
 	Password string
@@ -19,20 +21,15 @@ type staticKey struct {
 	realm    string
 }
 
+// Static implements authentication with pre-defined static list
+// of long-term credentials.
 type Static struct {
 	mux         sync.RWMutex
 	credentials map[staticKey]stun.MessageIntegrity
 }
 
-type Request struct {
-	Username stun.Username
-	Realm    stun.Realm
-}
-
-type Response struct {
-	Integrity stun.MessageIntegrity
-}
-
+// Auth perform authentication of m and returns integrity that can
+// be used to construct response to m.
 func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 	username, err := m.Get(stun.AttrUsername)
 	if err != nil {
@@ -54,6 +51,8 @@ func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 	return i, i.Check(m)
 }
 
+// NewStatic initializes new static authenticator with list of long-term
+// credentials.
 func NewStatic(credentials []StaticCredential) *Static {
 	s := &Static{
 		credentials: make(map[staticKey]stun.MessageIntegrity, len(credentials)),
