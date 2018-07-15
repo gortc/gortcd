@@ -46,6 +46,12 @@ func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stu
 		logger.Error("failed to read",
 			zap.Error(err), zap.Stringer("m", req),
 		)
+		return err
+	}
+	if req.Type.Class != stun.ClassIndication && req.TransactionID != res.TransactionID {
+		return fmt.Errorf("transaction ID mismatch: %x (got) != %x (expected)",
+			req.TransactionID, res.TransactionID,
+		)
 	}
 	logger.Info("got message",
 		zap.Stringer("m", res),
