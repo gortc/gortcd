@@ -287,6 +287,13 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		zap.Stringer("m", req),
 		zap.Stringer("addr", ctx.client),
 	)
+	if req.Contains(stun.AttrFingerprint) {
+		// Check fingerprint if provided.
+		if err := stun.Fingerprint.Check(req); err != nil {
+			s.log.Debug("fingerprint check failed", zap.Error(err))
+			return ctx.buildErr(stun.CodeBadRequest)
+		}
+	}
 	if s.needAuth(ctx) {
 		switch integrity, err := s.auth.Auth(ctx.request); err {
 		case stun.ErrAttributeNotFound:
