@@ -259,6 +259,7 @@ func TestServerIntegration(t *testing.T) {
 func BenchmarkServer_processBindingRequest(b *testing.B) {
 	b.ReportAllocs()
 	serverConn, _ := listenUDP(b)
+	defer serverConn.Close()
 	s, err := New(Options{
 		Log:  zap.NewNop(),
 		Conn: serverConn,
