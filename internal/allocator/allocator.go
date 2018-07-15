@@ -14,6 +14,7 @@ import (
 	"github.com/gortc/turn"
 )
 
+// NewAllocator initializes and returns new *Allocator.
 func NewAllocator(log *zap.Logger, conn PortAllocator) *Allocator {
 	return &Allocator{
 		log:  log,
@@ -21,6 +22,8 @@ func NewAllocator(log *zap.Logger, conn PortAllocator) *Allocator {
 	}
 }
 
+// Allocator handles network allocations and communication
+// to allocated ports.
 type Allocator struct {
 	log       *zap.Logger
 	allocsMux sync.RWMutex
@@ -28,8 +31,12 @@ type Allocator struct {
 	conn      PortAllocator
 }
 
+// ErrPermissionNotFound means that requested allocation (client,addr) is not found.
 var ErrPermissionNotFound = errors.New("permission not found")
 
+// Send uses existing allocation for client to write data to remote addr.
+//
+// Returns ErrPermissionNotFound if no allocation found for (client,addr).
 func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
 	var (
 		conn net.PacketConn
@@ -65,6 +72,7 @@ func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
 	})
 }
 
+// Remove de-allocates any permissions for client and removes allocation.
 func (a *Allocator) Remove(client Addr) {
 	var (
 		newAllocs []Allocation
@@ -88,6 +96,8 @@ func (a *Allocator) Remove(client Addr) {
 	}
 }
 
+// Collect removes any timed out permissions. If allocation has no
+// active permissions, it will be removed.
 func (a *Allocator) Collect(t time.Time) {
 	var (
 		newAllocs []Allocation
@@ -120,11 +130,14 @@ func (a *Allocator) Collect(t time.Time) {
 	}
 }
 
+// PortAllocator represents allocator for network sockets.
 type PortAllocator interface {
 	New(proto turn.Protocol) (Addr, net.PacketConn, error)
 	Remove(addr Addr, proto turn.Protocol) error
 }
 
+// New creates new allocation for provided client and proto. Any data received
+// by allocated socket is passed to callback.
 func (a *Allocator) New(client Addr, proto turn.Protocol, callback PeerHandler) (Addr, error) {
 	a.log.Info("processing allocate request")
 	addr, conn, err := a.conn.New(proto)
@@ -150,6 +163,7 @@ func (a *Allocator) New(client Addr, proto turn.Protocol, callback PeerHandler) 
 	return addr, nil
 }
 
+// CreatePermission creates new permission for existing client allocation.
 func (a *Allocator) CreatePermission(client, addr Addr, timeout time.Time) error {
 	permission := Permission{
 		Timeout: timeout,
@@ -173,6 +187,7 @@ func (a *Allocator) CreatePermission(client, addr Addr, timeout time.Time) error
 	return nil
 }
 
+// Refresh updates existing permission timeout to t.
 func (a *Allocator) Refresh(client, addr Addr, t time.Time) error {
 	a.allocsMux.Lock()
 	for _, a := range a.allocs {
