@@ -49,7 +49,7 @@ func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stu
 	return nil
 }
 
-func listenUDP(t *testing.T, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
+func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
 	addr := "127.0.0.1:0"
 	if len(addrs) > 0 {
 		addr = addrs[0]
@@ -253,4 +253,33 @@ func TestServerIntegration(t *testing.T) {
 		logger.Fatal("got error response", zap.Stringer("err", code))
 	}
 	logger.Info("closing")
+}
+
+func BenchmarkServer_processBindingRequest(b *testing.B) {
+	b.ReportAllocs()
+	serverConn, _ := listenUDP(b)
+	s, err := New(Options{
+		Log:  zap.NewNop(),
+		Conn: serverConn,
+		Auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
+	})
+	if err != nil {
+		b.Fatal(err)
+	}
+	var (
+		res  = new(stun.Message)
+		req  = new(stun.Message)
+		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	)
+	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		res.Reset()
+		req.Reset()
+		if err := s.process(addr, m.Raw, req, res); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
