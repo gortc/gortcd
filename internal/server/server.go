@@ -27,15 +27,23 @@ type Server struct {
 	wg     sync.WaitGroup
 }
 
+// Options is set of available options for Server.
 type Options struct {
 	Log         *zap.Logger
-	Auth        Auth
+	Auth        Auth // no authentication if nil
 	Conn        net.PacketConn
 	CollectRate time.Duration
-	ManualStart bool
+	ManualStart bool // don't start bg activity
 }
 
+// New initializes and returns new server from options.
 func New(o Options) (*Server, error) {
+	if o.Log == nil {
+		o.Log = zap.NewNop()
+	}
+	if o.CollectRate == 0 {
+		o.CollectRate = time.Second
+	}
 	netAlloc, err := allocator.NewNetAllocator(
 		o.Log.Named("port"), o.Conn.LocalAddr(), allocator.SystemPortAllocator{},
 	)
@@ -50,15 +58,13 @@ func New(o Options) (*Server, error) {
 		allocs: allocs,
 		close:  make(chan struct{}),
 	}
-	if o.CollectRate == 0 {
-		o.CollectRate = time.Second
-	}
 	if !o.ManualStart {
 		s.Start(o.CollectRate)
 	}
 	return s, nil
 }
 
+// Auth represents message authenticator.
 type Auth interface {
 	Auth(m *stun.Message) (stun.MessageIntegrity, error)
 }
@@ -116,6 +122,7 @@ func (s *Server) sendByPermission(
 	return err
 }
 
+// HandlePeerData implements allocator.PeerHandler.
 func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Addr) {
 	destination := &net.UDPAddr{
 		IP:   t.Client.IP,
@@ -242,6 +249,9 @@ func (s *Server) processSendIndication(ctx *context) error {
 }
 
 func (s *Server) needAuth(ctx *context) bool {
+	if s.auth == nil {
+		return false
+	}
 	return ctx.request.Type != stun.BindingRequest
 }
 
