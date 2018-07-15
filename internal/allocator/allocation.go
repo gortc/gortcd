@@ -42,6 +42,8 @@ func (t FiveTuple) String() string {
 	)
 }
 
+// PeerHandler represents handler for data that is received
+// by allocated socket for peer.
 type PeerHandler interface {
 	HandlePeerData(d []byte, t FiveTuple, a Addr)
 }
@@ -70,6 +72,8 @@ type Allocation struct {
 	Conn        net.PacketConn
 }
 
+// ReadUntilClosed starts network loop that passes all received data to
+// PeerHandler. Stops on connection close or any error.
 func (a *Allocation) ReadUntilClosed() {
 	a.Log.Debug("ReadUntilClosed")
 	buf := make([]byte, 1024)

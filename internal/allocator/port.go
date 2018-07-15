@@ -10,12 +10,14 @@ import (
 	"github.com/gortc/turn"
 )
 
+// NetAllocation represents allocated port.
 type NetAllocation struct {
 	Addr  Addr
 	Proto turn.Protocol
 	Conn  net.PacketConn
 }
 
+// Close closes underlying PacketConn and resets fields.
 func (n *NetAllocation) Close() error {
 	err := n.Conn.Close()
 	n.Conn = nil
@@ -24,7 +26,7 @@ func (n *NetAllocation) Close() error {
 	return err
 }
 
-// NetAllocator allocates ports.
+// NetAllocator manages port allocation.
 type NetAllocator struct {
 	allocsMux sync.RWMutex
 	allocs    []NetAllocation
@@ -35,6 +37,7 @@ type NetAllocator struct {
 	defaultAddr string
 }
 
+// NetPortAllocator allocates ports.
 type NetPortAllocator interface {
 	AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error)
 }
@@ -50,6 +53,7 @@ func (a *NetAllocator) New(proto turn.Protocol) (Addr, net.PacketConn, error) {
 	return n.Addr, n.Conn, nil
 }
 
+// Remove de-allocates ports for provided addr and proto.
 func (a *NetAllocator) Remove(addr Addr, proto turn.Protocol) error {
 	var (
 		toRemove []NetAllocation // TODO: optimize heap alloc
@@ -85,6 +89,8 @@ func (a *NetAllocator) Remove(addr Addr, proto turn.Protocol) error {
 	return nil
 }
 
+// NewNetAllocator initializes new port allocation manager, addr currently supports
+// only *UDPAddr.
 func NewNetAllocator(l *zap.Logger, addr net.Addr, ports NetPortAllocator) (*NetAllocator, error) {
 	var defaultAddr string
 	switch tAddr := addr.(type) {
