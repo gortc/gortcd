@@ -139,7 +139,7 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 	if err := ctx.request.Parse(&addr); err != nil && err != stun.ErrAttributeNotFound {
 		return errors.Wrap(err, "failed to parse refresh request")
 	}
-	if err := ctx.request.Parse(&addr); err != nil {
+	if err := ctx.request.Parse(&lifetime); err != nil {
 		if err != stun.ErrAttributeNotFound {
 			return errors.Wrap(err, "failed to parse")
 		}
