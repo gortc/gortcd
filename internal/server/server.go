@@ -145,6 +145,10 @@ func (c context) buildOk(s ...stun.Setter) error {
 }
 
 func (c context) build(t stun.MessageType, s ...stun.Setter) error {
+	if c.request.Type.Class == stun.ClassIndication {
+		// No responses for indication.
+		return nil
+	}
 	c.response.Reset()
 	c.response.WriteHeader()
 	copy(c.response.TransactionID[:], c.request.TransactionID[:])
