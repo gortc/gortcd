@@ -6,6 +6,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
@@ -287,10 +288,9 @@ func (s *Server) process(addr net.Addr, b []byte, req, res *stun.Message) error 
 		s.log.Error("unknown addr", zap.Stringer("addr", addr))
 		return errors.Errorf("unknown addr %s", addr)
 	}
-	s.log.Info("got message",
-		zap.Stringer("m", req),
-		zap.Stringer("addr", ctx.client),
-	)
+	if ce := s.log.Check(zapcore.InfoLevel, "got message"); ce != nil {
+		ce.Write(zap.Stringer("m", req), zap.Stringer("addr", ctx.client))
+	}
 	if req.Contains(stun.AttrFingerprint) {
 		// Check fingerprint if provided.
 		if err := stun.Fingerprint.Check(req); err != nil {
