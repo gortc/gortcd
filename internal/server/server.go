@@ -368,7 +368,10 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
 	var (
-		ctx = new(context)
+		ctx = &context{
+			response: new(stun.Message),
+			request:  new(stun.Message),
+		}
 	)
 	for {
 		ctx.time = time.Now()
