@@ -349,3 +349,49 @@ func BenchmarkServer_processBindingRequest(b *testing.B) {
 		}
 	}
 }
+
+func TestServer_notStun(t *testing.T) {
+	serverConn, _ := listenUDP(t)
+	defer serverConn.Close()
+	s, err := New(Options{
+		Log:  zap.NewNop(),
+		Conn: serverConn,
+		Auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	)
+	buf := make([]byte, 512)
+	for i := range buf {
+		buf[i] = byte(i % 127)
+	}
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+	}
+	ctx.request.Raw = make([]byte, len(buf), 1024)
+	copy(ctx.request.Raw, buf)
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	if err := s.process(ctx); err != errNotSTUNMessage {
+		t.Fatal(err)
+	}
+	t.Run("ZeroAlloc", func(t *testing.T) {
+		ctx.request.Raw = ctx.request.Raw[:len(buf)]
+		copy(ctx.request.Raw, buf)
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		testutil.ShouldNotAllocate(t, func() {
+			s.process(ctx)
+		})
+	})
+}

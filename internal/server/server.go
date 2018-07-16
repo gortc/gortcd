@@ -262,7 +262,9 @@ var (
 
 func (s *Server) process(ctx *context) error {
 	if !stun.IsMessage(ctx.request.Raw) {
-		s.log.Debug("not looks like stun message", zap.Stringer("addr", ctx.client))
+		if ce := s.log.Check(zapcore.DebugLevel, "not looks like stun message"); ce != nil {
+			ce.Write(zap.Stringer("addr", ctx.client))
+		}
 		return errNotSTUNMessage
 	}
 	if err := ctx.request.Decode(); err != nil {
