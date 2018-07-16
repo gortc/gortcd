@@ -268,7 +268,10 @@ func (s *Server) process(ctx *context) error {
 		return errNotSTUNMessage
 	}
 	if err := ctx.request.Decode(); err != nil {
-		return errors.Wrap(err, "failed to read message")
+		if ce := s.log.Check(zapcore.DebugLevel, "failed to decode request"); ce != nil {
+			ce.Write(zap.Stringer("addr", ctx.client), zap.Error(err))
+		}
+		return nil
 	}
 	ctx.software = software
 	ctx.realm = realm

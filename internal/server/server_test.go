@@ -395,3 +395,40 @@ func TestServer_notStun(t *testing.T) {
 		})
 	})
 }
+
+func TestServer_badRequest(t *testing.T) {
+	serverConn, _ := listenUDP(t)
+	defer serverConn.Close()
+	s, err := New(Options{
+		Log:  zap.NewNop(),
+		Conn: serverConn,
+		Auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	)
+	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
+	m.Raw = m.Raw[:len(m.Raw)-4]
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.response.Length != 0 {
+		t.Error("unexpected response")
+	}
+}
