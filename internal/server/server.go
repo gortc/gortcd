@@ -175,8 +175,8 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 		return ctx.buildErr(stun.CodeServerError)
 	}
 	return ctx.buildOk(
-		(*stun.XORMappedAddress)(&server),
-		(*turn.RelayedAddress)(&ctx.client),
+		(*stun.XORMappedAddress)(&ctx.client),
+		(*turn.RelayedAddress)(&server),
 	)
 }
 
