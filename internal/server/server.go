@@ -238,8 +238,10 @@ func (s *Server) processSendIndication(ctx *context) error {
 		addr turn.PeerAddress
 	)
 	if err := ctx.request.Parse(&data, &addr); err != nil {
+		s.log.Error("failed to parse send indication", zap.Error(err))
 		return errors.Wrap(err, "failed to parse send indication")
 	}
+	s.log.Info("sending data", zap.Stringer("to", addr))
 	if err := s.sendByPermission(data, ctx.client, addr); err != nil {
 		s.log.Warn("send failed",
 			zap.Error(err),
@@ -250,6 +252,9 @@ func (s *Server) processSendIndication(ctx *context) error {
 
 func (s *Server) needAuth(ctx *context) bool {
 	if s.auth == nil {
+		return false
+	}
+	if ctx.request.Type.Class == stun.ClassIndication {
 		return false
 	}
 	return ctx.request.Type != stun.BindingRequest
@@ -289,10 +294,18 @@ func (s *Server) process(ctx *context) error {
 	if s.needAuth(ctx) {
 		switch integrity, err := s.auth.Auth(ctx.request); err {
 		case stun.ErrAttributeNotFound:
+			if ce := s.log.Check(zapcore.DebugLevel, "integrity required"); ce != nil {
+				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request))
+			}
 			return ctx.buildErr(stun.CodeUnauthorised)
 		case nil:
 			ctx.integrity = integrity
 		default:
+			if ce := s.log.Check(zapcore.DebugLevel, "failed to auth"); ce != nil {
+				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request),
+					zap.Error(err),
+				)
+			}
 			return ctx.buildErr(stun.CodeWrongCredentials)
 		}
 	}
@@ -347,6 +360,7 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		// Indication.
 		return nil
 	}
+	c.SetWriteDeadline(ctx.time.Add(time.Second))
 	_, err = c.WriteTo(ctx.response.Raw, addr)
 	if err != nil {
 		s.log.Warn("writeTo failed", zap.Error(err))
