@@ -336,6 +336,7 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		s.log.Warn("readFrom failed", zap.Error(err))
 		return nil
 	}
+	ctx.time = time.Now()
 	ctx.request.Raw = buf[:n]
 	s.log.Debug("read",
 		zap.Int("n", n),
@@ -377,7 +378,6 @@ func (s *Server) Serve() error {
 		}
 	)
 	for {
-		ctx.time = time.Now()
 		if err := s.serveConn(s.conn, ctx); err != nil {
 			s.log.Error("serveConn failed", zap.Error(err))
 		}
