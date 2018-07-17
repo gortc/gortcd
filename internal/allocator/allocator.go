@@ -15,20 +15,19 @@ import (
 )
 
 // NewAllocator initializes and returns new *Allocator.
-func NewAllocator(log *zap.Logger, conn PortAllocator) *Allocator {
+func NewAllocator(log *zap.Logger, conn RelayedAddrAllocator) *Allocator {
 	return &Allocator{
-		log:  log,
-		conn: conn,
+		log:   log,
+		raddr: conn,
 	}
 }
 
-// Allocator handles network allocations and communication
-// to allocated ports.
+// Allocator handles allocation.
 type Allocator struct {
 	log       *zap.Logger
 	allocsMux sync.RWMutex
 	allocs    []Allocation
-	conn      PortAllocator
+	raddr     RelayedAddrAllocator
 }
 
 // ErrPermissionNotFound means that requested allocation (client,addr) is not found.
@@ -92,7 +91,7 @@ func (a *Allocator) Remove(client Addr) {
 	a.allocsMux.Unlock()
 
 	for _, alloc := range toDealloc {
-		a.conn.Remove(alloc.Tuple.Server, alloc.Tuple.Proto)
+		a.raddr.Remove(alloc.Tuple.Server, alloc.Tuple.Proto)
 	}
 }
 
@@ -130,35 +129,58 @@ func (a *Allocator) Collect(t time.Time) {
 	}
 }
 
-// PortAllocator represents allocator for network sockets.
-type PortAllocator interface {
+// RelayedAddrAllocator represents allocator for relayed addresses on
+// specified interface.
+type RelayedAddrAllocator interface {
 	New(proto turn.Protocol) (Addr, net.PacketConn, error)
 	Remove(addr Addr, proto turn.Protocol) error
 }
 
+// ErrAllocationMismatch is a 437 (Allocation Mismatch) error
+var ErrAllocationMismatch = errors.New("5-tuple is currently in use")
+
 // New creates new allocation for provided client and proto. Any data received
 // by allocated socket is passed to callback.
-func (a *Allocator) New(client Addr, proto turn.Protocol, callback PeerHandler) (Addr, error) {
+func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler) (Addr, error) {
 	a.log.Info("processing allocate request")
-	addr, conn, err := a.conn.New(proto)
-	if err != nil {
-		return addr, errors.Wrap(err, "failed to allocate")
-	}
-	a.log.Info("allocated", zap.Stringer("addr", addr))
+
 	a.allocsMux.Lock()
-	tuple := FiveTuple{
-		Client: client,
-		Server: addr,
-		Proto:  proto,
+	// Searching for existing allocation.
+	for _, alloc := range a.allocs {
+		if alloc.Tuple.Equal(tuple) {
+			a.allocsMux.Unlock()
+			return Addr{}, ErrAllocationMismatch
+		}
 	}
+	// Not found, creating new allocation.
 	allocation := Allocation{
 		Log:      a.log,
 		Tuple:    tuple,
 		Callback: callback,
-		Conn:     conn,
+		Timeout:  timeout,
 	}
 	a.allocs = append(a.allocs, allocation)
 	a.allocsMux.Unlock()
+
+	// Allocating new relayed address.
+	addr, conn, err := a.raddr.New(tuple.Proto)
+	if err != nil {
+		return addr, errors.Wrap(err, "failed to allocate")
+	}
+	a.log.Info("allocated", zap.Stringer("addr", addr))
+
+	a.allocsMux.Lock()
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(tuple) {
+			continue
+		}
+		// Setting relayed connection for allocation.
+		allocation.Conn = conn
+		allocation.RelayedAddr = addr
+		a.allocs[i] = allocation
+	}
+	a.allocsMux.Unlock()
+
 	go allocation.ReadUntilClosed()
 	return addr, nil
 }

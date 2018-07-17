@@ -73,11 +73,13 @@ func (*dummyConn) SetWriteDeadline(t time.Time) error {
 }
 
 func (p *dummyNetPortAlloc) AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error) {
+	h, _, _ := net.SplitHostPort(defaultAddr)
+	ip := net.ParseIP(h)
 	return NetAllocation{
 		Proto: proto,
 		Addr: Addr{
 			Port: int(atomic.AddInt32(&p.currentPort, 1)),
-			IP:   net.IPv4(127, 0, 0, 1),
+			IP:   ip,
 		},
 		Conn: &dummyConn{},
 	}, nil

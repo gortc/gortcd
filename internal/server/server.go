@@ -167,17 +167,24 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 	if err := transport.GetFrom(ctx.request); err != nil {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
-	server, err := s.allocs.New(
-		ctx.client, transport.Protocol, s,
+	relayedAddr, err := s.allocs.New(
+		allocator.FiveTuple{
+			Server: ctx.server,
+			Client: ctx.client,
+			Proto:  transport.Protocol,
+		}, ctx.time.Add(time.Minute*5), s,
 	)
-	if err != nil {
-		s.log.Error("failed to allocate", zap.Error(err))
+	switch err {
+	case nil:
+		return ctx.buildOk(
+			(*stun.XORMappedAddress)(&ctx.client),
+			(*turn.RelayedAddress)(&relayedAddr),
+		)
+	case allocator.ErrAllocationMismatch:
+		return ctx.buildErr(stun.CodeAllocMismatch)
+	default:
 		return ctx.buildErr(stun.CodeServerError)
 	}
-	return ctx.buildOk(
-		(*stun.XORMappedAddress)(&ctx.client),
-		(*turn.RelayedAddress)(&server),
-	)
 }
 
 func (s *Server) processRefreshRequest(ctx *context) error {

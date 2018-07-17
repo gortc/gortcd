@@ -42,13 +42,28 @@ func (t FiveTuple) String() string {
 	)
 }
 
-// PeerHandler represents handler for data that is received
-// by allocated socket for peer.
+// Equal returns true if b == t.
+func (t FiveTuple) Equal(b FiveTuple) bool {
+	if t.Proto != b.Proto {
+		return false
+	}
+	if !t.Client.Equal(b.Client) {
+		return false
+	}
+	if !t.Server.Equal(b.Server) {
+		return false
+	}
+	return true
+}
+
+// PeerHandler represents handler for data that is sent to relayed address
+// of allocation.
 type PeerHandler interface {
 	HandlePeerData(d []byte, t FiveTuple, a Addr)
 }
 
-// Permission as described in "Permissions" section.
+// Permission as described in "Permissions" section, mimics the
+// address-restricted filtering mechanism of NAT's.
 //
 // See RFC 5766 Section 2.3
 type Permission struct {
@@ -67,9 +82,11 @@ type Allocation struct {
 	Tuple       FiveTuple
 	Permissions []Permission
 	Channels    []Binding
-	Callback    PeerHandler
+	RelayedAddr Addr           // relayed transport address
+	Conn        net.PacketConn // on RelayedAddr
+	Callback    PeerHandler    // for data from Conn
+	Timeout     time.Time      // time-to-expiry
 	Log         *zap.Logger
-	Conn        net.PacketConn
 }
 
 // ReadUntilClosed starts network loop that passes all received data to

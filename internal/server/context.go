@@ -10,6 +10,7 @@ import (
 type context struct {
 	time      time.Time
 	client    allocator.Addr
+	server    allocator.Addr
 	request   *stun.Message
 	response  *stun.Message
 	nonce     stun.Nonce
@@ -21,6 +22,7 @@ type context struct {
 func (c *context) reset() {
 	c.time = time.Time{}
 	c.client = allocator.Addr{}
+	c.server = allocator.Addr{}
 	c.request.Reset()
 	c.response.Reset()
 	c.nonce = c.nonce[:0]
