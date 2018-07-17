@@ -12,6 +12,7 @@ import (
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/testutil"
 	"github.com/gortc/stun"
+	"github.com/gortc/turn"
 )
 
 func isErr(m *stun.Message) bool {
@@ -274,5 +275,73 @@ func TestServer_badFingerprint(t *testing.T) {
 	}
 	if ctx.response.Type.Class != stun.ClassErrorResponse {
 		t.Error("unexpected success")
+	}
+}
+
+func TestServer_processAllocationRequest(t *testing.T) {
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		t.Fatal(err)
+	}
+	serverConn, _ := listenUDP(t)
+	defer serverConn.Close()
+	s, err := New(Options{
+		Log:  logger,
+		Conn: serverConn,
+		Auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
+	})
+	defer s.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		username = stun.NewUsername("username")
+		addr     = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		peer     = turn.PeerAddress{
+			Port: 1234,
+			IP:   net.IPv4(88, 11, 22, 33),
+		}
+	)
+	m := stun.MustBuild(stun.TransactionID, turn.AllocateRequest,
+		username, peer, stun.Fingerprint,
+	)
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.response.TransactionID != m.TransactionID {
+		t.Error("unexpected response transaction ID")
+	}
+	var (
+		realm stun.Realm
+		nonce stun.Nonce
+	)
+	if err := ctx.response.Parse(&realm, &nonce); err != nil {
+		t.Fatal(err)
+	}
+	i := stun.NewLongTermIntegrity("username", realm.String(), "secret")
+	m = stun.MustBuild(stun.TransactionID, turn.AllocateRequest,
+		turn.RequestedTransportUDP, username, realm, nonce, peer, i, stun.Fingerprint,
+	)
+	ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.response.Type.Class != stun.ClassSuccessResponse {
+		var errCode stun.ErrorCodeAttribute
+		errCode.GetFrom(ctx.response)
+		t.Errorf("unexpected error %s: %s", errCode, ctx.response)
 	}
 }
