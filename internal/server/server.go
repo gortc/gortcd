@@ -238,7 +238,7 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 		s.allocs.Remove(tuple)
 	default:
 		t := ctx.time.Add(lifetime.Duration)
-		if err := s.allocs.Refresh(ctx.client, allocator.Addr(addr), t); err != nil {
+		if err := s.allocs.Refresh(tuple, allocator.Addr(addr), t); err != nil {
 			s.log.Error("failed to refresh allocation", zap.Error(err))
 			return ctx.buildErr(stun.CodeServerError)
 		}

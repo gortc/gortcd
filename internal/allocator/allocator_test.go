@@ -57,7 +57,7 @@ func TestAllocator_New(t *testing.T) {
 		t.Error(err)
 	}
 	a.Collect(now)
-	if err := a.Refresh(client, peer, now.Add(time.Second*15)); err != nil {
+	if err := a.Refresh(tuple, peer, now.Add(time.Second*15)); err != nil {
 		t.Error(err)
 	}
 	a.Collect(now.Add(time.Second * 11))

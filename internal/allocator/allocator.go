@@ -210,19 +210,20 @@ func (a *Allocator) CreatePermission(client, addr Addr, timeout time.Time) error
 }
 
 // Refresh updates existing permission timeout to t.
-func (a *Allocator) Refresh(client, addr Addr, t time.Time) error {
+func (a *Allocator) Refresh(tuple FiveTuple, peerAddr Addr, timeout time.Time) error {
+	// TODO: handle permission not found error.
 	a.allocsMux.Lock()
-	for _, a := range a.allocs {
-		if !a.Tuple.Client.Equal(client) {
+	for _, alloc := range a.allocs {
+		if !alloc.Tuple.Equal(tuple) {
 			continue
 		}
-		for i := range a.Permissions {
-			p := a.Permissions[i]
-			if !addr.Equal(p.Addr) {
+		for i := range alloc.Permissions {
+			p := alloc.Permissions[i]
+			if !peerAddr.Equal(p.Addr) {
 				continue
 			}
-			p.Timeout = t
-			a.Permissions[i] = p
+			p.Timeout = timeout
+			alloc.Permissions[i] = p
 		}
 	}
 	a.allocsMux.Unlock()
