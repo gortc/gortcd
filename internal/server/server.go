@@ -53,7 +53,6 @@ func New(o Options) (*Server, error) {
 	}
 	allocs := allocator.NewAllocator(o.Log.Named("allocator"), netAlloc)
 	s := &Server{
-		log:    o.Log,
 		auth:   o.Auth,
 		conn:   o.Conn,
 		allocs: allocs,
@@ -65,6 +64,7 @@ func New(o Options) (*Server, error) {
 	} else {
 		return nil, errors.New("unexpected local addr")
 	}
+	s.log = o.Log.With(zap.Stringer("server", s.addr))
 	if !o.ManualStart {
 		s.Start(o.CollectRate)
 	}
@@ -88,16 +88,23 @@ func (s *Server) Start(rate time.Duration) {
 
 func (s *Server) startCollect(rate time.Duration) {
 	s.wg.Add(1)
+	s.log.Info("started startCollect with rate", zap.Duration("rate", rate))
 	t := time.NewTicker(rate)
 	go func() {
+		s.log.Debug("startCollect goroutine starting")
+		defer func() {
+			s.log.Debug("startCollect goroutine returned")
+		}()
 		defer s.wg.Done()
 		for {
 			select {
 			case now := <-t.C:
+				s.log.Debug("collecting")
 				s.collect(now)
 			case <-s.close: // pass
-			default:
 				return
+			default:
+				continue
 			}
 		}
 	}()
