@@ -239,3 +239,40 @@ func TestServer_badRequest(t *testing.T) {
 		t.Error("unexpected response")
 	}
 }
+
+func TestServer_badFingerprint(t *testing.T) {
+	serverConn, _ := listenUDP(t)
+	defer serverConn.Close()
+	s, err := New(Options{
+		Log:  zap.NewNop(),
+		Conn: serverConn,
+		Auth: auth.NewStatic([]auth.StaticCredential{
+			{Username: "username", Password: "secret", Realm: "realm"},
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var (
+		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	)
+	m := stun.MustBuild(stun.BindingRequest)
+	m.Add(stun.AttrFingerprint, []byte{1, 2, 3, 4})
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.response.Type.Class != stun.ClassErrorResponse {
+		t.Error("unexpected success")
+	}
+}
