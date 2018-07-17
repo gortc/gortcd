@@ -331,17 +331,45 @@ func TestServer_processAllocationRequest(t *testing.T) {
 	if err := ctx.response.Parse(&realm, &nonce); err != nil {
 		t.Fatal(err)
 	}
-	i := stun.NewLongTermIntegrity("username", realm.String(), "secret")
-	m = stun.MustBuild(stun.TransactionID, turn.AllocateRequest,
-		turn.RequestedTransportUDP, username, realm, nonce, peer, i, stun.Fingerprint,
-	)
-	ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
-	if err := s.process(ctx); err != nil {
-		t.Fatal(err)
-	}
-	if ctx.response.Type.Class != stun.ClassSuccessResponse {
-		var errCode stun.ErrorCodeAttribute
-		errCode.GetFrom(ctx.response)
-		t.Errorf("unexpected error %s: %s", errCode, ctx.response)
-	}
+	t.Run("Success", func(t *testing.T) {
+		i := stun.NewLongTermIntegrity("username", realm.String(), "secret")
+		m = stun.MustBuild(stun.TransactionID, turn.AllocateRequest,
+			turn.RequestedTransportUDP, username, realm, nonce, peer, i, stun.Fingerprint,
+		)
+		ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.response.Type.Class != stun.ClassSuccessResponse {
+			var errCode stun.ErrorCodeAttribute
+			errCode.GetFrom(ctx.response)
+			t.Errorf("unexpected error %s: %s", errCode, ctx.response)
+		}
+	})
+	t.Run("BadIntegrity", func(t *testing.T) {
+		i := stun.NewLongTermIntegrity("username", realm.String(), "secret111")
+		m = stun.MustBuild(stun.TransactionID, turn.AllocateRequest,
+			turn.RequestedTransportUDP, username, realm, nonce, peer, i, stun.Fingerprint,
+		)
+		ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.response.Type.Class != stun.ClassErrorResponse {
+			t.Errorf("unexpected response: %s", ctx.response)
+		}
+	})
+	t.Run("UnexpectedMessageType", func(t *testing.T) {
+		i := stun.NewLongTermIntegrity("username", realm.String(), "secret")
+		m = stun.MustBuild(stun.TransactionID, stun.NewType(25, 1),
+			turn.RequestedTransportUDP, username, realm, nonce, peer, i, stun.Fingerprint,
+		)
+		ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.response.Type.Class != stun.ClassErrorResponse {
+			t.Errorf("unexpected response: %s", ctx.response)
+		}
+	})
 }
