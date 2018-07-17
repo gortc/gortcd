@@ -19,6 +19,7 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
+	addr   allocator.Addr
 	log    *zap.Logger
 	allocs *allocator.Allocator
 	conn   net.PacketConn
@@ -57,6 +58,12 @@ func New(o Options) (*Server, error) {
 		conn:   o.Conn,
 		allocs: allocs,
 		close:  make(chan struct{}),
+	}
+	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
+		s.addr.IP = a.IP
+		s.addr.Port = a.Port
+	} else {
+		return nil, errors.New("unexpected local addr")
 	}
 	if !o.ManualStart {
 		s.Start(o.CollectRate)
@@ -343,6 +350,7 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		s.log.Warn("readFrom failed", zap.Error(err))
 		return nil
 	}
+	ctx.server = s.addr
 	ctx.time = time.Now()
 	ctx.request.Raw = buf[:n]
 	s.log.Debug("read",
