@@ -13,7 +13,8 @@ import (
 	"github.com/gortc/turn"
 )
 
-type dummyNetPortAlloc struct {
+// DummyNetPortAlloc is dummy allocator for testing purposes.
+type DummyNetPortAlloc struct {
 	currentPort int32
 }
 
@@ -72,7 +73,7 @@ func (*dummyConn) SetWriteDeadline(t time.Time) error {
 	panic("implement me")
 }
 
-func (p *dummyNetPortAlloc) AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error) {
+func (p *DummyNetPortAlloc) AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error) {
 	h, _, _ := net.SplitHostPort(defaultAddr)
 	ip := net.ParseIP(h)
 	return NetAllocation{
@@ -86,7 +87,7 @@ func (p *dummyNetPortAlloc) AllocatePort(proto turn.Protocol, network, defaultAd
 }
 
 func TestNetAllocation(t *testing.T) {
-	d := &dummyNetPortAlloc{}
+	d := &DummyNetPortAlloc{}
 	t.Run("NonUDP", func(t *testing.T) {
 		_, err := NewNetAllocator(zap.NewNop(), &net.TCPAddr{
 			IP:   net.IPv4(127, 0, 0, 1),

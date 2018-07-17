@@ -11,7 +11,7 @@ import (
 )
 
 func TestAllocator_New(t *testing.T) {
-	d := &dummyNetPortAlloc{
+	d := &DummyNetPortAlloc{
 		currentPort: 5100,
 	}
 	now := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
