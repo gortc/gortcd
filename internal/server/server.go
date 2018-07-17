@@ -19,13 +19,26 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	addr   allocator.Addr
-	log    *zap.Logger
-	allocs *allocator.Allocator
-	conn   net.PacketConn
-	auth   Auth
-	close  chan struct{}
-	wg     sync.WaitGroup
+	addr     allocator.Addr
+	log      *zap.Logger
+	allocs   *allocator.Allocator
+	conn     net.PacketConn
+	auth     Auth
+	close    chan struct{}
+	wg       sync.WaitGroup
+	handlers map[stun.MessageType]handleFunc
+}
+
+type handleFunc = func(ctx *context) error
+
+func (s *Server) setHandlers() {
+	s.handlers = map[stun.MessageType]handleFunc{
+		stun.BindingRequest:          s.processBindingRequest,
+		turn.AllocateRequest:         s.processAllocateRequest,
+		turn.CreatePermissionRequest: s.processCreatePermissionRequest,
+		turn.RefreshRequest:          s.processRefreshRequest,
+		turn.SendIndication:          s.processSendIndication,
+	}
 }
 
 // Options is set of available options for Server.
@@ -58,6 +71,7 @@ func New(o Options) (*Server, error) {
 		allocs: allocs,
 		close:  make(chan struct{}),
 	}
+	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
 		s.addr.IP = a.IP
 		s.addr.Port = a.Port
@@ -330,21 +344,13 @@ func (s *Server) process(ctx *context) error {
 			return ctx.buildErr(stun.CodeWrongCredentials)
 		}
 	}
-	switch ctx.request.Type {
-	case stun.BindingRequest:
-		return s.processBindingRequest(ctx)
-	case turn.AllocateRequest:
-		return s.processAllocateRequest(ctx)
-	case turn.CreatePermissionRequest:
-		return s.processCreatePermissionRequest(ctx)
-	case turn.RefreshRequest:
-		return s.processRefreshRequest(ctx)
-	case turn.SendIndication:
-		return s.processSendIndication(ctx)
-	default:
-		s.log.Warn("unsupported request type")
-		return ctx.buildErr(stun.CodeBadRequest)
+	// Selecting handler based on request message type.
+	h, ok := s.handlers[ctx.request.Type]
+	if ok {
+		return h(ctx)
 	}
+	s.log.Warn("unsupported request type")
+	return ctx.buildErr(stun.CodeBadRequest)
 }
 
 func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
