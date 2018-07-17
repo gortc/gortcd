@@ -228,9 +228,14 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 			return errors.Wrap(err, "failed to parse")
 		}
 	}
+	tuple := allocator.FiveTuple{
+		Server: s.addr,
+		Client: ctx.client,
+		Proto:  turn.ProtoUDP, // TODO: fill from request
+	}
 	switch lifetime.Duration {
 	case 0:
-		s.allocs.Remove(ctx.client)
+		s.allocs.Remove(tuple)
 	default:
 		t := ctx.time.Add(lifetime.Duration)
 		if err := s.allocs.Refresh(ctx.client, allocator.Addr(addr), t); err != nil {

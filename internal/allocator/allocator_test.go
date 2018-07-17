@@ -79,5 +79,5 @@ func TestAllocator_New(t *testing.T) {
 	if !expectedAddr.Equal(relayedAddr) {
 		t.Errorf("unexpected relayed addr: %s", relayedAddr)
 	}
-	a.Remove(client)
+	a.Remove(tuple)
 }

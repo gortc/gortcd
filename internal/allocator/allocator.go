@@ -71,8 +71,8 @@ func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
 	})
 }
 
-// Remove de-allocates any permissions for client and removes allocation.
-func (a *Allocator) Remove(client Addr) {
+// Remove de-allocates and removes allocation.
+func (a *Allocator) Remove(t FiveTuple) {
 	var (
 		newAllocs []Allocation
 		toDealloc []Allocation
@@ -80,7 +80,7 @@ func (a *Allocator) Remove(client Addr) {
 
 	a.allocsMux.Lock()
 	for _, a := range a.allocs {
-		if !a.Tuple.Client.Equal(client) {
+		if !a.Tuple.Equal(t) {
 			newAllocs = append(newAllocs, a)
 			continue
 		}
@@ -125,7 +125,7 @@ func (a *Allocator) Collect(t time.Time) {
 	a.allocsMux.Unlock()
 
 	for _, p := range toDealloc {
-		a.Remove(p.Tuple.Client)
+		a.Remove(p.Tuple)
 	}
 }
 
