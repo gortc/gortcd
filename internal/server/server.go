@@ -27,6 +27,7 @@ type Server struct {
 	close    chan struct{}
 	wg       sync.WaitGroup
 	handlers map[stun.MessageType]handleFunc
+	cfg      *config
 }
 
 type handleFunc = func(ctx *context) error
@@ -70,6 +71,7 @@ func New(o Options) (*Server, error) {
 		conn:   o.Conn,
 		allocs: allocs,
 		close:  make(chan struct{}),
+		cfg:    newConfig(o),
 	}
 	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
@@ -200,7 +202,7 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 			Server: ctx.server,
 			Client: ctx.client,
 			Proto:  transport.Protocol,
-		}, ctx.time.Add(time.Minute*5), s,
+		}, ctx.time.Add(s.cfg.DefaultLifetime()), s,
 	)
 	switch err {
 	case nil:
@@ -256,12 +258,12 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	}
 	switch err := lifetime.GetFrom(ctx.request); err {
 	case nil:
-		if lifetime.Duration > time.Hour {
-			// Requested lifetime is too big.
-			return ctx.buildErr(stun.CodeBadRequest)
+		max := s.cfg.MaxLifetime()
+		if lifetime.Duration > max {
+			lifetime.Duration = max
 		}
 	case stun.ErrAttributeNotFound:
-		lifetime.Duration = time.Minute // default
+		lifetime.Duration = s.cfg.DefaultLifetime()
 	default:
 		return errors.Wrap(err, "failed to get lifetime")
 	}
@@ -269,7 +271,7 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	if err := s.allocs.CreatePermission(ctx.client, allocator.Addr(addr), ctx.time.Add(lifetime.Duration)); err != nil {
 		return errors.Wrap(err, "failed to create allocation")
 	}
-	return ctx.buildOk()
+	return ctx.buildOk(&lifetime)
 }
 
 func (s *Server) processSendIndication(ctx *context) error {
