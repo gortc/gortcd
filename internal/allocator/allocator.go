@@ -213,6 +213,7 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 		}
 		alloc.Permissions = append(alloc.Permissions, permission)
 		a.allocs[i] = alloc
+		break
 	}
 	a.allocsMux.Unlock()
 
@@ -239,7 +240,9 @@ func (a *Allocator) Refresh(tuple FiveTuple, peerAddr Addr, timeout time.Time) e
 			}
 			p.Timeout = timeout
 			alloc.Permissions[i] = p
+			break
 		}
+		break
 	}
 	a.allocsMux.Unlock()
 	return nil
