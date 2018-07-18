@@ -405,8 +405,9 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	_, err = c.WriteTo(ctx.response.Raw, addr)
 	if err != nil && !isErrConnClosed(err) {
 		s.log.Warn("writeTo failed", zap.Error(err))
+		return err
 	}
-	return err
+	return nil
 }
 
 func isErrConnClosed(err error) bool {
@@ -425,7 +426,7 @@ func (s *Server) worker() {
 		}
 	)
 	for {
-		if err := s.serveConn(s.conn, ctx); err != nil && !isErrConnClosed(err) {
+		if err := s.serveConn(s.conn, ctx); err != nil {
 			s.log.Error("serveConn failed", zap.Error(err))
 		}
 		ctx.reset()
