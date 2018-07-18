@@ -382,7 +382,6 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 			zap.Stringer("addr", addr),
 		)
 	}
-
 	switch a := addr.(type) {
 	case *net.UDPAddr:
 		ctx.client.FromUDPAddr(a)
@@ -391,10 +390,9 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		return errors.Errorf("unknown addr %s", addr)
 	}
 	if err = s.process(ctx); err != nil {
-		if err == errNotSTUNMessage {
-			return nil
+		if err != errNotSTUNMessage {
+			s.log.Error("process failed", zap.Error(err))
 		}
-		s.log.Error("process failed", zap.Error(err))
 		return nil
 	}
 	if len(ctx.response.Raw) == 0 {
