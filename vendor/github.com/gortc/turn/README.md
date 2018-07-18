@@ -1,7 +1,7 @@
 [![Build Status](https://travis-ci.org/gortc/turn.svg)](https://travis-ci.org/gortc/turn)
 [![Build status](https://ci.appveyor.com/api/projects/status/bodd3l5hgu1agxpf/branch/master?svg=true)](https://ci.appveyor.com/project/ernado/turn-gvuk2/branch/master)
 [![GoDoc](https://godoc.org/github.com/gortc/turn?status.svg)](http://godoc.org/github.com/gortc/turn)
-[![Coverage Status](https://coveralls.io/repos/github/gortc/turn/badge.svg?branch=master)](https://coveralls.io/github/gortc/turn?branch=master)
+[![Coverage Status](https://coveralls.io/repos/github/gortc/turn/badge.svg?branch=master&cache=1)](https://coveralls.io/github/gortc/turn?branch=master)
 [![Go Report](https://goreportcard.com/badge/github.com/gortc/turn)](http://goreportcard.com/report/gortc/turn)
 
 

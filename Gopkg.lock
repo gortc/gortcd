@@ -18,23 +18,23 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:657015491af0baf5e6643397f35d981a39b10dc4cbe44167e6ff6b85255ce37e"
+  digest = "1:0f2c4a18ba5832d7305929a302444563beda00b305b6409db069e87e0d847155"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "77977999e682954f4a65b0da67804dba5319d71a"
-  version = "v1.8.2"
+  revision = "ca7892b4fd374cfea321866c813f444e0d4cf9bd"
+  version = "v1.9.0"
 
 [[projects]]
-  digest = "1:408676f0829c7a741de41104598d2b5689e389e4d603d6496fb8b5b245182b28"
+  digest = "1:2180ae3927ef34f3f876a976b8398985abb1ee14f263c04d3057ce760cc65a90"
   name = "github.com/gortc/turn"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3e9d5ccdc8f708644176ae8727d995de49564843"
-  version = "v0.1.3"
+  revision = "c2f9b0cb0fb157f09bc868a194c96a995ab177e5"
+  version = "v0.1.5"
 
 [[projects]]
   branch = "master"
@@ -64,7 +64,7 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:0983c96faead246a8fb9a9141dc948492a892028a77296e8a3deabaa0c2d9157"
+  digest = "1:67b6517e77b512d530c59f817dc2c8e46131805ce6168eeef2793ab515422aeb"
   name = "github.com/klauspost/compress"
   packages = [
     "flate",
@@ -72,8 +72,8 @@
     "zlib",
   ]
   pruneopts = "UT"
-  revision = "5fb1f31b0a61e9858f12f39266e059848a5f1cea"
-  version = "v1.3.0"
+  revision = "b939724e787a27c0005cabe3f78e7ed7987ac74f"
+  version = "v1.4.0"
 
 [[projects]]
   digest = "1:4ea0668d490ca32a38366453a486e2e8c60fbdaf1f2607c96b4a093d8a5c8de7"
@@ -93,11 +93,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:e730597b38a4d56e2361e0b6236cb800e52c73cace2ff91396f4ff35792ddfa7"
+  digest = "1:5ab79470a1d0fb19b041a624415612f8236b3c06070161a910562f2b2d064355"
   name = "github.com/mitchellh/mapstructure"
   packages = ["."]
   pruneopts = "UT"
-  revision = "bb74f1db0675b241733089d5a1faa5dd8b0ef57b"
+  revision = "f15292f7a699fcc1a38a80977f80a046874ba8ac"
 
 [[projects]]
   digest = "1:95741de3af260a92cc5c7f3f3061e85273f5a81b5db20d4bd68da74bd521675e"
@@ -219,11 +219,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:38838aa959fb66911fa66b3409d70a8dc17b45326259f3c792496d5ee2fdbef8"
+  digest = "1:d773e525476aefa22ea944a5425a9bfb99819b2e67eeb9b1966454fd57522bbf"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "63fc586f45fe72d95d5240a5d5eb95e6503907d3"
+  revision = "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
 
 [[projects]]
   digest = "1:038003d098ffc345c4c5c6d47bcc6920b2649ee0c0d557162e54e75c76cadf8b"

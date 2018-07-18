@@ -2,10 +2,10 @@
 
 
 [[projects]]
-  branch = "master"
   name = "github.com/gortc/stun"
   packages = ["."]
-  revision = "2f15c6031893bf041bbbeb945478f92471f961d1"
+  revision = "b1195c12de69b19b434ea045d340bea5580913d3"
+  version = "v1.7.1"
 
 [[projects]]
   name = "go.uber.org/atomic"
@@ -21,13 +21,20 @@
 
 [[projects]]
   name = "go.uber.org/zap"
-  packages = [".","buffer","internal/bufferpool","internal/color","internal/exit","zapcore"]
+  packages = [
+    ".",
+    "buffer",
+    "internal/bufferpool",
+    "internal/color",
+    "internal/exit",
+    "zapcore"
+  ]
   revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
   version = "v1.8.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "2b87447056afaff0eb11c94725ccf398ff232bb7fbe47a65cdfc4214ddae7f61"
+  inputs-digest = "177a71fdd1feb4d2dd50cf8729aede21f225eb1501c44aa8de7834c4814c0d9c"
   solver-name = "gps-cdcl"
   solver-version = 1
