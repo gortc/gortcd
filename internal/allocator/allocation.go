@@ -18,7 +18,7 @@ type Addr struct {
 }
 
 // FromUDPAddr sets addr to UDPAddr.
-func (a Addr) FromUDPAddr(n *net.UDPAddr) {
+func (a *Addr) FromUDPAddr(n *net.UDPAddr) {
 	a.IP = n.IP
 	a.Port = n.Port
 }
