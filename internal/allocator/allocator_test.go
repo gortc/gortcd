@@ -53,7 +53,7 @@ func TestAllocator_New(t *testing.T) {
 	if !expectedAddr.Equal(relayedAddr) {
 		t.Errorf("unexpected relayed addr: %s", relayedAddr)
 	}
-	if err := a.CreatePermission(client, peer, now.Add(time.Second*10)); err != nil {
+	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != nil {
 		t.Error(err)
 	}
 	a.Collect(now)

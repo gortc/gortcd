@@ -142,7 +142,8 @@ var ErrAllocationMismatch = errors.New("5-tuple is currently in use")
 // New creates new allocation for provided client and proto. Any data received
 // by allocated socket is passed to callback.
 func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler) (Addr, error) {
-	a.log.Info("processing allocate request")
+	l := a.log.Named("allocation").With(zap.Stringer("tuple", tuple))
+	l.Debug("allocate", zap.Time("timeout", timeout))
 
 	a.allocsMux.Lock()
 	// Searching for existing allocation.
@@ -154,7 +155,7 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 	}
 	// Not found, creating new allocation.
 	allocation := Allocation{
-		Log:      a.log,
+		Log:      l,
 		Tuple:    tuple,
 		Callback: callback,
 		Timeout:  timeout,
@@ -162,12 +163,17 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 	a.allocs = append(a.allocs, allocation)
 	a.allocsMux.Unlock()
 
-	// Allocating new relayed address.
-	addr, conn, err := a.raddr.New(tuple.Proto)
+	raddr, conn, err := a.raddr.New(tuple.Proto)
 	if err != nil {
-		return addr, errors.Wrap(err, "failed to allocate")
+		a.log.Error("failed to allocate",
+			zap.Stringer("tuple", tuple),
+			zap.Error(err),
+		)
+		return Addr{}, errors.Wrap(err, "failed to allocate")
 	}
-	a.log.Info("allocated", zap.Stringer("addr", addr))
+	l = l.With(zap.Stringer("raddr", raddr))
+	l.Info("allocated")
+	buf := make([]byte, 2048)
 
 	a.allocsMux.Lock()
 	for i := range a.allocs {
@@ -176,36 +182,45 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 		}
 		// Setting relayed connection for allocation.
 		allocation.Conn = conn
-		allocation.RelayedAddr = addr
+		allocation.RelayedAddr = raddr
+		allocation.Buf = buf
+		allocation.Log = l
 		a.allocs[i] = allocation
 	}
 	a.allocsMux.Unlock()
 
 	go allocation.ReadUntilClosed()
-	return addr, nil
+	return raddr, nil
 }
 
 // CreatePermission creates new permission for existing client allocation.
-func (a *Allocator) CreatePermission(client, addr Addr, timeout time.Time) error {
+func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Time) error {
 	permission := Permission{
 		Timeout: timeout,
-		Addr:    addr,
+		Addr:    peer,
 	}
+	switch tuple.Proto {
+	case turn.ProtoUDP:
+		// pass
+	default:
+		return errors.Errorf("proto %s not implemented", tuple.Proto)
+	}
+
 	a.allocsMux.Lock()
-	defer a.allocsMux.Unlock()
 	for i, alloc := range a.allocs {
-		if !alloc.Tuple.Client.Equal(client) {
+		if !alloc.Tuple.Equal(tuple) {
 			continue
-		}
-		switch alloc.Tuple.Proto {
-		case turn.ProtoUDP:
-			a.log.Info("created udp permission", zap.Stringer("t", alloc.Tuple))
-		default:
-			return errors.Errorf("proto %s not implemented", alloc.Tuple.Proto)
 		}
 		alloc.Permissions = append(alloc.Permissions, permission)
 		a.allocs[i] = alloc
 	}
+	a.allocsMux.Unlock()
+
+	a.log.Debug("created udp permission",
+		zap.Stringer("tuple", tuple),
+		zap.Stringer("peer", peer),
+		zap.Time("timeout", timeout),
+	)
 	return nil
 }
 

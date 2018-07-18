@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/gortc/turn"
 )
@@ -92,26 +93,38 @@ type Allocation struct {
 	Conn        net.PacketConn // on RelayedAddr
 	Callback    PeerHandler    // for data from Conn
 	Timeout     time.Time      // time-to-expiry
+	Buf         []byte         // read buffer
 	Log         *zap.Logger
 }
 
 // ReadUntilClosed starts network loop that passes all received data to
 // PeerHandler. Stops on connection close or any error.
 func (a *Allocation) ReadUntilClosed() {
-	a.Log.Debug("ReadUntilClosed")
-	buf := make([]byte, 1024)
+	a.Log.Debug("start")
+	defer func() {
+		a.Log.Debug("stop")
+	}()
 	for {
 		if err := a.Conn.SetReadDeadline(time.Now().Add(time.Minute)); err != nil {
 			a.Log.Warn("SetReadDeadline failed", zap.Error(err))
 			break
 		}
-		n, addr, err := a.Conn.ReadFrom(buf)
+		n, addr, err := a.Conn.ReadFrom(a.Buf)
 		if err != nil && err != io.EOF {
-			a.Log.Error("read", zap.Error(err))
+			netErr, ok := err.(net.Error)
+			if ok && (netErr.Temporary() || netErr.Timeout()) {
+				continue
+			}
+			a.Log.Error("read",
+				zap.Error(err),
+			)
 			break
 		}
+		if ce := a.Log.Check(zapcore.DebugLevel, "read"); ce != nil {
+			ce.Write(zap.Int("n", n))
+		}
 		udpAddr := addr.(*net.UDPAddr)
-		a.Callback.HandlePeerData(buf[:n], a.Tuple, Addr{
+		a.Callback.HandlePeerData(a.Buf[:n], a.Tuple, Addr{
 			IP:   udpAddr.IP,
 			Port: udpAddr.Port,
 		})

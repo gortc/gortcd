@@ -259,7 +259,7 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 		lifetime turn.Lifetime
 	)
 	if err := addr.GetFrom(ctx.request); err != nil {
-		return errors.Wrap(err, "failed to ger create permission request addr")
+		return errors.Wrap(err, "failed to get create permission request addr")
 	}
 	switch err := lifetime.GetFrom(ctx.request); err {
 	case nil:
@@ -273,7 +273,16 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 		return errors.Wrap(err, "failed to get lifetime")
 	}
 	s.log.Info("processing create permission request")
-	if err := s.allocs.CreatePermission(ctx.client, allocator.Addr(addr), ctx.time.Add(lifetime.Duration)); err != nil {
+	var (
+		peer    = allocator.Addr(addr)
+		timeout = ctx.time.Add(lifetime.Duration)
+		tuple   = allocator.FiveTuple{
+			Proto:  turn.ProtoUDP,
+			Server: ctx.server,
+			Client: ctx.client,
+		}
+	)
+	if err := s.allocs.CreatePermission(tuple, peer, timeout); err != nil {
 		return errors.Wrap(err, "failed to create allocation")
 	}
 	return ctx.buildOk(&lifetime)
