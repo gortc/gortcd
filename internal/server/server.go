@@ -376,10 +376,13 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	ctx.server = s.addr
 	ctx.time = time.Now()
 	ctx.request.Raw = ctx.buf[:n]
-	s.log.Debug("read",
-		zap.Int("n", n),
-		zap.Stringer("addr", addr),
-	)
+	if ce := s.log.Check(zapcore.DebugLevel, "read"); ce != nil {
+		ce.Write(
+			zap.Int("n", n),
+			zap.Stringer("addr", addr),
+		)
+	}
+
 	switch a := addr.(type) {
 	case *net.UDPAddr:
 		ctx.client.FromUDPAddr(a)
