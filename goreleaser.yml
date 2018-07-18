@@ -19,6 +19,9 @@ build:
 sign:
   artifacts: checksum
 
+checksum:
+  name_template: "{{.ProjectName}}-{{.Version }}-checksums.txt"
+
 dockers:
   - image: gortc/gortcd
     dockerfile: release.Dockerfile

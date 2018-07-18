@@ -21,9 +21,9 @@ docker run -d -p 3478:3478/udp gortc/gortcd
 # Verify
 ```bash
 $ gpg --keyserver keyserver.ubuntu.com --recv 2E311045
-$ gpg --decrypt gortcd_*_checksums.txt.sig
+$ gpg --decrypt gortcd-*-checksums.txt.sig
 
 # to check gortcd-*-linux-amd64.deb:
-$ grep -F "$(sha256sum gortcd-*-linux-amd64.deb)" gortcd_*_checksums.txt
+$ grep -F "$(sha256sum gortcd-*-linux-amd64.deb)" gortcd-*-checksums.txt
 4316f8f7b66bdba636a991198701914e12d11935748547fca1d97386808ce323  gortcd-0.4.0-linux-amd64.deb
 ```
