@@ -216,7 +216,7 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 	}
 	a.allocsMux.Unlock()
 
-	a.log.Debug("created udp permission",
+	a.log.Debug("created permission",
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("peer", peer),
 		zap.Time("timeout", timeout),
