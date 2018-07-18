@@ -9,6 +9,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"strings"
+
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
@@ -49,12 +51,16 @@ type Options struct {
 	Conn        net.PacketConn
 	CollectRate time.Duration
 	ManualStart bool // don't start bg activity
+	Workers     int
 }
 
 // New initializes and returns new server from options.
 func New(o Options) (*Server, error) {
 	if o.Log == nil {
 		o.Log = zap.NewNop()
+	}
+	if o.Workers == 0 {
+		o.Workers = 100
 	}
 	if o.CollectRate == 0 {
 		o.CollectRate = time.Second
@@ -131,6 +137,7 @@ func (s *Server) Close() error {
 	// TODO(ar): Free resources.
 	close(s.close)
 	s.log.Info("closing")
+	s.conn.Close()
 	s.wg.Wait()
 	return nil
 }
@@ -363,7 +370,9 @@ func (s *Server) process(ctx *context) error {
 func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	n, addr, err := c.ReadFrom(ctx.buf)
 	if err != nil {
-		s.log.Warn("readFrom failed", zap.Error(err))
+		if !isErrConnClosed(err) {
+			s.log.Warn("readFrom failed", zap.Error(err))
+		}
 		return nil
 	}
 	ctx.server = s.addr
@@ -393,14 +402,20 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	}
 	c.SetWriteDeadline(ctx.time.Add(time.Second))
 	_, err = c.WriteTo(ctx.response.Raw, addr)
-	if err != nil {
+	if err != nil && !isErrConnClosed(err) {
 		s.log.Warn("writeTo failed", zap.Error(err))
 	}
 	return err
 }
 
-// Serve reads packets from connections and responds to BINDING requests.
-func (s *Server) Serve() error {
+func isErrConnClosed(err error) bool {
+	return strings.HasSuffix(err.Error(), "use of closed network connection")
+}
+
+func (s *Server) worker() {
+	defer s.wg.Done()
+	s.log.Info("worker started")
+	defer s.log.Info("worker done")
 	var (
 		ctx = &context{
 			response: new(stun.Message),
@@ -409,9 +424,25 @@ func (s *Server) Serve() error {
 		}
 	)
 	for {
-		if err := s.serveConn(s.conn, ctx); err != nil {
+		if err := s.serveConn(s.conn, ctx); err != nil && !isErrConnClosed(err) {
 			s.log.Error("serveConn failed", zap.Error(err))
 		}
 		ctx.reset()
+		select {
+		case <-s.close:
+			return
+		default:
+			// pass
+		}
 	}
+}
+
+// Serve reads packets from connections and responds to BINDING requests.
+func (s *Server) Serve() error {
+	for i := 0; i < s.cfg.Workers(); i++ {
+		s.wg.Add(1)
+		go s.worker()
+	}
+	s.wg.Wait()
+	return nil
 }

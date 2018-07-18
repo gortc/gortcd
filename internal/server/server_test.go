@@ -77,22 +77,39 @@ func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
 	return conn, udpAddr
 }
 
-func TestServer_processBindingRequest(t *testing.T) {
-	serverConn, _ := listenUDP(t)
-	defer serverConn.Close()
-	s, err := New(Options{
-		Log:  zap.NewNop(),
-		Conn: serverConn,
-		Auth: auth.NewStatic([]auth.StaticCredential{
+func newServer(t testing.TB, opts ...Options) (*Server, func()) {
+	o := Options{}
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+	if o.Conn == nil {
+		serverConn, _ := listenUDP(t)
+		o.Conn = serverConn
+	}
+	if o.Workers == 0 {
+		o.Workers = 1
+	}
+	if o.Auth == nil {
+		o.Auth = auth.NewStatic([]auth.StaticCredential{
 			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
-	})
+		})
+	}
+
+	s, err := New(o)
 	if err != nil {
 		t.Fatal(err)
 	}
-	var (
-		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
-	)
+	return s, func() {
+		if err := s.Close(); err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func TestServer_processBindingRequest(t *testing.T) {
+	s, stop := newServer(t)
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
 	ctx := &context{
 		request:  new(stun.Message),
@@ -123,18 +140,8 @@ func TestServer_processBindingRequest(t *testing.T) {
 
 func BenchmarkServer_processBindingRequest(b *testing.B) {
 	b.ReportAllocs()
-	serverConn, _ := listenUDP(b)
-	defer serverConn.Close()
-	s, err := New(Options{
-		Log:  zap.NewNop(),
-		Conn: serverConn,
-		Auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
-	})
-	if err != nil {
-		b.Fatal(err)
-	}
+	s, stop := newServer(b)
+	defer stop()
 	var (
 		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	)
@@ -159,21 +166,9 @@ func BenchmarkServer_processBindingRequest(b *testing.B) {
 }
 
 func TestServer_notStun(t *testing.T) {
-	serverConn, _ := listenUDP(t)
-	defer serverConn.Close()
-	s, err := New(Options{
-		Log:  zap.NewNop(),
-		Conn: serverConn,
-		Auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var (
-		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
-	)
+	s, stop := newServer(t)
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	buf := make([]byte, 512)
 	for i := range buf {
 		buf[i] = byte(i % 127)
@@ -205,21 +200,9 @@ func TestServer_notStun(t *testing.T) {
 }
 
 func TestServer_badRequest(t *testing.T) {
-	serverConn, _ := listenUDP(t)
-	defer serverConn.Close()
-	s, err := New(Options{
-		Log:  zap.NewNop(),
-		Conn: serverConn,
-		Auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var (
-		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
-	)
+	s, stop := newServer(t)
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
 	m.Raw = m.Raw[:len(m.Raw)-4]
 	ctx := &context{
@@ -242,21 +225,9 @@ func TestServer_badRequest(t *testing.T) {
 }
 
 func TestServer_badFingerprint(t *testing.T) {
-	serverConn, _ := listenUDP(t)
-	defer serverConn.Close()
-	s, err := New(Options{
-		Log:  zap.NewNop(),
-		Conn: serverConn,
-		Auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	var (
-		addr = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
-	)
+	s, stop := newServer(t)
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	m := stun.MustBuild(stun.BindingRequest)
 	m.Add(stun.AttrFingerprint, []byte{1, 2, 3, 4})
 	ctx := &context{
@@ -279,23 +250,8 @@ func TestServer_badFingerprint(t *testing.T) {
 }
 
 func TestServer_processAllocationRequest(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		t.Fatal(err)
-	}
-	serverConn, _ := listenUDP(t)
-	defer serverConn.Close()
-	s, err := New(Options{
-		Log:  logger,
-		Conn: serverConn,
-		Auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
-		}),
-	})
-	defer s.Close()
-	if err != nil {
-		t.Fatal(err)
-	}
+	s, stop := newServer(t)
+	defer stop()
 	var (
 		username = stun.NewUsername("username")
 		addr     = &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
