@@ -11,6 +11,8 @@ Goal is feature parity with coturn and more.
 Currently in active development, use only for experiments.
 
 # Install
+See [releases](https://github.com/gortc/gortcd/releases/latest) for latest
+binaries and packages.
 ## Docker
 ```
 docker run -d -p 3478:3478/udp gortc/gortcd
