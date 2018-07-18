@@ -143,7 +143,7 @@ var ErrAllocationMismatch = errors.New("5-tuple is currently in use")
 // by allocated socket is passed to callback.
 func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler) (Addr, error) {
 	l := a.log.Named("allocation").With(zap.Stringer("tuple", tuple))
-	l.Debug("allocate", zap.Time("timeout", timeout))
+	l.Debug("new", zap.Time("timeout", timeout))
 
 	a.allocsMux.Lock()
 	// Searching for existing allocation.
@@ -165,14 +165,14 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 
 	raddr, conn, err := a.raddr.New(tuple.Proto)
 	if err != nil {
-		a.log.Error("failed to allocate",
+		a.log.Error("failed",
 			zap.Stringer("tuple", tuple),
 			zap.Error(err),
 		)
 		return Addr{}, errors.Wrap(err, "failed to allocate")
 	}
 	l = l.With(zap.Stringer("raddr", raddr))
-	l.Info("allocated")
+	l.Info("ok")
 	buf := make([]byte, 2048)
 
 	a.allocsMux.Lock()
