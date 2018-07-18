@@ -186,6 +186,7 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 		allocation.Buf = buf
 		allocation.Log = l
 		a.allocs[i] = allocation
+		break
 	}
 	a.allocsMux.Unlock()
 
