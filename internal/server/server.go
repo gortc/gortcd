@@ -123,10 +123,8 @@ func (s *Server) startCollect(rate time.Duration) {
 			case now := <-t.C:
 				s.log.Debug("collecting")
 				s.collect(now)
-			case <-s.close: // pass
+			case <-s.close:
 				return
-			default:
-				continue
 			}
 		}
 	}()
