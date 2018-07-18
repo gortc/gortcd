@@ -17,6 +17,12 @@ type Addr struct {
 	Port int
 }
 
+// FromUDPAddr sets addr to UDPAddr.
+func (a Addr) FromUDPAddr(n *net.UDPAddr) {
+	a.IP = n.IP
+	a.Port = n.Port
+}
+
 // Equal returns true if b == a.
 func (a Addr) Equal(b Addr) bool {
 	if a.Port != b.Port {

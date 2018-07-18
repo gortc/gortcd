@@ -17,6 +17,7 @@ type context struct {
 	realm     stun.Realm
 	integrity stun.MessageIntegrity
 	software  stun.Software
+	buf       []byte // buf request
 }
 
 func (c *context) reset() {
@@ -29,6 +30,9 @@ func (c *context) reset() {
 	c.realm = c.realm[:0]
 	c.integrity = nil
 	c.software = c.software[:0]
+	for i := range c.buf {
+		c.buf[i] = 0
+	}
 }
 
 func (c *context) apply(s ...stun.Setter) error {

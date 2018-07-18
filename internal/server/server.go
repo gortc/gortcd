@@ -359,26 +359,21 @@ func (s *Server) process(ctx *context) error {
 }
 
 func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
-	if c == nil {
-		return nil
-	}
-	buf := make([]byte, 1024)
-	n, addr, err := c.ReadFrom(buf)
+	n, addr, err := c.ReadFrom(ctx.buf)
 	if err != nil {
 		s.log.Warn("readFrom failed", zap.Error(err))
 		return nil
 	}
 	ctx.server = s.addr
 	ctx.time = time.Now()
-	ctx.request.Raw = buf[:n]
+	ctx.request.Raw = ctx.buf[:n]
 	s.log.Debug("read",
 		zap.Int("n", n),
 		zap.Stringer("addr", addr),
 	)
 	switch a := addr.(type) {
 	case *net.UDPAddr:
-		ctx.client.IP = a.IP
-		ctx.client.Port = a.Port
+		ctx.client.FromUDPAddr(a)
 	default:
 		s.log.Error("unknown addr", zap.Stringer("addr", addr))
 		return errors.Errorf("unknown addr %s", addr)
@@ -408,6 +403,7 @@ func (s *Server) Serve() error {
 		ctx = &context{
 			response: new(stun.Message),
 			request:  new(stun.Message),
+			buf:      make([]byte, 2048),
 		}
 	)
 	for {
