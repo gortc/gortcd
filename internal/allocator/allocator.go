@@ -180,7 +180,6 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
-		// Setting relayed connection for allocation.
 		allocation.Conn = conn
 		allocation.RelayedAddr = raddr
 		allocation.Buf = buf
