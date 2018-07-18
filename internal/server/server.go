@@ -2,14 +2,13 @@ package server
 
 import (
 	"net"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-
-	"strings"
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
