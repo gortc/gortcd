@@ -2,13 +2,14 @@
 [![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 
 # gortcd
-WIP TURN and STUN server in go
+The gortcd is work-in-progress TURN and STUN server implementation in go that is
+based on [stun](https://github.com/gortc/stun) package and is part
+of [gortc](https://gortc.io) project that shares
+it's [goals](https://github.com/gortc/dev#goals) and
+[principles](https://github.com/gortc/dev#principles).
+The goal is future parity with [coturn](https://github.com/coturn/coturn).
+Please use only for experiments until [beta](https://github.com/gortc/gortcd/milestone/2).
 
-# Description
-Work in progress STUN and TURN server implementation.
-Goal is feature parity with coturn and more.
-
-Currently in active development, use only for experiments.
 
 # Install
 See [releases](https://github.com/gortc/gortcd/releases/latest) for latest
