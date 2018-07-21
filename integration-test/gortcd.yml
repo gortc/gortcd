@@ -1,0 +1,19 @@
+---
+version: "1.1"
+
+server:
+  check_fingerprint: true
+  listen:
+    - 0.0.0.0:3478
+  realm: realm
+
+auth:
+  public: false
+
+  nonce:
+    static: false
+    timeout: 600s
+
+  static:
+    - username: username
+      password: secret

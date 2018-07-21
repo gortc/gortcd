@@ -319,7 +319,6 @@ func (s *Server) needAuth(ctx *context) bool {
 }
 
 var (
-	realm        = stun.NewRealm("realm")
 	defaultNonce = stun.NewNonce("nonce")
 )
 
@@ -337,7 +336,7 @@ func (s *Server) process(ctx *context) error {
 		return nil
 	}
 	ctx.software = software
-	ctx.realm = realm
+	ctx.realm = s.realm
 	ctx.nonce = defaultNonce
 	if ce := s.log.Check(zapcore.InfoLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))

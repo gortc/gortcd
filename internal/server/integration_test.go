@@ -20,8 +20,9 @@ func TestServerIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	s, err := New(Options{
-		Log:  logger.Named("server"),
-		Conn: serverConn,
+		Log:   logger.Named("server"),
+		Conn:  serverConn,
+		Realm: "realm",
 		Auth: auth.NewStatic([]auth.StaticCredential{
 			{Username: "username", Password: "secret", Realm: "realm"},
 		}),

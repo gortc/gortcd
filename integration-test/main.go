@@ -167,6 +167,9 @@ func main() {
 	if err := res.Parse(&nonce, &realm); err != nil {
 		logger.Fatal("failed to get nonce and realm")
 	}
+	logger.Info("integrity",
+		zap.Stringer("nonce", nonce), zap.Stringer("realm", realm), zap.String("password", password),
+	)
 	integrity := stun.NewLongTermIntegrity(username.String(), realm.String(), password)
 	// Constructing allocate request with integrity
 	if err := do(logger, req, res, c,

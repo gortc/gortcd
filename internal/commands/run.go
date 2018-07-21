@@ -49,7 +49,7 @@ func normalize(address string) string {
 
 type staticCredElem struct {
 	Username string `mapstructure:"username"`
-	Password string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
 	Key      string `mapstructure:"key"`
 	Realm    string `mapstructure:"realm"`
 }
