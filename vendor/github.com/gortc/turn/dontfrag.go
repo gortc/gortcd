@@ -3,7 +3,7 @@ package turn
 import "github.com/gortc/stun"
 
 // DontFragmentAttr represents DONT-FRAGMENT attribute.
-type DontFragmentAttr bool
+type DontFragmentAttr struct{}
 
 // AddTo adds DONT-FRAGMENT attribute to message.
 func (DontFragmentAttr) AddTo(m *stun.Message) error {
@@ -18,4 +18,4 @@ func (DontFragmentAttr) IsSet(m *stun.Message) bool {
 }
 
 // DontFragment is shorthand for DontFragmentAttr.
-var DontFragment DontFragmentAttr = true
+var DontFragment DontFragmentAttr

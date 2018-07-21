@@ -18,16 +18,16 @@ fuzz-test:
 lint:
 	@echo "linting on $(PROCS) cores"
 	@gometalinter \
+		--enable-all \
 		-e "_test.go.+(gocyclo|errcheck|dupl)" \
 		-e "attributes\.go.+credentials,.+,LOW.+\(gas\)" \
-                -e "Message.+\(aligncheck\)" \
 		--enable="lll" --line-length=100 \
 		--enable="gofmt" \
-		--disable="gotype" \
 		--enable="goimports" \
 		--enable="misspell" \
 		--enable="unused" \
 		--deadline=300s \
+		--disable="gochecknoglobals" \
 		-j $(PROCS)
 	@echo "ok"
 escape:

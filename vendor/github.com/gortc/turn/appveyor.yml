@@ -16,7 +16,6 @@ environment:
 
 install:
   - go version
-  - go get -v -t .
 
 build_script:
   - go test -v .

@@ -2,24 +2,34 @@
 
 
 [[projects]]
+  digest = "1:0f2c4a18ba5832d7305929a302444563beda00b305b6409db069e87e0d847155"
   name = "github.com/gortc/stun"
-  packages = ["."]
-  revision = "b1195c12de69b19b434ea045d340bea5580913d3"
-  version = "v1.7.1"
+  packages = [
+    ".",
+    "internal/hmac",
+  ]
+  pruneopts = "UT"
+  revision = "ca7892b4fd374cfea321866c813f444e0d4cf9bd"
+  version = "v1.9.0"
 
 [[projects]]
+  digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
   name = "go.uber.org/atomic"
   packages = ["."]
+  pruneopts = "UT"
   revision = "1ea20fb1cbb1cc08cbd0d913a96dead89aa18289"
   version = "v1.3.2"
 
 [[projects]]
+  digest = "1:60bf2a5e347af463c42ed31a493d817f8a72f102543060ed992754e689805d1a"
   name = "go.uber.org/multierr"
   packages = ["."]
+  pruneopts = "UT"
   revision = "3c4937480c32f4c13a875a1829af76c98ca3d40a"
   version = "v1.1.0"
 
 [[projects]]
+  digest = "1:460b7b5d45569fa85bc34c0a9aa1498577afee6f24dac2d66a0d53d3737d29ab"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -27,14 +37,19 @@
     "internal/bufferpool",
     "internal/color",
     "internal/exit",
-    "zapcore"
+    "zapcore",
   ]
-  revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
-  version = "v1.8.0"
+  pruneopts = "UT"
+  revision = "4d45f9617f7d90f7a663ff21c7a4321dbe78098b"
+  version = "v1.9.0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "177a71fdd1feb4d2dd50cf8729aede21f225eb1501c44aa8de7834c4814c0d9c"
+  input-imports = [
+    "github.com/gortc/stun",
+    "go.uber.org/zap",
+    "go.uber.org/zap/zapcore",
+  ]
   solver-name = "gps-cdcl"
   solver-version = 1

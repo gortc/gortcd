@@ -29,12 +29,12 @@
   version = "v1.9.0"
 
 [[projects]]
-  digest = "1:2180ae3927ef34f3f876a976b8398985abb1ee14f263c04d3057ce760cc65a90"
+  digest = "1:2556a71a6421fc7474a043b17c6ef062fadaa2532f04991c178273f0c939ab38"
   name = "github.com/gortc/turn"
   packages = ["."]
   pruneopts = "UT"
-  revision = "c2f9b0cb0fb157f09bc868a194c96a995ab177e5"
-  version = "v0.1.5"
+  revision = "c3329dbb141921c143218269620f1b1877e2b089"
+  version = "v0.2.2"
 
 [[projects]]
   branch = "master"
@@ -203,7 +203,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:e6d865f90ef1178c14bdb49ea9f244bfcb28c06ea9773dc077492032632de0b8"
+  digest = "1:460b7b5d45569fa85bc34c0a9aa1498577afee6f24dac2d66a0d53d3737d29ab"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -214,8 +214,8 @@
     "zapcore",
   ]
   pruneopts = "UT"
-  revision = "eeedf312bc6c57391d84767a4cd413f02a917974"
-  version = "v1.8.0"
+  revision = "4d45f9617f7d90f7a663ff21c7a4321dbe78098b"
+  version = "v1.9.0"
 
 [[projects]]
   branch = "master"

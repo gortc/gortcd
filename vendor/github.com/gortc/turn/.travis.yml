@@ -13,12 +13,11 @@ before_install:
   - go get github.com/mattn/goveralls
   - go get golang.org/x/tools/cmd/cover
 
-install:
- - go get -v -t .
+install: true
 
 script:
  - $HOME/gopath/bin/goveralls -service=travis-ci -v -package .
- - if [[ $TRAVIS_GO_VERSION == 1.10.* ]]; then cd integration-test && ./test.sh; fi
+ - cd integration-test && ./test.sh
 
 matrix:
   fast_finish: true
