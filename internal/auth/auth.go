@@ -14,6 +14,7 @@ type StaticCredential struct {
 	Username string
 	Password string
 	Realm    string
+	Key      []byte
 }
 
 type staticKey struct {
@@ -58,6 +59,13 @@ func NewStatic(credentials []StaticCredential) *Static {
 		credentials: make(map[staticKey]stun.MessageIntegrity, len(credentials)),
 	}
 	for _, c := range credentials {
+		if len(c.Key) > 0 {
+			s.credentials[staticKey{
+				username: c.Username,
+				realm:    c.Realm,
+			}] = stun.MessageIntegrity(c.Key)
+			continue
+		}
 		s.credentials[staticKey{
 			username: c.Username,
 			realm:    c.Realm,

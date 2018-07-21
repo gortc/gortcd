@@ -20,6 +20,7 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
+	realm    stun.Realm
 	addr     allocator.Addr
 	log      *zap.Logger
 	allocs   *allocator.Allocator
@@ -45,6 +46,7 @@ func (s *Server) setHandlers() {
 
 // Options is set of available options for Server.
 type Options struct {
+	Realm       string
 	Log         *zap.Logger
 	Auth        Auth // no authentication if nil
 	Conn        net.PacketConn
@@ -72,6 +74,7 @@ func New(o Options) (*Server, error) {
 	}
 	allocs := allocator.NewAllocator(o.Log.Named("allocator"), netAlloc)
 	s := &Server{
+		realm:  stun.NewRealm(o.Realm),
 		auth:   o.Auth,
 		conn:   o.Conn,
 		allocs: allocs,
