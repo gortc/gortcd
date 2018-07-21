@@ -78,7 +78,9 @@ func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
 }
 
 func newServer(t testing.TB, opts ...Options) (*Server, func()) {
-	o := Options{}
+	o := Options{
+		Realm: "realm",
+	}
 	if len(opts) > 0 {
 		o = opts[0]
 	}
