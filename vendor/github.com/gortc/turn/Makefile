@@ -21,6 +21,7 @@ lint:
 		--enable-all \
 		-e "_test.go.+(gocyclo|errcheck|dupl)" \
 		-e "attributes\.go.+credentials,.+,LOW.+\(gas\)" \
+		-e "parameter v always receives 8" \
 		--enable="lll" --line-length=100 \
 		--enable="gofmt" \
 		--enable="goimports" \
