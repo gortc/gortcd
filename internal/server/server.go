@@ -322,13 +322,11 @@ var (
 	defaultNonce = stun.NewNonce("nonce")
 )
 
-func (s *Server) process(ctx *context) error {
-	if !stun.IsMessage(ctx.request.Raw) {
-		if ce := s.log.Check(zapcore.DebugLevel, "not looks like stun message"); ce != nil {
-			ce.Write(zap.Stringer("addr", ctx.client))
-		}
-		return errNotSTUNMessage
-	}
+func (s *Server) processChannelData(ctx *context) error {
+	return errors.New("not implemented")
+}
+
+func (s *Server) processMessage(ctx *context) error {
 	if err := ctx.request.Decode(); err != nil {
 		if ce := s.log.Check(zapcore.DebugLevel, "failed to decode request"); ce != nil {
 			ce.Write(zap.Stringer("addr", ctx.client), zap.Error(err))
@@ -373,6 +371,20 @@ func (s *Server) process(ctx *context) error {
 	}
 	s.log.Warn("unsupported request type")
 	return ctx.buildErr(stun.CodeBadRequest)
+}
+
+func (s *Server) process(ctx *context) error {
+	switch {
+	case stun.IsMessage(ctx.request.Raw):
+		return s.processMessage(ctx)
+	case turn.IsChannelData(ctx.request.Raw):
+		return s.processChannelData(ctx)
+	default:
+		if ce := s.log.Check(zapcore.DebugLevel, "not looks like stun message"); ce != nil {
+			ce.Write(zap.Stringer("addr", ctx.client))
+		}
+		return errNotSTUNMessage
+	}
 }
 
 func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
