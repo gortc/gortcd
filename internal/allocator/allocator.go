@@ -45,15 +45,15 @@ func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
 		zap.Stringer("addr", addr),
 	)
 	a.allocsMux.RLock()
-	for _, alloc := range a.allocs {
-		if !alloc.Tuple.Client.Equal(client) {
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Client.Equal(client) {
 			continue
 		}
-		for _, p := range alloc.Permissions {
+		for _, p := range a.allocs[i].Permissions {
 			if !addr.Equal(p.Addr) {
 				continue
 			}
-			conn = alloc.Conn
+			conn = a.allocs[i].Conn
 		}
 	}
 	a.allocsMux.RUnlock()
@@ -79,19 +79,21 @@ func (a *Allocator) Remove(t FiveTuple) {
 	)
 
 	a.allocsMux.Lock()
-	for _, a := range a.allocs {
-		if !a.Tuple.Equal(t) {
-			newAllocs = append(newAllocs, a)
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(t) {
+			newAllocs = append(newAllocs, a.allocs[i])
 			continue
 		}
-		toDealloc = append(toDealloc, a)
+		toDealloc = append(toDealloc, a.allocs[i])
 	}
 	n := copy(a.allocs, newAllocs)
 	a.allocs = a.allocs[:n]
 	a.allocsMux.Unlock()
 
-	for _, alloc := range toDealloc {
-		a.raddr.Remove(alloc.Tuple.Server, alloc.Tuple.Proto)
+	for i := range toDealloc {
+		if err := a.raddr.Remove(toDealloc[i].Tuple.Server, toDealloc[i].Tuple.Proto); err != nil {
+			a.log.Warn("failed to remove allocation", zap.Error(err))
+		}
 	}
 }
 
@@ -104,28 +106,28 @@ func (a *Allocator) Collect(t time.Time) {
 	)
 
 	a.allocsMux.Lock()
-	for _, a := range a.allocs {
+	for i := range a.allocs {
 		var newPermissions []Permission
-		for _, p := range a.Permissions {
+		for _, p := range a.allocs[i].Permissions {
 			if p.Timeout.After(t) {
 				newPermissions = append(newPermissions, p)
 				continue
 			}
 		}
-		n := copy(a.Permissions, newPermissions)
-		a.Permissions = a.Permissions[:n]
+		n := copy(a.allocs[i].Permissions, newPermissions)
+		a.allocs[i].Permissions = a.allocs[i].Permissions[:n]
 		if n > 0 {
-			newAllocs = append(newAllocs, a)
+			newAllocs = append(newAllocs, a.allocs[i])
 		} else {
-			toDealloc = append(toDealloc, a)
+			toDealloc = append(toDealloc, a.allocs[i])
 		}
 	}
 	n := copy(a.allocs, newAllocs)
 	a.allocs = a.allocs[:n]
 	a.allocsMux.Unlock()
 
-	for _, p := range toDealloc {
-		a.Remove(p.Tuple)
+	for i := range toDealloc {
+		a.Remove(toDealloc[i].Tuple)
 	}
 }
 
@@ -147,8 +149,8 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 
 	a.allocsMux.Lock()
 	// Searching for existing allocation.
-	for _, alloc := range a.allocs {
-		if alloc.Tuple.Equal(tuple) {
+	for i := range a.allocs {
+		if a.allocs[i].Tuple.Equal(tuple) {
 			a.allocsMux.Unlock()
 			return Addr{}, ErrAllocationMismatch
 		}
@@ -207,12 +209,11 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 	}
 
 	a.allocsMux.Lock()
-	for i, alloc := range a.allocs {
-		if !alloc.Tuple.Equal(tuple) {
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
-		alloc.Permissions = append(alloc.Permissions, permission)
-		a.allocs[i] = alloc
+		a.allocs[i].Permissions = append(a.allocs[i].Permissions, permission)
 		break
 	}
 	a.allocsMux.Unlock()
@@ -229,17 +230,17 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 func (a *Allocator) Refresh(tuple FiveTuple, peerAddr Addr, timeout time.Time) error {
 	// TODO: handle permission not found error.
 	a.allocsMux.Lock()
-	for _, alloc := range a.allocs {
-		if !alloc.Tuple.Equal(tuple) {
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
-		for i := range alloc.Permissions {
-			p := alloc.Permissions[i]
+		for k := range a.allocs[i].Permissions {
+			p := a.allocs[i].Permissions[k]
 			if !peerAddr.Equal(p.Addr) {
 				continue
 			}
 			p.Timeout = timeout
-			alloc.Permissions[i] = p
+			a.allocs[i].Permissions[k] = p
 			break
 		}
 		break

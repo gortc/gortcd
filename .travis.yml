@@ -6,17 +6,21 @@ services:
   - docker
 
 go:
-  - 1.9.x
   - 1.10.x
+  - master
 
-install: true
+install:
+  - make install
 
 script:
- - ./go.test.sh
- - cd integration-test && ./test.sh
+  - make test
+  - make lint
+  - make test-e2e
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
 
 matrix:
+  allow_failures:
+    - go: master
   fast_finish: true

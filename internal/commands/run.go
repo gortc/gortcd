@@ -71,10 +71,10 @@ var rootCmd = &cobra.Command{
 		if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
 			l.Warn("running pprof", zap.String("addr", pprofAddr))
 			go func() {
-				if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+				if listenErr := http.ListenAndServe(pprofAddr, nil); listenErr != nil {
 					l.Error("pprof failed to listen",
 						zap.String("addr", pprofAddr),
-						zap.Error(err),
+						zap.Error(listenErr),
 					)
 				}
 			}()
@@ -83,8 +83,8 @@ var rootCmd = &cobra.Command{
 		// Parsing static credentials.
 		var staticCredentials []auth.StaticCredential
 		var rawCredentials []staticCredElem
-		if err := viper.UnmarshalKey("auth.static", &rawCredentials); err != nil {
-			l.Fatal("failed to parse auth.static config", zap.Error(err))
+		if keyErr := viper.UnmarshalKey("auth.static", &rawCredentials); keyErr != nil {
+			l.Fatal("failed to parse auth.static config", zap.Error(keyErr))
 		}
 		for _, cred := range rawCredentials {
 			var a auth.StaticCredential
@@ -92,11 +92,11 @@ var rootCmd = &cobra.Command{
 				cred.Realm = realm
 			}
 			if strings.HasPrefix(cred.Key, "0x") {
-				key, err := hex.DecodeString(cred.Key[2:])
-				if err != nil {
+				key, decodeErr := hex.DecodeString(cred.Key[2:])
+				if decodeErr != nil {
 					l.Error("failed to parse credential",
 						zap.String("cred", fmt.Sprintf("%+v", cred)),
-						zap.Error(err),
+						zap.Error(decodeErr),
 					)
 				}
 				a.Key = key
@@ -124,9 +124,9 @@ var rootCmd = &cobra.Command{
 			if strings.HasPrefix(normalized, "0.0.0.0") {
 				l.Warn("running on all interfaces")
 				l.Warn("picking addr from ICE")
-				addrs, err := ice.Gather()
-				if err != nil {
-					log.Fatal(err)
+				addrs, iceErr := ice.Gather()
+				if iceErr != nil {
+					log.Fatal(iceErr)
 				}
 				for _, a := range addrs {
 					l.Warn("got", zap.Stringer("a", a))
@@ -147,8 +147,8 @@ var rootCmd = &cobra.Command{
 							zap.String("addr", addr),
 							zap.String("network", "udp"),
 						)
-						if err = ListenUDPAndServe("udp", addr, o); err != nil {
-							l.Fatal("failed to listen", zap.Error(err))
+						if lErr := ListenUDPAndServe("udp", addr, o); lErr != nil {
+							l.Fatal("failed to listen", zap.Error(lErr))
 						}
 					}(strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1))
 				}
@@ -167,7 +167,6 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		wg.Wait()
-		return
 	},
 }
 
@@ -199,13 +198,19 @@ func initConfig() {
 	}
 }
 
+func mustBind(err error) {
+	if err != nil {
+		log.Fatalln("failed to bind:", err)
+	}
+}
+
 func init() {
 	cobra.OnInitialize(initConfig)
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/gortcd.yml)")
 	rootCmd.Flags().StringArrayP("listen", "l", []string{"0.0.0.0:3478"}, "listen address")
 	rootCmd.Flags().String("pprof", "", "pprof address if specified")
-	viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen"))
-	viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof"))
+	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
+	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
 	viper.SetDefault("server.workers", 100)
 	viper.SetDefault("version", "1")
 }

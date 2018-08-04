@@ -3,7 +3,7 @@ version: '3'
 services:
   turn-peer:
     entrypoint:
-      - integration-test
+      - e2e
       - peer
     depends_on:
       - turn-server
@@ -11,7 +11,7 @@ services:
       - turn-server
     build:
       context: ..
-      dockerfile: integration-test/Dockerfile
+      dockerfile: e2e/Dockerfile
       args:
         CI_GO_VERSION: ${CI_GO_VERSION}
     environment:
@@ -25,7 +25,7 @@ services:
       - turn-peer
     build:
       context: ..
-      dockerfile: integration-test/Dockerfile
+      dockerfile: e2e/Dockerfile
       args:
         CI_GO_VERSION: ${CI_GO_VERSION}
     environment:
@@ -33,7 +33,7 @@ services:
   turn-server:
     build:
       context: ..
-      dockerfile: integration-test/server.Dockerfile
+      dockerfile: e2e/server.Dockerfile
       args:
         CI_GO_VERSION: ${CI_GO_VERSION}
     environment:

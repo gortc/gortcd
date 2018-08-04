@@ -35,10 +35,13 @@ var rootCmd = &cobra.Command{
 		logCfg.DisableStacktrace = true
 		start := time.Now()
 		logCfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-			d := int64(time.Since(start).Nanoseconds() / 1e6)
+			d := time.Since(start).Nanoseconds() / 1e6
 			enc.AppendString(fmt.Sprintf("%04d", d))
 		}
 		logger, err := logCfg.Build()
+		if err != nil {
+			logger.Fatal("failed to build config", zap.Error(err))
+		}
 		echoAddr, err := net.ResolveUDPAddr("udp", viper.GetString("peer.addr"))
 		if err != nil {
 			logger.Fatal("failed to parse", zap.Error(err))
@@ -46,35 +49,34 @@ var rootCmd = &cobra.Command{
 
 		if viper.GetBool("peer") {
 			logger.Info("running in peer mode")
-			laddr, err := net.ResolveUDPAddr("udp", viper.GetString("peer.listen"))
-			if err != nil {
-				logger.Fatal("failed to resolve UDP addr", zap.Error(err))
+			laddr, laddrErr := net.ResolveUDPAddr("udp", viper.GetString("peer.listen"))
+			if laddrErr != nil {
+				logger.Fatal("failed to resolve UDP addr", zap.Error(laddrErr))
 			}
-			c, err := net.ListenUDP("udp", laddr)
-			if err != nil {
-				logger.Fatal("failed to listen", zap.Error(err))
+			c, listenErr := net.ListenUDP("udp", laddr)
+			if listenErr != nil {
+				logger.Fatal("failed to listen", zap.Error(listenErr))
 			}
 			logger.Info("listening as echo server", zap.Stringer("laddr", c.LocalAddr()))
 			for {
 				// Starting echo server.
 				buf := make([]byte, 1024)
-				n, addr, err := c.ReadFromUDP(buf)
-				if err != nil {
-					logger.Fatal("failed to read", zap.Error(err))
+				n, addr, readErr := c.ReadFromUDP(buf)
+				if readErr != nil {
+					logger.Fatal("failed to read", zap.Error(readErr))
 				}
 				logger.Info("got message",
 					zap.String("body", string(buf[:n])),
 					zap.Stringer("raddr", addr),
 				)
 				// Echoing back.
-				if _, err := c.WriteToUDP(buf[:n], addr); err != nil {
-					logger.Fatal("failed to write back", zap.Error(err))
+				if _, writeErr := c.WriteToUDP(buf[:n], addr); writeErr != nil {
+					logger.Fatal("failed to write back", zap.Error(writeErr))
 				}
 				logger.Info("echoed back",
 					zap.Stringer("raddr", addr),
 				)
 			}
-			return
 		}
 		conn, err := net.Dial("udp", viper.GetString("server"))
 		if err != nil {
@@ -153,7 +155,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func Execute() {
+func execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -178,5 +180,5 @@ func init() {
 }
 
 func main() {
-	Execute()
+	execute()
 }

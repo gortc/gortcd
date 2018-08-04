@@ -73,7 +73,9 @@ func (*dummyConn) SetWriteDeadline(t time.Time) error {
 	panic("implement me")
 }
 
-func (p *DummyNetPortAlloc) AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error) {
+func (p *DummyNetPortAlloc) AllocatePort(
+	proto turn.Protocol, network, defaultAddr string,
+) (NetAllocation, error) {
 	h, _, _ := net.SplitHostPort(defaultAddr)
 	ip := net.ParseIP(h)
 	return NetAllocation{

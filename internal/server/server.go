@@ -52,8 +52,8 @@ type Options struct {
 	Conn        net.PacketConn
 	CollectRate time.Duration
 	ManualStart bool // don't start bg activity
-	Workers     int
 	AuthForSTUN bool // require auth for binding requests
+	Workers     int
 }
 
 // New initializes and returns new server from options.
@@ -138,7 +138,9 @@ func (s *Server) Close() error {
 	// TODO(ar): Free resources.
 	close(s.close)
 	s.log.Info("closing")
-	s.conn.Close()
+	if err := s.conn.Close(); err != nil {
+		s.log.Warn("failed to close connection", zap.Error(err))
+	}
 	s.wg.Wait()
 	return nil
 }
@@ -439,7 +441,9 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		// Indication.
 		return nil
 	}
-	c.SetWriteDeadline(ctx.time.Add(time.Second))
+	if err = c.SetWriteDeadline(ctx.time.Add(time.Second)); err != nil {
+		s.log.Warn("failed to set deadline", zap.Error(err))
+	}
 	_, err = c.WriteTo(ctx.response.Raw, addr)
 	if err != nil && !isErrConnClosed(err) {
 		s.log.Warn("writeTo failed", zap.Error(err))

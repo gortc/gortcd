@@ -8,7 +8,7 @@ WORKDIR /go/src/github.com/gortc/gortcd
 
 RUN go install .
 
-COPY integration-test/gortcd.yml .
+COPY e2e/gortcd.yml .
 
 CMD ["gortcd"]
 
