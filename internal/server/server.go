@@ -386,6 +386,8 @@ func (s *Server) processMessage(ctx *context) error {
 }
 
 func (s *Server) process(ctx *context) error {
+	// Performing de-multiplexing of STUN and TURN's ChannelData messages.
+	// The checks are ordered from faster to slower one.
 	switch {
 	case stun.IsMessage(ctx.request.Raw):
 		return s.processMessage(ctx)
