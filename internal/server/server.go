@@ -323,7 +323,19 @@ var (
 )
 
 func (s *Server) processChannelData(ctx *context) error {
-	return errors.New("not implemented")
+	if err := ctx.cdata.Decode(); err != nil {
+		if ce := s.log.Check(zapcore.DebugLevel, "failed to decode channel data"); ce != nil {
+			ce.Write(zap.Stringer("addr", ctx.client), zap.Error(err))
+		}
+		return nil
+	}
+	if ce := s.log.Check(zapcore.DebugLevel, "got channel data"); ce != nil {
+		ce.Write(
+			zap.Int("channel", int(ctx.cdata.Number)),
+			zap.Int("len", ctx.cdata.Length),
+		)
+	}
+	return nil
 }
 
 func (s *Server) processMessage(ctx *context) error {
