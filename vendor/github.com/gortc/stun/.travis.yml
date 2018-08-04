@@ -5,6 +5,9 @@ sudo: required
 services:
   - docker
 
+os:
+  - linux
+
 go:
   - master
   - 1.9.x
@@ -19,14 +22,14 @@ matrix:
     - go: master
   fast_finish: true
 
-before_install:
-  - go get github.com/mattn/goveralls
-  - go get golang.org/x/tools/cmd/cover
-
 install:
- - go get -v -t .
+  - make install
 
 script:
- - go test -tags gofuzz -run TestFuzz -v .
- - $HOME/gopath/bin/goveralls -service=travis-ci -v -package .
- - cd integration-test && ./test.sh
+  - make check-api
+  - make test
+  - make test-integration
+  - make lint
+
+after_success:
+ - bash <(curl -s https://codecov.io/bash)

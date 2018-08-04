@@ -1,5 +1,7 @@
 package stun
 
+import "errors"
+
 // DecodeErr records an error and place when it is occurred.
 type DecodeErr struct {
 	Place   DecodeErrPlace
@@ -52,3 +54,14 @@ func newDecodeErr(parent, children, message string) *DecodeErr {
 func newAttrDecodeErr(children, message string) *DecodeErr {
 	return newDecodeErr("attribute", children, message)
 }
+
+// ErrAttrSizeInvalid means that decoded attribute size is invalid.
+//
+// DEPRECATED: use ErrAttributeSizeInvalid.
+var ErrAttrSizeInvalid = errors.New("attribute size is invalid")
+
+// ErrAttributeSizeInvalid means that decoded attribute size is invalid.
+var ErrAttributeSizeInvalid = ErrAttrSizeInvalid
+
+// ErrAttributeSizeOverflow means that decoded attribute size is too big.
+var ErrAttributeSizeOverflow = errors.New("attribute size overflow")

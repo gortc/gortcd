@@ -1,7 +1,7 @@
 package stun
 
 import (
-	"fmt"
+	"errors"
 	"hash/crc32"
 )
 
@@ -10,18 +10,8 @@ import (
 // RFC 5389 Section 15.5
 type FingerprintAttr struct{}
 
-// CRCMismatch represents CRC check error.
-type CRCMismatch struct {
-	Expected uint32
-	Actual   uint32
-}
-
-func (m CRCMismatch) Error() string {
-	return fmt.Sprintf("CRC mismatch: %x (expected) != %x (actual)",
-		m.Expected,
-		m.Actual,
-	)
-}
+// ErrFingerprintMismatch means that computed fingerprint differs from expected.
+var ErrFingerprintMismatch = errors.New("fingerprint check failed")
 
 // Fingerprint is shorthand for FingerprintAttr.
 //
@@ -67,18 +57,11 @@ func (FingerprintAttr) Check(m *Message) error {
 	if err != nil {
 		return err
 	}
-	if len(b) != fingerprintSize {
-		return &AttrLengthErr{
-			Expected: fingerprintSize,
-			Got:      len(b),
-			Attr:     AttrFingerprint,
-		}
+	if err = CheckSize(AttrFingerprint, len(b), fingerprintSize); err != nil {
+		return err
 	}
 	val := bin.Uint32(b)
 	attrStart := len(m.Raw) - (fingerprintSize + attributeHeaderSize)
 	expected := FingerprintValue(m.Raw[:attrStart])
-	if expected != val {
-		return &CRCMismatch{Expected: expected, Actual: val}
-	}
-	return nil
+	return checkFingerprint(val, expected)
 }

@@ -12,9 +12,13 @@ bench-record:
 fuzz-prepare-setters:
 	go-fuzz-build -func FuzzSetters -o turn-setters-fuzz.zip github.com/gortc/turn
 fuzz-setters:
-	go-fuzz -bin=./turn-setters-fuzz.zip -workdir=examples/turn-setters
+	go-fuzz -bin=./turn-setters-fuzz.zip -workdir=fuzz/turn-setters
 fuzz-test:
 	go test -tags gofuzz -run TestFuzz -v .
+fuzz-prepare-chandata:
+	go-fuzz-build -func FuzzChannelData -o turn-chandata-fuzz.zip github.com/gortc/turn
+fuzz-chandata:
+	go-fuzz -bin=./turn-chandata-fuzz.zip -workdir=fuzz/turn-chandata
 lint:
 	@echo "linting on $(PROCS) cores"
 	@gometalinter \
@@ -40,3 +44,7 @@ format:
 	goimports -w .
 docker-build:
 	docker build -t gortc/turn .
+test-integration:
+	@cd e2e && ./test.sh
+check-api:
+	api -c api/turn1.txt github.com/gortc/turn

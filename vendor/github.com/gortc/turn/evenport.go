@@ -45,12 +45,8 @@ func (p *EvenPort) GetFrom(m *stun.Message) error {
 	if err != nil {
 		return err
 	}
-	if len(v) != evenPortSize {
-		return &BadAttrLength{
-			Attr:     stun.AttrEvenPort,
-			Got:      len(v),
-			Expected: evenPortSize,
-		}
+	if err = stun.CheckSize(stun.AttrEvenPort, len(v), evenPortSize); err != nil {
+		return err
 	}
 	if v[0]&firstBitSet > 0 {
 		p.ReservePort = true

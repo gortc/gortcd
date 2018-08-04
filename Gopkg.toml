@@ -35,7 +35,7 @@
 
 [[constraint]]
   name = "github.com/gortc/turn"
-  version = "0.2.0"
+  version = "0.3"
 
 [[constraint]]
   name = "github.com/gortc/ice"

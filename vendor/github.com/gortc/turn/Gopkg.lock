@@ -2,15 +2,15 @@
 
 
 [[projects]]
-  digest = "1:0f2c4a18ba5832d7305929a302444563beda00b305b6409db069e87e0d847155"
+  digest = "1:7abfd470f6c9336a6891ca5a95a6b34d3c1550842baac875a2fc81d4d2b3dd96"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "ca7892b4fd374cfea321866c813f444e0d4cf9bd"
-  version = "v1.9.0"
+  revision = "93b1a1ea26aa1818b4ef54dbedaf681781928f51"
+  version = "v1.11.1"
 
 [[projects]]
   digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
@@ -29,7 +29,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:460b7b5d45569fa85bc34c0a9aa1498577afee6f24dac2d66a0d53d3737d29ab"
+  digest = "1:d9a420eae5f76973feeb733fbf58f6a89173255b63b27a7ae4b2124a73dc6c5b"
   name = "go.uber.org/zap"
   packages = [
     ".",

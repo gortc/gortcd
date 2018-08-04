@@ -18,27 +18,27 @@
   version = "v0.2.0"
 
 [[projects]]
-  digest = "1:0f2c4a18ba5832d7305929a302444563beda00b305b6409db069e87e0d847155"
+  digest = "1:ae8d906e0d66f6a01c86766deb191507238281d3b92e74c1e1983964672c8817"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "ca7892b4fd374cfea321866c813f444e0d4cf9bd"
-  version = "v1.9.0"
+  revision = "3309b1d3bd0716c7a82ebf5190a8513fea107ca5"
+  version = "v1.13.1"
 
 [[projects]]
-  digest = "1:9db75549bf1916c6e469bed206153710b5ddc3bd5dc0eb06bda5bbee9b082718"
+  digest = "1:393fa76e541226e0fff4065c643c994456b0bf3d03023d225d39de2f2713d3cc"
   name = "github.com/gortc/turn"
   packages = ["."]
   pruneopts = "UT"
-  revision = "e0d162119603c7a736f8f8e9603d3ab7b6625785"
-  version = "v0.2.4"
+  revision = "cae20e25da95271aa462b1223e94d24750093159"
+  version = "v0.3.1"
 
 [[projects]]
   branch = "master"
-  digest = "1:ac64f01acc5eeea9dde40e326de6b6471e501392ec06524c3b51033aa50789bc"
+  digest = "1:a361611b8c8c75a1091f00027767f7779b29cb37c456a71b8f2604c88057ab40"
   name = "github.com/hashicorp/hcl"
   packages = [
     ".",
@@ -64,7 +64,7 @@
   version = "v1.0"
 
 [[projects]]
-  digest = "1:67b6517e77b512d530c59f817dc2c8e46131805ce6168eeef2793ab515422aeb"
+  digest = "1:cdbed6a7b574b13bbabcd8c36c5be56d6444789bab21fcd37d39655eab0b2141"
   name = "github.com/klauspost/compress"
   packages = [
     "flate",
@@ -93,11 +93,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:8eb17c2ec4df79193ae65b621cd1c0c4697db3bc317fe6afdc76d7f2746abd05"
+  digest = "1:c7354463195544b1ab3c1f1fadb41430947f5d28dfbf2cdbd38268c5717a5a03"
   name = "github.com/mitchellh/go-homedir"
   packages = ["."]
   pruneopts = "UT"
-  revision = "3864e76763d94a6df2f9960b16a20a33da9f9a66"
+  revision = "58046073cbffe2f25d425fe1331102f55cf719de"
 
 [[projects]]
   branch = "master"
@@ -124,7 +124,7 @@
   version = "v0.8.0"
 
 [[projects]]
-  digest = "1:37ace7f35375adec11634126944bdc45a673415e2fcc07382d03b75ec76ea94c"
+  digest = "1:bd1ae00087d17c5a748660b8e89e1043e1e5479d0fea743352cda2f8dd8c4f84"
   name = "github.com/spf13/afero"
   packages = [
     ".",
@@ -143,7 +143,7 @@
   version = "v1.2.0"
 
 [[projects]]
-  digest = "1:872fa275c31e1f9db31d66fa9b1d4a7bb9a080ff184e6977da01f36bfbe07f11"
+  digest = "1:645cabccbb4fa8aab25a956cbcbdf6a6845ca736b2c64e197ca7cbb9d210b939"
   name = "github.com/spf13/cobra"
   packages = ["."]
   pruneopts = "UT"
@@ -183,7 +183,7 @@
   revision = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
 
 [[projects]]
-  digest = "1:8b0a3c76e095c6dd2ef1bebd723ad4bd13af74755d3410ede4f10b48e926545a"
+  digest = "1:15ad8a80098fcc7a194b9db6b26d74072a852e4faa957848c8118193d3c69230"
   name = "github.com/valyala/fasthttp"
   packages = [
     ".",
@@ -211,7 +211,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:460b7b5d45569fa85bc34c0a9aa1498577afee6f24dac2d66a0d53d3737d29ab"
+  digest = "1:d9a420eae5f76973feeb733fbf58f6a89173255b63b27a7ae4b2124a73dc6c5b"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -227,14 +227,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:d773e525476aefa22ea944a5425a9bfb99819b2e67eeb9b1966454fd57522bbf"
+  digest = "1:9ec6ad2659635ba0974dd7e55bf84233523eb4e7535c9a2fddaefc4cc62a3eac"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
+  revision = "0ffbfd41fbef8ffcf9b62b0b0aa3a5873ed7a4fe"
 
 [[projects]]
-  digest = "1:038003d098ffc345c4c5c6d47bcc6920b2649ee0c0d557162e54e75c76cadf8b"
+  digest = "1:8029e9743749d4be5bc9f7d42ea1659471767860f0cdc34d37c3111bd308a295"
   name = "golang.org/x/text"
   packages = [
     "internal/gen",

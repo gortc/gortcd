@@ -57,12 +57,8 @@ func (t *RequestedTransport) GetFrom(m *stun.Message) error {
 	if err != nil {
 		return err
 	}
-	if len(v) != requestedTransportSize {
-		return &BadAttrLength{
-			Attr:     stun.AttrRequestedTransport,
-			Got:      len(v),
-			Expected: requestedTransportSize,
-		}
+	if err = stun.CheckSize(stun.AttrRequestedTransport, len(v), requestedTransportSize); err != nil {
+		return err
 	}
 	t.Protocol = Protocol(v[0])
 	return nil

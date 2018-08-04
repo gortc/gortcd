@@ -34,12 +34,8 @@ func (n *ChannelNumber) GetFrom(m *stun.Message) error {
 	if err != nil {
 		return err
 	}
-	if len(v) != channelNumberSize {
-		return &BadAttrLength{
-			Attr:     stun.AttrChannelNumber,
-			Got:      len(v),
-			Expected: channelNumberSize,
-		}
+	if err = stun.CheckSize(stun.AttrChannelNumber, len(v), channelNumberSize); err != nil {
+		return err
 	}
 	_ = v[channelNumberSize-1] // asserting length
 	*n = ChannelNumber(bin.Uint16(v[:2]))

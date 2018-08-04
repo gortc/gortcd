@@ -84,3 +84,28 @@ func FuzzSetters(data []byte) int {
 	}
 	return 1
 }
+
+var d = &ChannelData{}
+
+func FuzzChannelData(data []byte) int {
+	d.Reset()
+	if b := bin.Uint16(data[0:4]); b > 20000 {
+		bin.PutUint16(data[0:4], minChannelNumber-1)
+	} else if b > 40000 {
+		bin.PutUint16(data[0:4], minChannelNumber+(maxChannelNumber-minChannelNumber)%b)
+	}
+	d.Raw = append(d.Raw, data...)
+	if d.Decode() != nil {
+		return 0
+	}
+	d2 := &ChannelData{}
+	d.Encode()
+	if !d.Number.Valid() {
+		return 1
+	}
+	d2.Raw = d.Raw
+	if err := d2.Decode(); err != nil {
+		panic(err)
+	}
+	return 1
+}

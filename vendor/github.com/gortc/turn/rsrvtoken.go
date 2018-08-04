@@ -18,12 +18,8 @@ const reservationTokenSize = 8 // 8 bytes
 
 // AddTo adds RESERVATION-TOKEN to message.
 func (t ReservationToken) AddTo(m *stun.Message) error {
-	if len(t) != reservationTokenSize {
-		return &BadAttrLength{
-			Attr:     stun.AttrReservationToken,
-			Expected: reservationTokenSize,
-			Got:      len(t),
-		}
+	if err := stun.CheckSize(stun.AttrReservationToken, len(t), reservationTokenSize); err != nil {
+		return err
 	}
 	m.Add(stun.AttrReservationToken, t)
 	return nil
@@ -35,12 +31,8 @@ func (t *ReservationToken) GetFrom(m *stun.Message) error {
 	if err != nil {
 		return err
 	}
-	if len(v) != reservationTokenSize {
-		return &BadAttrLength{
-			Attr:     stun.AttrReservationToken,
-			Expected: reservationTokenSize,
-			Got:      len(v),
-		}
+	if err = stun.CheckSize(stun.AttrReservationToken, len(v), reservationTokenSize); err != nil {
+		return err
 	}
 	*t = v
 	return nil

@@ -41,12 +41,8 @@ func (l *Lifetime) GetFrom(m *stun.Message) error {
 	if err != nil {
 		return err
 	}
-	if len(v) != lifetimeSize {
-		return &BadAttrLength{
-			Attr:     stun.AttrLifetime,
-			Got:      len(v),
-			Expected: lifetimeSize,
-		}
+	if err = stun.CheckSize(stun.AttrLifetime, len(v), lifetimeSize); err != nil {
+		return err
 	}
 	_ = v[lifetimeSize-1] // asserting length
 	seconds := bin.Uint32(v)
