@@ -440,6 +440,7 @@ func (s *Server) worker() {
 	defer s.log.Info("worker done")
 	var (
 		ctx = &context{
+			cdata:    new(turn.ChannelData),
 			response: new(stun.Message),
 			request:  new(stun.Message),
 			buf:      make([]byte, 2048),

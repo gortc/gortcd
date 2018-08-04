@@ -5,6 +5,7 @@ import (
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
+	"github.com/gortc/turn"
 )
 
 type context struct {
@@ -13,6 +14,7 @@ type context struct {
 	server    allocator.Addr
 	request   *stun.Message
 	response  *stun.Message
+	cdata     *turn.ChannelData
 	nonce     stun.Nonce
 	realm     stun.Realm
 	integrity stun.MessageIntegrity
@@ -26,6 +28,7 @@ func (c *context) reset() {
 	c.server = allocator.Addr{}
 	c.request.Reset()
 	c.response.Reset()
+	c.cdata.Reset()
 	c.nonce = c.nonce[:0]
 	c.realm = c.realm[:0]
 	c.integrity = nil
