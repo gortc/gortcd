@@ -53,6 +53,7 @@ type Options struct {
 	CollectRate time.Duration
 	ManualStart bool // don't start bg activity
 	Workers     int
+	AuthForSTUN bool // require auth for binding requests
 }
 
 // New initializes and returns new server from options.
@@ -315,7 +316,10 @@ func (s *Server) needAuth(ctx *context) bool {
 	if ctx.request.Type.Class == stun.ClassIndication {
 		return false
 	}
-	return ctx.request.Type != stun.BindingRequest
+	if ctx.request.Type == stun.BindingError && !s.cfg.RequireAuthForSTUN() {
+		return false
+	}
+	return true
 }
 
 var (
