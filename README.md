@@ -59,4 +59,4 @@ Supported TURN authentication mechanisms:
 
   * 'classic' long-term credentials mechanism;
 
-Project supports all platforms that supports golang.
+Project supports all platforms that [supports](https://github.com/golang/go/wiki/MinimumRequirements#minimum-requirements) go.
