@@ -13,6 +13,12 @@ type config struct {
 	authForSTUN     bool
 }
 
+func (c *config) setAuthForSTUN(v bool) {
+	c.lock.Lock()
+	c.authForSTUN = v
+	c.lock.Unlock()
+}
+
 func newConfig(options Options) *config {
 	return &config{
 		maxLifetime:     time.Hour,

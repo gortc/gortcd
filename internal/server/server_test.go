@@ -138,6 +138,21 @@ func TestServer_processBindingRequest(t *testing.T) {
 			s.process(ctx)
 		})
 	})
+	t.Run("Auth", func(t *testing.T) {
+		s.cfg.setAuthForSTUN(true)
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.response.Type != stun.BindingError {
+			t.Errorf("unexpected response type: %s", ctx.response.Type)
+		}
+	})
 }
 
 func BenchmarkServer_processBindingRequest(b *testing.B) {
