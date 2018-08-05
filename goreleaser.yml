@@ -60,14 +60,14 @@ nfpm:
   maintainer: "Aleksandr Razumov <ar@cydev.ru>"
   description: "TURN and STUN server in go."
   license: "BSD 3-Clause"
-  name_template: "{{.ProjectName}}-{{.Version }}-{{ .Os }}-{{ .Arch }}"
+  name_template: "{{.ProjectName}}-{{.Version }}-{{ .Os }}-{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
 
 archive:
   format: tar.gz
   format_overrides:
     - goos: windows
       format: zip
-  name_template: "{{.Binary}}-{{.Version}}-{{.Os}}-{{.Arch}}"
+  name_template: "{{.Binary}}-{{.Version}}-{{.Os}}-{{.Arch}}{{ if .Arm }}v{{ .Arm }}{{ end }}"
   files:
     - README.md
     - LICENSE
