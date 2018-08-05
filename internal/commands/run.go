@@ -2,6 +2,7 @@
 package commands
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -9,8 +10,6 @@ import (
 	"os"
 	"strings"
 	"sync"
-
-	"encoding/hex"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
