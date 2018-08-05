@@ -44,6 +44,8 @@ checksum:
 dockers:
   - image: gortc/gortcd
     dockerfile: release.Dockerfile
+    extra_files:
+      - gortcd.yml
     tag_templates:
       - "{{ .Version }}"
       - latest
