@@ -148,7 +148,12 @@ var ErrAllocationMismatch = errors.New("5-tuple is currently in use")
 func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler) (Addr, error) {
 	l := a.log.Named("allocation").With(zap.Stringer("tuple", tuple))
 	l.Debug("new", zap.Time("timeout", timeout))
-
+	switch tuple.Proto {
+	case turn.ProtoUDP:
+		// pass
+	default:
+		return Addr{}, errors.Errorf("proto %s not implemented", tuple.Proto)
+	}
 	a.allocsMux.Lock()
 	// Searching for existing allocation.
 	for i := range a.allocs {
@@ -204,12 +209,6 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 	permission := Permission{
 		Timeout: timeout,
 		Addr:    peer,
-	}
-	switch tuple.Proto {
-	case turn.ProtoUDP:
-		// pass
-	default:
-		return errors.Errorf("proto %s not implemented", tuple.Proto)
 	}
 	var found bool
 	a.allocsMux.Lock()

@@ -63,6 +63,15 @@ func TestAllocator_New(t *testing.T) {
 			t.Errorf("unexpected error: %s", err)
 		}
 	})
+	t.Run("BadProto", func(t *testing.T) {
+		if _, err := a.New(FiveTuple{
+			Client: client,
+			Server: server,
+			Proto:  1,
+		}, timeout, nil); err == nil {
+			t.Error("should error")
+		}
+	})
 	expectedAddr := Addr{
 		Port: 5101,
 		IP:   allocateIP,
