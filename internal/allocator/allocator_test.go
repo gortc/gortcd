@@ -53,6 +53,9 @@ func TestAllocator_New(t *testing.T) {
 	if !expectedAddr.Equal(relayedAddr) {
 		t.Errorf("unexpected relayed addr: %s", relayedAddr)
 	}
+	if _, err = a.New(tuple, timeout, nil); err != ErrAllocationMismatch {
+		t.Error("New() with same tuple should return mismatch error")
+	}
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != nil {
 		t.Error(err)
 	}
