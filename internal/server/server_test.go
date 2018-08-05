@@ -139,19 +139,43 @@ func TestServer_processBindingRequest(t *testing.T) {
 		})
 	})
 	t.Run("Auth", func(t *testing.T) {
+		username := stun.NewUsername("username")
 		s.cfg.setAuthForSTUN(true)
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
-		copy(ctx.request.Raw, m.Raw)
+		m = stun.MustBuild(stun.TransactionID, stun.BindingRequest, username, stun.Fingerprint)
+		ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
 		if err := s.process(ctx); err != nil {
 			t.Fatal(err)
 		}
 		if ctx.response.Type != stun.BindingError {
 			t.Errorf("unexpected response type: %s", ctx.response.Type)
 		}
+		var (
+			realm stun.Realm
+			nonce stun.Nonce
+		)
+		if err := ctx.response.Parse(&realm, &nonce); err != nil {
+			t.Fatal(err)
+		}
+		t.Run("Success", func(t *testing.T) {
+			i := stun.NewLongTermIntegrity("username", realm.String(), "secret")
+			m = stun.MustBuild(stun.TransactionID, stun.BindingRequest,
+				username, realm, nonce, i, stun.Fingerprint,
+			)
+			ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+			if err := s.process(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if ctx.response.Type.Class != stun.ClassSuccessResponse {
+				var errCode stun.ErrorCodeAttribute
+				errCode.GetFrom(ctx.response)
+				t.Errorf("unexpected error %s: %s", errCode, ctx.response)
+			}
+		})
 	})
 }
 
