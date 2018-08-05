@@ -325,7 +325,7 @@ func (s *Server) needAuth(ctx *context) bool {
 	if ctx.request.Type.Class == stun.ClassIndication {
 		return false
 	}
-	if ctx.request.Type == stun.BindingError && !s.cfg.RequireAuthForSTUN() {
+	if ctx.request.Type == stun.BindingRequest && !s.cfg.RequireAuthForSTUN() {
 		return false
 	}
 	return true
