@@ -9,6 +9,49 @@ import (
 	"github.com/gortc/turn"
 )
 
+func TestFiveTuple_Equal(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		a, b FiveTuple
+		v    bool
+	}{
+		{
+			name: "blank",
+			v:    true,
+		},
+		{
+			name: "proto",
+			a: FiveTuple{
+				Proto: turn.ProtoUDP,
+			},
+		},
+		{
+			name: "server",
+			a: FiveTuple{
+				Server: Addr{
+					Port: 100,
+				},
+			},
+		},
+		{
+			name: "client",
+			a: FiveTuple{
+				Client: Addr{
+					Port: 100,
+				},
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if v := tc.a.Equal(tc.b); v != tc.v {
+				t.Errorf("%s [%v!=%v] %s",
+					tc.a, v, tc.v, tc.b,
+				)
+			}
+		})
+	}
+}
+
 func TestFiveTuple_String(t *testing.T) {
 	s := fmt.Sprint(FiveTuple{
 		Proto: turn.ProtoUDP,
