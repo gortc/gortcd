@@ -1,20 +1,32 @@
-build:
-  binary: gortcd
-  env:
-    - CGO_ENABLED=0
-  goos:
-    - darwin
-    - linux
-    - windows
-  goarch:
-    - amd64
-    - 386
-    - arm
-    - arm64
-  ignore:
-    - goos: openbsd
-      goarch: arm
-      goarm: 6
+builds:
+  - binary: gortcd
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - openbsd
+      - windows
+    goarch:
+      - amd64
+      - 386
+      - arm
+      - arm64
+    goarm:
+      - 6
+      - 7
+    ignore:
+      - goos: linux
+        goarch: amd64
+  - binary: gortcd
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+    flags:
+      - "-buildmode=pie"
 
 sign:
   artifacts: checksum
