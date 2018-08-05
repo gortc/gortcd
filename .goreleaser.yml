@@ -6,6 +6,7 @@ builds:
       - darwin
       - openbsd
       - windows
+      - linux
     goarch:
       - amd64
       - 386
@@ -14,7 +15,7 @@ builds:
     goarm:
       - 6
       - 7
-  - binary: gortcd
+  - binary: gortcd-pie
     env:
       - CGO_ENABLED=0
     goos:
@@ -23,18 +24,7 @@ builds:
       - amd64
     flags:
       - "-buildmode=pie"
-  - binary: gortcd
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-    goarch:
-      - 386
-      - arm
-      - arm64
-    goarm:
-      - 6
-      - 7
+
 sign:
   artifacts: checksum
 
