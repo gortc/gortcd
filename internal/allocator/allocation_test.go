@@ -9,6 +9,18 @@ import (
 	"github.com/gortc/turn"
 )
 
+func TestAddr_FromUDPAddr(t *testing.T) {
+	u := &net.UDPAddr{
+		IP:   net.IPv4(127, 0, 0, 1),
+		Port: 1234,
+	}
+	a := new(Addr)
+	a.FromUDPAddr(u)
+	if !u.IP.Equal(a.IP) || u.Port != a.Port {
+		t.Error("not equal")
+	}
+}
+
 func TestFiveTuple_Equal(t *testing.T) {
 	for _, tc := range []struct {
 		name string
