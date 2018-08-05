@@ -37,6 +37,9 @@ checksum:
 dockers:
   - image: gortc/gortcd
     dockerfile: release.Dockerfile
+    tag_templates:
+      - "v{{ .Major }}"
+      - latest
 
 nfpm:
   formats:
