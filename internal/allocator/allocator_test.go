@@ -37,6 +37,10 @@ func TestAllocator_New(t *testing.T) {
 		Port: 201,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
+	peer2 := Addr{
+		Port: 202,
+		IP:   net.IPv4(127, 0, 0, 1),
+	}
 	timeout := now.Add(time.Second * 10)
 	tuple := FiveTuple{
 		Client: client,
@@ -79,27 +83,53 @@ func TestAllocator_New(t *testing.T) {
 	if !expectedAddr.Equal(relayedAddr) {
 		t.Errorf("unexpected relayed addr: %s", relayedAddr)
 	}
+	// Creating allocation and two permissions.
 	if _, err = a.New(tuple, timeout, nil); err != ErrAllocationMismatch {
 		t.Error("New() with same tuple should return mismatch error")
 	}
-	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != nil {
+	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*5)); err != nil {
+		t.Error(err)
+	}
+	if err := a.CreatePermission(tuple, peer2, now.Add(time.Second*18)); err != nil {
 		t.Error(err)
 	}
 	a.Collect(now)
-	if err := a.Refresh(tuple, peer, now.Add(time.Second*15)); err != nil {
+	// Refreshing first permission to T+8.
+	if err := a.Refresh(tuple, peer, now.Add(time.Second*8)); err != nil {
 		t.Error(err)
 	}
-	a.Collect(now.Add(time.Second * 9))
+	// Collecting at T+7.
+	a.Collect(now.Add(time.Second * 7))
+	// Checking that both permissions still active.
 	if _, err := a.Send(client, peer, make([]byte, 100)); err != nil {
 		t.Error(err)
 	}
+	if _, err := a.Send(client, peer2, make([]byte, 100)); err != nil {
+		t.Error(err)
+	}
+	// Collecting T+9. First permission should expire.
+	a.Collect(now.Add(time.Second * 9))
+	if _, err := a.Send(client, peer, make([]byte, 100)); err != ErrPermissionNotFound {
+		t.Errorf("unexpected err: %v", err)
+	}
+	if _, err := a.Send(client, peer2, make([]byte, 100)); err != nil {
+		t.Error(err)
+	}
+	// Collecting T+17. Entire allocation expires.
+	// Both permissions should expire too.
 	a.Collect(now.Add(time.Second * 17))
 	if _, err := a.Send(client, peer, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
+	if _, err := a.Send(client, peer2, make([]byte, 100)); err != ErrPermissionNotFound {
+		t.Errorf("unexpected err: %v", err)
+	}
+	// Attempt to create a permission with expired allocation should
+	// result to allocation mismatch.
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != ErrAllocationMismatch {
 		t.Error("unexpected allocation error, should be ErrAllocationNotFound")
 	}
+	// Re-creating allocation with same tuple should now succeed.
 	relayedAddr, err = a.New(tuple, timeout, nil)
 	if err != nil {
 		t.Fatal(err)
