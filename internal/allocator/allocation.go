@@ -131,8 +131,13 @@ func (a *Allocation) ReadUntilClosed() {
 	}
 }
 
-// Binding is binding channel.
+// Binding is channel binding.
 type Binding struct {
-	Number int
-	Addr   Addr
+	Number  turn.ChannelNumber
+	Addr    Addr
+	Timeout time.Time
+}
+
+func (b Binding) String() string {
+	return fmt.Sprintf("%s (c%s) [%s]", b.Addr, b.Number, b.Timeout.Format(time.RFC3339))
 }
