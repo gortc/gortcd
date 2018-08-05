@@ -179,6 +179,46 @@ func TestServer_processBindingRequest(t *testing.T) {
 	})
 }
 
+func TestServer_processChannelData(t *testing.T) {
+	s, stop := newServer(t)
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	m := &turn.ChannelData{
+		Number: 0x4001,
+		Data:   []byte{1, 2, 3, 4},
+	}
+	m.Encode()
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+		cdata:    new(turn.ChannelData),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if len(ctx.response.Raw) != 0 {
+		t.Error("unexpected response length")
+	}
+	t.Run("ZeroAlloc", func(t *testing.T) {
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		testutil.ShouldNotAllocate(t, func() {
+			s.process(ctx)
+		})
+	})
+}
+
 func BenchmarkServer_processBindingRequest(b *testing.B) {
 	b.ReportAllocs()
 	s, stop := newServer(b)
