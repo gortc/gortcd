@@ -60,13 +60,16 @@ func TestAllocator_New(t *testing.T) {
 	if err := a.Refresh(tuple, peer, now.Add(time.Second*15)); err != nil {
 		t.Error(err)
 	}
-	a.Collect(now.Add(time.Second * 11))
+	a.Collect(now.Add(time.Second * 9))
 	if _, err := a.Send(client, peer, make([]byte, 100)); err != nil {
 		t.Error(err)
 	}
 	a.Collect(now.Add(time.Second * 17))
 	if _, err := a.Send(client, peer, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
+	}
+	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != ErrAllocationNotFound {
+		t.Error("unexpected allocation error, should be ErrAllocationNotFound")
 	}
 	relayedAddr, err = a.New(tuple, timeout, nil)
 	if err != nil {

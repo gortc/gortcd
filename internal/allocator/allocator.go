@@ -97,8 +97,7 @@ func (a *Allocator) Remove(t FiveTuple) {
 	}
 }
 
-// Collect removes any timed out permissions. If allocation has no
-// active permissions, it will be removed.
+// Collect removes any timed out permissions or allocations.
 func (a *Allocator) Collect(t time.Time) {
 	var (
 		newAllocs []Allocation
@@ -116,7 +115,8 @@ func (a *Allocator) Collect(t time.Time) {
 		}
 		n := copy(a.allocs[i].Permissions, newPermissions)
 		a.allocs[i].Permissions = a.allocs[i].Permissions[:n]
-		if n > 0 {
+
+		if a.allocs[i].Timeout.After(t) {
 			newAllocs = append(newAllocs, a.allocs[i])
 		} else {
 			toDealloc = append(toDealloc, a.allocs[i])
@@ -127,7 +127,9 @@ func (a *Allocator) Collect(t time.Time) {
 	a.allocsMux.Unlock()
 
 	for i := range toDealloc {
-		a.Remove(toDealloc[i].Tuple)
+		if err := a.raddr.Remove(toDealloc[i].Tuple.Server, toDealloc[i].Tuple.Proto); err != nil {
+			a.log.Warn("failed to remove allocation", zap.Error(err))
+		}
 	}
 }
 
@@ -195,6 +197,9 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 	return raddr, nil
 }
 
+// ErrAllocationNotFound means that there are no such allocation by tuple.
+var ErrAllocationNotFound = errors.New("allocation not found by given five-tuple")
+
 // CreatePermission creates new permission for existing client allocation.
 func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Time) error {
 	permission := Permission{
@@ -207,17 +212,20 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 	default:
 		return errors.Errorf("proto %s not implemented", tuple.Proto)
 	}
-
+	var found bool
 	a.allocsMux.Lock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
 		a.allocs[i].Permissions = append(a.allocs[i].Permissions, permission)
+		found = true
 		break
 	}
 	a.allocsMux.Unlock()
-
+	if !found {
+		return ErrAllocationNotFound
+	}
 	a.log.Debug("created permission",
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("peer", peer),
