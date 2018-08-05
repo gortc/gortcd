@@ -127,6 +127,9 @@ func TestServer_processBindingRequest(t *testing.T) {
 	if err := s.process(ctx); err != nil {
 		t.Fatal(err)
 	}
+	if ctx.response.Type != stun.BindingSuccess {
+		t.Errorf("unexpected type: %s", ctx.response.Type)
+	}
 	t.Run("ZeroAlloc", func(t *testing.T) {
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
 		ctx.client = allocator.Addr{
