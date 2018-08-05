@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
 	"github.com/gortc/turn"
@@ -46,6 +47,22 @@ func TestAllocator_New(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Run("AllocError", func(t *testing.T) {
+		dErr := &dummyErrNetPortAlloc{
+			err: net.InvalidAddrError("invalid"),
+		}
+		pErr, err := NewNetAllocator(zap.NewNop(), &net.UDPAddr{
+			IP:   net.IPv4(127, 1, 0, 0),
+			Port: 5000,
+		}, dErr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		aErr := NewAllocator(zap.NewNop(), pErr)
+		if _, err := aErr.New(tuple, timeout, nil); errors.Cause(err) != dErr.err {
+			t.Errorf("unexpected error: %s", err)
+		}
+	})
 	expectedAddr := Addr{
 		Port: 5101,
 		IP:   allocateIP,

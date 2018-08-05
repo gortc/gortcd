@@ -23,6 +23,14 @@ type dummyConn struct {
 	closedMux sync.Mutex
 }
 
+type dummyErrNetPortAlloc struct {
+	err error
+}
+
+func (d dummyErrNetPortAlloc) AllocatePort(proto turn.Protocol, network, defaultAddr string) (NetAllocation, error) {
+	return NetAllocation{}, d.err
+}
+
 var (
 	errDummyConnReadFrom = errors.New("ReadFrom")
 	errDummyConnClosed   = errors.New("closed")
