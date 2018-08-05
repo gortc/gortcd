@@ -236,7 +236,9 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 // channel binding.
 //
 // Allocator implementation does not assume any default timeout.
-func (a *Allocator) ChannelBind(tuple FiveTuple, n turn.ChannelNumber, peer Addr, timeout time.Time) error {
+func (a *Allocator) ChannelBind(
+	tuple FiveTuple, n turn.ChannelNumber, peer Addr, timeout time.Time,
+) error {
 	updated := false
 	found := false
 	a.allocsMux.Lock()
