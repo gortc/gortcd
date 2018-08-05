@@ -232,8 +232,57 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 	return nil
 }
 
+// ChannelBind represents channel bind request, creating or refreshing
+// channel binding.
+//
+// Allocator implementation does not assume any default timeout.
+func (a *Allocator) ChannelBind(tuple FiveTuple, n turn.ChannelNumber, peer Addr, timeout time.Time) error {
+	updated := false
+	found := false
+	a.allocsMux.Lock()
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(tuple) {
+			continue
+		}
+		// Searching for existing binding.
+		for k := range a.allocs[i].Channels {
+			var (
+				cN    = a.allocs[i].Channels[k].Number
+				cAddr = a.allocs[i].Channels[k].Addr
+			)
+			if cN != n && !cAddr.Equal(peer) {
+				continue
+			}
+			if a.allocs[i].Channels[k].conflicts(n, peer) {
+				a.allocsMux.Unlock()
+				// There is existing binding with same channel number or peer address.
+				return ErrAllocationMismatch
+			}
+			a.allocs[i].Channels[k].Timeout = timeout
+			updated = true
+			break
+		}
+		if !updated {
+			// No binding found, creating new one.
+			a.allocs[i].Channels = append(a.allocs[i].Channels, Binding{
+				Addr:    peer,
+				Number:  n,
+				Timeout: timeout,
+			})
+		}
+		found = true
+		break
+	}
+	a.allocsMux.Unlock()
+	if !found {
+		// No allocation found.
+		return ErrAllocationMismatch
+	}
+	return nil
+}
+
 // Refresh updates existing permission timeout to t.
-func (a *Allocator) Refresh(tuple FiveTuple, peerAddr Addr, timeout time.Time) error {
+func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error {
 	// TODO: handle permission not found error.
 	a.allocsMux.Lock()
 	for i := range a.allocs {
@@ -242,7 +291,7 @@ func (a *Allocator) Refresh(tuple FiveTuple, peerAddr Addr, timeout time.Time) e
 		}
 		for k := range a.allocs[i].Permissions {
 			p := a.allocs[i].Permissions[k]
-			if !peerAddr.Equal(p.Addr) {
+			if !peer.Equal(p.Addr) {
 				continue
 			}
 			p.Timeout = timeout

@@ -141,3 +141,10 @@ type Binding struct {
 func (b Binding) String() string {
 	return fmt.Sprintf("%s (c%s) [%s]", b.Addr, b.Number, b.Timeout.Format(time.RFC3339))
 }
+
+func (b Binding) conflicts(n turn.ChannelNumber, peer Addr) bool {
+	if b.Addr.Equal(peer) && b.Number == n {
+		return false
+	}
+	return !b.Addr.Equal(peer) || b.Number == n
+}
