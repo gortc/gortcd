@@ -154,6 +154,8 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 	for i := range a.allocs {
 		if a.allocs[i].Tuple.Equal(tuple) {
 			a.allocsMux.Unlock()
+			// The 5-tuple is currently in use by an existing allocation,
+			// returning allocation mismatch error.
 			return Addr{}, ErrAllocationMismatch
 		}
 	}
@@ -197,9 +199,6 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 	return raddr, nil
 }
 
-// ErrAllocationNotFound means that there are no such allocation by tuple.
-var ErrAllocationNotFound = errors.New("allocation not found by given five-tuple")
-
 // CreatePermission creates new permission for existing client allocation.
 func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Time) error {
 	permission := Permission{
@@ -224,7 +223,7 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 	}
 	a.allocsMux.Unlock()
 	if !found {
-		return ErrAllocationNotFound
+		return ErrAllocationMismatch
 	}
 	a.log.Debug("created permission",
 		zap.Stringer("tuple", tuple),

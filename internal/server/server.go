@@ -290,7 +290,14 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	if err := s.allocs.CreatePermission(tuple, peer, timeout); err != nil {
 		return errors.Wrap(err, "failed to create allocation")
 	}
-	return ctx.buildOk(&lifetime)
+	switch err := s.allocs.CreatePermission(tuple, peer, timeout); err {
+	case allocator.ErrAllocationMismatch:
+		return ctx.buildErr(stun.CodeAllocMismatch)
+	case nil:
+		return ctx.buildOk(&lifetime)
+	default:
+		return errors.Wrap(err, "failed to create allocation")
+	}
 }
 
 func (s *Server) processSendIndication(ctx *context) error {
