@@ -76,10 +76,21 @@ type PeerHandler interface {
 type Permission struct {
 	Addr    Addr
 	Timeout time.Time
+	Binding turn.ChannelNumber // 0 or valid channel number
 }
 
 func (p Permission) String() string {
-	return fmt.Sprintf("%s [%s]", p.Addr, p.Timeout.Format(time.RFC3339))
+	if p.Binding == 0 {
+		return fmt.Sprintf("%s [%s]", p.Addr, p.Timeout.Format(time.RFC3339))
+	}
+	return fmt.Sprintf("%s (c%s) [%s]", p.Addr, p.Binding, p.Timeout.Format(time.RFC3339))
+}
+
+func (p *Permission) conflicts(n turn.ChannelNumber, peer Addr) bool {
+	if p.Addr.Equal(peer) && (p.Binding == n || p.Binding == 0) {
+		return false
+	}
+	return !p.Addr.Equal(peer) || p.Binding == n
 }
 
 // Allocation as described in "Allocations" section.
@@ -88,7 +99,6 @@ func (p Permission) String() string {
 type Allocation struct {
 	Tuple       FiveTuple
 	Permissions []Permission
-	Channels    []Binding
 	RelayedAddr Addr           // relayed transport address
 	Conn        net.PacketConn // on RelayedAddr
 	Callback    PeerHandler    // for data from Conn
@@ -129,22 +139,4 @@ func (a *Allocation) ReadUntilClosed() {
 			Port: udpAddr.Port,
 		})
 	}
-}
-
-// Binding is channel binding.
-type Binding struct {
-	Number  turn.ChannelNumber
-	Addr    Addr
-	Timeout time.Time
-}
-
-func (b Binding) String() string {
-	return fmt.Sprintf("%s (c%s) [%s]", b.Addr, b.Number, b.Timeout.Format(time.RFC3339))
-}
-
-func (b Binding) conflicts(n turn.ChannelNumber, peer Addr) bool {
-	if b.Addr.Equal(peer) && b.Number == n {
-		return false
-	}
-	return !b.Addr.Equal(peer) || b.Number == n
 }

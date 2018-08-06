@@ -247,28 +247,32 @@ func (a *Allocator) ChannelBind(
 			continue
 		}
 		// Searching for existing binding.
-		for k := range a.allocs[i].Channels {
+		for k := range a.allocs[i].Permissions {
 			var (
-				cN    = a.allocs[i].Channels[k].Number
-				cAddr = a.allocs[i].Channels[k].Addr
+				cN    = a.allocs[i].Permissions[k].Binding
+				cAddr = a.allocs[i].Permissions[k].Addr
 			)
-			if cN != n && !cAddr.Equal(peer) {
+			if (cN != n || cN == 0) && !cAddr.Equal(peer) {
+				// Skipping permission for different peer address if it is unbound
+				// or has different channel number.
 				continue
 			}
-			if a.allocs[i].Channels[k].conflicts(n, peer) {
+			// Checking for binding conflicts.
+			if a.allocs[i].Permissions[k].conflicts(n, peer) {
 				a.allocsMux.Unlock()
 				// There is existing binding with same channel number or peer address.
 				return ErrAllocationMismatch
 			}
-			a.allocs[i].Channels[k].Timeout = timeout
+			a.allocs[i].Permissions[k].Timeout = timeout
+			a.allocs[i].Permissions[k].Binding = n
 			updated = true
 			break
 		}
 		if !updated {
 			// No binding found, creating new one.
-			a.allocs[i].Channels = append(a.allocs[i].Channels, Binding{
+			a.allocs[i].Permissions = append(a.allocs[i].Permissions, Permission{
 				Addr:    peer,
-				Number:  n,
+				Binding: n,
 				Timeout: timeout,
 			})
 		}
