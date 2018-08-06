@@ -10,3 +10,6 @@ dist
 # go tests
 *.test
 *.out
+
+# coverage
+coverage.txt
