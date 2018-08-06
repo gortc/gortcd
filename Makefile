@@ -12,6 +12,7 @@ lint:
 		-e "parameter result 0 \(bool\) is never used" \
 		-e "parameter d always receives \"IN\"" \
 		-e "\/turn-client\/" \
+		-e "n can be fmt.Stringer" \
 		--enable-all \
 		--enable="lll" --line-length=100 \
 		--disable=gocyclo \
