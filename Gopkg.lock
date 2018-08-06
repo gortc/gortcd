@@ -10,12 +10,12 @@
   version = "v1.4.7"
 
 [[projects]]
-  digest = "1:540844c4ec7f850bb72f2217d503f1ce020552a9588e1dae54cec190cbd48b10"
+  digest = "1:e48fbcd4ec65b34ab3a04d90c09c03051a8c350d644c9f4ccbdb851610944da3"
   name = "github.com/gortc/ice"
   packages = ["."]
   pruneopts = "UT"
-  revision = "469167c2a0911705a2f5fa303f0afa37a86b1133"
-  version = "v0.2.0"
+  revision = "ee0c206092922c1fdaf8bd3fe8832a46e1189a37"
+  version = "v0.5.1"
 
 [[projects]]
   digest = "1:ae8d906e0d66f6a01c86766deb191507238281d3b92e74c1e1983964672c8817"
@@ -167,12 +167,12 @@
   version = "v1.0.1"
 
 [[projects]]
-  digest = "1:59e7dceb53b4a1e57eb1eb0bf9951ff0c25912df7660004a789b62b4e8cdca3b"
+  digest = "1:4fc8a61287ccfb4286e1ca5ad2ce3b0b301d746053bf44ac38cf34e40ae10372"
   name = "github.com/spf13/viper"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b5e8006cbee93ec955a89ab31e0e3ce3204f3736"
-  version = "v1.0.2"
+  revision = "907c19d40d9a6c9bb55f040ff4ae45271a4754b9"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
@@ -211,7 +211,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:d9a420eae5f76973feeb733fbf58f6a89173255b63b27a7ae4b2124a73dc6c5b"
+  digest = "1:c52caf7bd44f92e54627a31b85baf06a68333a196b3d8d241480a774733dcf8b"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -222,16 +222,16 @@
     "zapcore",
   ]
   pruneopts = "UT"
-  revision = "4d45f9617f7d90f7a663ff21c7a4321dbe78098b"
-  version = "v1.9.0"
+  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
+  version = "v1.9.1"
 
 [[projects]]
   branch = "master"
-  digest = "1:9ec6ad2659635ba0974dd7e55bf84233523eb4e7535c9a2fddaefc4cc62a3eac"
+  digest = "1:7e758f807faab4ca5614488e6397d2365f9a5767f6699a805bbe92a1d1a6da23"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "0ffbfd41fbef8ffcf9b62b0b0aa3a5873ed7a4fe"
+  revision = "2be389f392cd91df245b41638f818a1c041f0c08"
 
 [[projects]]
   digest = "1:8029e9743749d4be5bc9f7d42ea1659471767860f0cdc34d37c3111bd308a295"

@@ -23,7 +23,7 @@
 
 [[constraint]]
   name = "github.com/gortc/stun"
-  version = "1.6.4"
+  version = "1.13"
 
 [[constraint]]
   name = "github.com/pkg/errors"
@@ -39,7 +39,7 @@
 
 [[constraint]]
   name = "github.com/gortc/ice"
-  version = "0.2.0"
+  version = "0.5"
 
 [prune]
   go-tests = true

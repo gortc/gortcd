@@ -8,8 +8,7 @@ import (
 
 // Gatherer is source for addresses.
 //
-// See https://tools.ietf.org/html/rfc5245#section-2.1 for details
-// on gathering.
+// See RFC 5245 Section 2.1 for details on gathering.
 type Gatherer interface {
 	Gather() ([]Addr, error)
 }
@@ -26,15 +25,15 @@ type precedenceConfig struct {
 func init() {
 	// Initializing precedences for IP.
 	/*
-	      ::1/128               50     0
-	      ::/0                  40     1
-	      ::ffff:0:0/96         35     4
-	      2002::/16             30     2
-	      2001::/32              5     5
-	      fc00::/7               3    13
-	      ::/96                  1     3
-	      fec0::/10              1    11
-	      3ffe::/16              1    12
+	   ::1/128               50     0
+	   ::/0                  40     1
+	   ::ffff:0:0/96         35     4
+	   2002::/16             30     2
+	   2001::/32              5     5
+	   fc00::/7               3    13
+	   ::/96                  1     3
+	   fec0::/10              1    11
+	   3ffe::/16              1    12
 	*/
 	for i, p := range [precedencesCount]struct {
 		cidr  string
@@ -101,7 +100,7 @@ func (a Addr) ZeroPortAddr() string {
 	if len(a.Zone) > 0 {
 		host += "%" + a.Zone
 	}
-	return net.JoinHostPort(host, "")
+	return net.JoinHostPort(host, "0")
 }
 
 type defaultGatherer struct{}

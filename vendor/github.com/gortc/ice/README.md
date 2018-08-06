@@ -1,15 +1,16 @@
 [![Build Status](https://travis-ci.com/gortc/ice.svg)](https://travis-ci.com/gortc/ice)
 [![GoDoc](https://godoc.org/github.com/gortc/ice?status.svg)](http://godoc.org/github.com/gortc/ice)
-[![Coverage Status](https://coveralls.io/repos/github/gortc/ice/badge.svg?branch=master)](https://coveralls.io/github/gortc/ice?branch=master)
+[![codecov](https://codecov.io/gh/gortc/ice/branch/master/graph/badge.svg)](https://codecov.io/gh/gortc/ice)
 [![Go Report](https://goreportcard.com/badge/github.com/gortc/ice)](http://goreportcard.com/report/gortc/ice)
-
+[![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 # ICE
-Package ice implements Interactive Connectivity Establishment (ICE): A Protocol for Network Address Translator (NAT) Traversal for Offer/Answer Protocols.
+Package ice implements Interactive Connectivity Establishment (ICE):
+A Protocol for Network Address Translator (NAT) Traversal for Offer/Answer Protocols
+[[RFC 5245Bis](https://tools.ietf.org/html/draft-ietf-ice-rfc5245bis)].
+Complies to [gortc principles](https://gortc.io/#principles) as core package.
 
-Currently in active development. Do not use this package at all. API will
-definitely break. 
-
-Needs go 1.7 or better.
+Currently in active development, so no guarantees for API backward
+compatibility.
 
 ## RFCs
 

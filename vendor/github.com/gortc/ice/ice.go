@@ -6,6 +6,7 @@ package ice
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"unsafe"
@@ -24,17 +25,14 @@ const (
 	AddressFQDN
 )
 
+var addressTypeToStr = map[AddressType]string{
+	AddressIPv4: "IPv4",
+	AddressIPv6: "IPv6",
+	AddressFQDN: "FQDN",
+}
+
 func (a AddressType) String() string {
-	switch a {
-	case AddressIPv4:
-		return "IPv4"
-	case AddressIPv6:
-		return "IPv6"
-	case AddressFQDN:
-		return "FQDN"
-	default:
-		panic("unexpected address type")
-	}
+	return strOrUnknown(addressTypeToStr[a])
 }
 
 // ConnectionAddress represents address that can be ipv4/6 or FQDN.
@@ -88,26 +86,28 @@ type CandidateType byte
 
 // Set of candidate types.
 const (
-	CandidateUnknown         CandidateType = iota
-	CandidateHost                          // "host"
-	CandidateServerReflexive               // "srflx"
-	CandidatePeerReflexive                 // "prflx"
-	CandidateRelay                         // "relay"
+	CandidateHost            CandidateType = iota // "host"
+	CandidateServerReflexive                      // "srflx"
+	CandidatePeerReflexive                        // "prflx"
+	CandidateRelay                                // "relay"
 )
 
-func (c CandidateType) String() string {
-	switch c {
-	case CandidateHost:
-		return "host"
-	case CandidateServerReflexive:
-		return "server-reflexive"
-	case CandidatePeerReflexive:
-		return "peer-reflexive"
-	case CandidateRelay:
-		return "relay"
-	default:
+var candidateTypeToStr = map[CandidateType]string{
+	CandidateHost:            "host",
+	CandidateServerReflexive: "server-reflexive",
+	CandidatePeerReflexive:   "peer-reflexive",
+	CandidateRelay:           "relay",
+}
+
+func strOrUnknown(str string) string {
+	if len(str) == 0 {
 		return "unknown"
 	}
+	return str
+}
+
+func (c CandidateType) String() string {
+	return strOrUnknown(candidateTypeToStr[c])
 }
 
 const (
@@ -149,8 +149,8 @@ type Candidate struct {
 	Attributes Attributes
 }
 
-// reset sets all fields to zero values.
-func (c *Candidate) reset() {
+// Reset sets all fields to zero values.
+func (c *Candidate) Reset() {
 	c.ConnectionAddress.reset()
 	c.RelatedAddress.reset()
 	c.RelatedPort = 0
@@ -196,7 +196,6 @@ func (c Candidate) Equal(b *Candidate) bool {
 	if !c.Attributes.Equal(b.Attributes) {
 		return false
 	}
-
 	return true
 }
 
@@ -240,8 +239,15 @@ func (a Attributes) Equal(b Attributes) bool {
 	return true
 }
 
+func byteStr(b []byte) string {
+	if b == nil {
+		return "<nil>"
+	}
+	return string(b)
+}
+
 func (a Attribute) String() string {
-	return fmt.Sprintf("%s:%s", a.Key, a.Value)
+	return fmt.Sprintf("%v:%v", byteStr(a.Key), byteStr(a.Value))
 }
 
 // TransportType is transport type for candidate.
@@ -264,13 +270,13 @@ func (t TransportType) String() string {
 
 // candidateParser should parse []byte into Candidate.
 //
-// a=candidate:3862931549 1 udp 2113937151 192.168.220.128 56032 typ host generation 0 network-cost 50
-//     foundation ---┘    |  |      |            |          |
-//   component id --------┘  |      |            |          |
-//      transport -----------┘      |            |          |
-//       priority ------------------┘            |          |
-//  conn. address -------------------------------┘          |
-//           port ------------------------------------------┘
+// a=candidate:3862931549 1 udp 2113937151 192.168.1.2 56032 typ host generation 0 network-cost 50
+//     foundation ---┘    |  |      |            |         |
+//   component id --------┘  |      |            |         |
+//      transport -----------┘      |            |         |
+//       priority ------------------┘            |         |
+//  conn. address -------------------------------┘         |
+//           port -----------------------------------------┘
 type candidateParser struct {
 	buf []byte
 	c   *Candidate
@@ -341,7 +347,7 @@ func (p *candidateParser) parseRelatedPort(v []byte) error {
 // Note it may break if string and/or slice header will change
 // in the future go versions.
 func b2s(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
+	return *(*string)(unsafe.Pointer(&b)) // #nosec
 }
 
 func parseIP(dst net.IP, v []byte) net.IP {
@@ -356,10 +362,7 @@ func parseIP(dst net.IP, v []byte) net.IP {
 		}
 	}
 	ip := net.ParseIP(b2s(v))
-	for _, c := range ip {
-		dst = append(dst, c)
-	}
-	return dst
+	return append(dst, ip...)
 }
 
 func (candidateParser) parseAddress(v []byte, target *ConnectionAddress) error {
@@ -444,7 +447,7 @@ func (p *candidateParser) parse() error {
 	// last is last character offset
 	// of mandatory elements
 	var pos, l, last int
-	fns := []parseFn{
+	fns := [...]parseFn{
 		p.parseFoundation,        // 0
 		p.parseComponentID,       // 1
 		p.parseTransport,         // 2
@@ -578,3 +581,6 @@ func ParseAttribute(v []byte, c *Candidate) error {
 	err := p.parse()
 	return err
 }
+
+// bin is shorthand for BigEndian.
+var bin = binary.BigEndian

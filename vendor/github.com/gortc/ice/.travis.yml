@@ -1,13 +1,26 @@
 language: go
 
 go:
-  - '1.10.X'
-  
+  - master
+  - 1.9.x
+  - 1.10.x
+
+matrix:
+  allow_failures:
+    - go: 1.9.x
+    - go: master
+  fast_finish: true
+
 before_install:
-  - go get github.com/mattn/goveralls
-  - go get golang.org/x/tools/cmd/cover
+  - go get github.com/alecthomas/gometalinter
+  - gometalinter --install
+  - go get gortc.io/api
 
 install: true
 
 script:
- - $HOME/gopath/bin/goveralls -service=travis-ci -v
+  - ./go.test.sh
+  - make lint
+
+after_success:
+  - bash <(curl -s https://codecov.io/bash)
