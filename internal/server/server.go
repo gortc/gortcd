@@ -149,11 +149,7 @@ func (s *Server) collect(t time.Time) {
 	s.allocs.Collect(t)
 }
 
-func (s *Server) sendByBinding(
-	ctx *context,
-	data turn.Data,
-	n turn.ChannelNumber,
-) error {
+func (s *Server) sendByBinding(ctx *context) error {
 	tuple := allocator.FiveTuple{
 		Server: ctx.server,
 		Client: ctx.client,
@@ -161,13 +157,9 @@ func (s *Server) sendByBinding(
 	}
 	s.log.Info("searching for allocation",
 		zap.Stringer("tuple", tuple),
-		zap.Stringer("n", n),
+		zap.Stringer("n", ctx.cdata.Number),
 	)
-	_, err := s.allocs.SendBound(allocator.FiveTuple{
-		Server: ctx.server,
-		Client: ctx.client,
-		Proto:  turn.ProtoUDP,
-	}, n, data)
+	_, err := s.allocs.SendBound(tuple, ctx.cdata.Number, ctx.cdata.Data)
 	return err
 }
 
@@ -379,7 +371,7 @@ func (s *Server) processChannelData(ctx *context) error {
 			zap.Int("len", ctx.cdata.Length),
 		)
 	}
-	return nil
+	return s.sendByBinding(ctx)
 }
 
 func (s *Server) processMessage(ctx *context) error {
