@@ -33,24 +33,68 @@ type Allocator struct {
 // ErrPermissionNotFound means that requested allocation (client,addr) is not found.
 var ErrPermissionNotFound = errors.New("permission not found")
 
+// SendBound uses existing allocation identified by tuple with bound channel number n
+// to send data.
+func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte) (int, error) {
+	var (
+		conn net.PacketConn
+		addr Addr
+	)
+	a.log.Info("searching for allocation",
+		zap.Stringer("tuple", tuple),
+		zap.Stringer("n", n),
+	)
+	a.allocsMux.RLock()
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(tuple) {
+			continue
+		}
+		for _, p := range a.allocs[i].Permissions {
+			if p.Binding != n {
+				continue
+			}
+			conn = a.allocs[i].Conn
+			// Copy p.Addr to addr.
+			addr = Addr{
+				Port: p.Addr.Port,
+				IP:   make(net.IP, len(p.Addr.IP)),
+			}
+			copy(addr.IP, p.Addr.IP)
+		}
+	}
+	a.allocsMux.RUnlock()
+	if conn == nil {
+		return 0, ErrPermissionNotFound
+	}
+	a.log.Debug("sending data",
+		zap.Stringer("tuple", tuple),
+		zap.Stringer("addr", addr),
+		zap.Int("len", len(data)),
+	)
+	return conn.WriteTo(data, &net.UDPAddr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	})
+}
+
 // Send uses existing allocation for client to write data to remote addr.
 //
 // Returns ErrPermissionNotFound if no allocation found for (client,addr).
-func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
+func (a *Allocator) Send(tuple FiveTuple, peer Addr, data []byte) (int, error) {
 	var (
 		conn net.PacketConn
 	)
 	a.log.Info("searching for allocation",
-		zap.Stringer("client", client),
-		zap.Stringer("addr", addr),
+		zap.Stringer("t", tuple),
+		zap.Stringer("peer", peer),
 	)
 	a.allocsMux.RLock()
 	for i := range a.allocs {
-		if !a.allocs[i].Tuple.Client.Equal(client) {
+		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
 		for _, p := range a.allocs[i].Permissions {
-			if !addr.Equal(p.Addr) {
+			if !peer.Equal(p.Addr) {
 				continue
 			}
 			conn = a.allocs[i].Conn
@@ -61,13 +105,13 @@ func (a *Allocator) Send(client, addr Addr, data []byte) (int, error) {
 		return 0, ErrPermissionNotFound
 	}
 	a.log.Debug("sending data",
-		zap.Stringer("client", client),
-		zap.Stringer("addr", addr),
+		zap.Stringer("tuple", tuple),
+		zap.Stringer("addr", peer),
 		zap.Int("len", len(data)),
 	)
 	return conn.WriteTo(data, &net.UDPAddr{
-		IP:   addr.IP,
-		Port: addr.Port,
+		IP:   peer.IP,
+		Port: peer.Port,
 	})
 }
 

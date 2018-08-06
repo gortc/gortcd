@@ -149,16 +149,47 @@ func (s *Server) collect(t time.Time) {
 	s.allocs.Collect(t)
 }
 
-func (s *Server) sendByPermission(
+func (s *Server) sendByBinding(
+	ctx *context,
 	data turn.Data,
-	client allocator.Addr,
+	n turn.ChannelNumber,
+) error {
+	tuple := allocator.FiveTuple{
+		Server: ctx.server,
+		Client: ctx.client,
+		Proto:  turn.ProtoUDP,
+	}
+	s.log.Info("searching for allocation",
+		zap.Stringer("tuple", tuple),
+		zap.Stringer("n", n),
+	)
+	_, err := s.allocs.SendBound(allocator.FiveTuple{
+		Server: ctx.server,
+		Client: ctx.client,
+		Proto:  turn.ProtoUDP,
+	}, n, data)
+	return err
+}
+
+func (s *Server) sendByPermission(
+	ctx *context,
+	data turn.Data,
 	addr turn.PeerAddress,
 ) error {
+	tuple := allocator.FiveTuple{
+		Server: ctx.server,
+		Client: ctx.client,
+		Proto:  turn.ProtoUDP,
+	}
 	s.log.Info("searching for allocation",
-		zap.Stringer("client", client),
+		zap.Stringer("tuple", tuple),
 		zap.Stringer("addr", addr),
 	)
-	_, err := s.allocs.Send(client, allocator.Addr(addr), data)
+	_, err := s.allocs.Send(allocator.FiveTuple{
+		Server: ctx.server,
+		Client: ctx.client,
+		Proto:  turn.ProtoUDP,
+	}, allocator.Addr(addr), data)
 	return err
 }
 
@@ -310,7 +341,7 @@ func (s *Server) processSendIndication(ctx *context) error {
 		return errors.Wrap(err, "failed to parse send indication")
 	}
 	s.log.Info("sending data", zap.Stringer("to", addr))
-	if err := s.sendByPermission(data, ctx.client, addr); err != nil {
+	if err := s.sendByPermission(ctx, data, addr); err != nil {
 		s.log.Warn("send failed",
 			zap.Error(err),
 		)
