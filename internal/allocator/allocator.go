@@ -356,15 +356,15 @@ func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error
 
 // Stats contains allocator statistics.
 type Stats struct {
-	// Count is current allocations count.
-	Count int
+	// Allocations is the number of open connections to the database.
+	Allocations int
 }
 
-// Count returns current allocation count.
+// Allocations returns current allocation count.
 func (a *Allocator) Stats() Stats {
 	a.allocsMux.Lock()
 	s := Stats{
-		Count: len(a.allocs),
+		Allocations: len(a.allocs),
 	}
 	a.allocsMux.Unlock()
 	return s
