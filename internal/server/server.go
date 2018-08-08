@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -54,6 +55,12 @@ type Options struct {
 	ManualStart bool // don't start bg activity
 	AuthForSTUN bool // require auth for binding requests
 	Workers     int
+	Registry    MetricsRegistry
+}
+
+// MetricsRegistry represents prometheus metrics registry.
+type MetricsRegistry interface {
+	Register(c prometheus.Collector) error
 }
 
 // New initializes and returns new server from options.
@@ -92,6 +99,11 @@ func New(o Options) (*Server, error) {
 	s.log = o.Log.With(zap.Stringer("server", s.addr))
 	if !o.ManualStart {
 		s.Start(o.CollectRate)
+	}
+	if o.Registry != nil {
+		if err := o.Registry.Register(s.allocs); err != nil {
+			return nil, errors.Wrap(err, "failed to register")
+		}
 	}
 	return s, nil
 }
@@ -146,7 +158,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) collect(t time.Time) {
-	s.allocs.Collect(t)
+	s.allocs.Prune(t)
 }
 
 func (s *Server) sendByBinding(ctx *context) error {

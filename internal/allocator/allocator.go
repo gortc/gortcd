@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/gortc/turn"
@@ -28,6 +29,16 @@ type Allocator struct {
 	allocsMux sync.RWMutex
 	allocs    []Allocation
 	raddr     RelayedAddrAllocator
+}
+
+// Describe implements Collector.
+func (a *Allocator) Describe(c chan<- *prometheus.Desc) {
+	a.Stats().Describe(c)
+}
+
+// Collect implements Collector.
+func (a *Allocator) Collect(c chan<- prometheus.Metric) {
+	a.Stats().Collect(c)
 }
 
 // ErrPermissionNotFound means that requested allocation (client,addr) is not found.
@@ -141,8 +152,8 @@ func (a *Allocator) Remove(t FiveTuple) {
 	}
 }
 
-// Collect removes any timed out permissions or allocations.
-func (a *Allocator) Collect(t time.Time) {
+// Prune removes any timed out permissions or allocations.
+func (a *Allocator) Prune(t time.Time) {
 	var (
 		newAllocs []Allocation
 		toDealloc []Allocation
@@ -362,6 +373,40 @@ type Stats struct {
 	Permissions int
 	// Bindings is the total number of channel bindings in all allocations.
 	Bindings int
+}
+
+// Describe implements Collector.
+func (Stats) Describe(c chan<- *prometheus.Desc) {
+	for _, d := range []*prometheus.Desc{
+		prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.", []string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.", []string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.", []string{}, prometheus.Labels{}),
+	} {
+		c <- d
+	}
+}
+
+// Collect implements Collector.
+func (s Stats) Collect(c chan<- prometheus.Metric) {
+	for _, m := range []prometheus.Metric{
+		prometheus.MustNewConstMetric(
+			prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.", []string{}, prometheus.Labels{}),
+			prometheus.GaugeValue,
+			float64(s.Allocations),
+		),
+		prometheus.MustNewConstMetric(
+			prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.", []string{}, prometheus.Labels{}),
+			prometheus.GaugeValue,
+			float64(s.Permissions),
+		),
+		prometheus.MustNewConstMetric(
+			prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.", []string{}, prometheus.Labels{}),
+			prometheus.GaugeValue,
+			float64(s.Bindings),
+		),
+	} {
+		c <- m
+	}
 }
 
 // Allocations returns current allocation count.

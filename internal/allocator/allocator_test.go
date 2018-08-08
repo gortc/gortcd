@@ -108,7 +108,7 @@ func TestAllocator_New(t *testing.T) {
 	if a.Stats().Permissions != 2 {
 		t.Error("unexpected permissions count")
 	}
-	a.Collect(now)
+	a.Prune(now)
 	if a.Stats().Permissions != 2 {
 		t.Error("unexpected permissions count")
 	}
@@ -117,7 +117,7 @@ func TestAllocator_New(t *testing.T) {
 		t.Error(err)
 	}
 	// Collecting at T+7.
-	a.Collect(now.Add(time.Second * 7))
+	a.Prune(now.Add(time.Second * 7))
 	// Checking that both permissions still active.
 	if _, err := a.Send(tuple, peer, make([]byte, 100)); err != nil {
 		t.Error(err)
@@ -126,7 +126,7 @@ func TestAllocator_New(t *testing.T) {
 		t.Error(err)
 	}
 	// Collecting T+9. First permission should expire.
-	a.Collect(now.Add(time.Second * 9))
+	a.Prune(now.Add(time.Second * 9))
 	if _, err := a.Send(tuple, peer, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestAllocator_New(t *testing.T) {
 	}
 	// Collecting T+17. Entire allocation expires.
 	// Both permissions should expire too.
-	a.Collect(now.Add(time.Second * 17))
+	a.Prune(now.Add(time.Second * 17))
 	if _, err := a.Send(tuple, peer, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -251,13 +251,13 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	if err := a.ChannelBind(tuple, n2, peer2, now.Add(time.Second*18)); err != nil {
 		t.Error(err)
 	}
-	a.Collect(now)
+	a.Prune(now)
 	// Refreshing first permission to T+8.
 	if err := a.ChannelBind(tuple, n, peer, now.Add(time.Second*8)); err != nil {
 		t.Error(err)
 	}
 	// Collecting at T+7.
-	a.Collect(now.Add(time.Second * 7))
+	a.Prune(now.Add(time.Second * 7))
 	// Checking that both permissions still active.
 	if _, err := a.SendBound(tuple, n, make([]byte, 100)); err != nil {
 		t.Error(err)
@@ -266,7 +266,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		t.Error(err)
 	}
 	// Collecting T+9. First permission should expire.
-	a.Collect(now.Add(time.Second * 9))
+	a.Prune(now.Add(time.Second * 9))
 	if _, err := a.SendBound(tuple, n, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -275,7 +275,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	}
 	// Collecting T+17. Entire allocation expires.
 	// Both permissions should expire too.
-	a.Collect(now.Add(time.Second * 17))
+	a.Prune(now.Add(time.Second * 17))
 	if _, err := a.SendBound(tuple, n, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
