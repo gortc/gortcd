@@ -353,3 +353,11 @@ func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error
 	a.allocsMux.Unlock()
 	return nil
 }
+
+// Count returns current allocation count.
+func (a *Allocator) Count() int {
+	a.allocsMux.Lock()
+	l := len(a.allocs)
+	a.allocsMux.Unlock()
+	return l
+}

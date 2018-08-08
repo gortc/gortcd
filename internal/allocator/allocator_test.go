@@ -47,9 +47,15 @@ func TestAllocator_New(t *testing.T) {
 		Server: server,
 		Proto:  turn.ProtoUDP,
 	}
+	if a.Count() != 0 {
+		t.Error("unexpected allocation count")
+	}
 	relayedAddr, err := a.New(tuple, timeout, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if a.Count() != 1 {
+		t.Error("unexpected allocation count")
 	}
 	t.Run("AllocError", func(t *testing.T) {
 		dErr := &dummyErrNetPortAlloc{
@@ -86,6 +92,9 @@ func TestAllocator_New(t *testing.T) {
 	// Creating allocation and two permissions.
 	if _, err = a.New(tuple, timeout, nil); err != ErrAllocationMismatch {
 		t.Error("New() with same tuple should return mismatch error")
+	}
+	if a.Count() != 1 {
+		t.Error("unexpected allocation count")
 	}
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*5)); err != nil {
 		t.Error(err)
@@ -128,6 +137,9 @@ func TestAllocator_New(t *testing.T) {
 	// result to allocation mismatch.
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != ErrAllocationMismatch {
 		t.Error("unexpected allocation error, should be ErrAllocationNotFound")
+	}
+	if a.Count() != 0 {
+		t.Errorf("unexpected allocation count")
 	}
 	// Re-creating allocation with same tuple should now succeed.
 	relayedAddr, err = a.New(tuple, timeout, nil)
