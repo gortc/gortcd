@@ -56,6 +56,7 @@ type Options struct {
 	AuthForSTUN bool // require auth for binding requests
 	Workers     int
 	Registry    MetricsRegistry
+	Labels      prometheus.Labels
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -74,13 +75,21 @@ func New(o Options) (*Server, error) {
 	if o.CollectRate == 0 {
 		o.CollectRate = time.Second
 	}
+	if len(o.Labels) == 0 {
+		o.Labels = prometheus.Labels{}
+	}
+	o.Labels["addr"] = o.Conn.LocalAddr().String()
 	netAlloc, err := allocator.NewNetAllocator(
 		o.Log.Named("port"), o.Conn.LocalAddr(), allocator.SystemPortAllocator{},
 	)
 	if err != nil {
 		return nil, err
 	}
-	allocs := allocator.NewAllocator(o.Log.Named("allocator"), netAlloc)
+	allocs := allocator.NewAllocator(allocator.Options{
+		Log:    o.Log.Named("allocator"),
+		Conn:   netAlloc,
+		Labels: o.Labels,
+	})
 	s := &Server{
 		realm:  stun.NewRealm(o.Realm),
 		auth:   o.Auth,

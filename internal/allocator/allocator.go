@@ -15,11 +15,29 @@ import (
 	"github.com/gortc/turn"
 )
 
+// Options contain possible settings for Allocator.
+type Options struct {
+	Log    *zap.Logger
+	Conn   RelayedAddrAllocator
+	Labels prometheus.Labels
+}
+
 // NewAllocator initializes and returns new *Allocator.
-func NewAllocator(log *zap.Logger, conn RelayedAddrAllocator) *Allocator {
+func NewAllocator(o Options) *Allocator {
+	if o.Log == nil {
+		o.Log = zap.NewNop()
+	}
 	return &Allocator{
-		log:   log,
-		raddr: conn,
+		log:   o.Log,
+		raddr: o.Conn,
+		metrics: map[string]*prometheus.Desc{
+			"allocation_count": prometheus.NewDesc("gortcd_allocation_count",
+				"Total number of allocations.", []string{}, o.Labels),
+			"permission_count": prometheus.NewDesc("gortcd_permission_count",
+				"Total number of permissions.", []string{}, o.Labels),
+			"binding_count": prometheus.NewDesc("gortcd_binding_count",
+				"Total number of bindings.", []string{}, o.Labels),
+		},
 	}
 }
 
@@ -29,16 +47,38 @@ type Allocator struct {
 	allocsMux sync.RWMutex
 	allocs    []Allocation
 	raddr     RelayedAddrAllocator
+	metrics   map[string]*prometheus.Desc
 }
 
 // Describe implements Collector.
 func (a *Allocator) Describe(c chan<- *prometheus.Desc) {
-	a.Stats().Describe(c)
+	for _, d := range a.metrics {
+		c <- d
+	}
 }
 
 // Collect implements Collector.
 func (a *Allocator) Collect(c chan<- prometheus.Metric) {
-	a.Stats().Collect(c)
+	s := a.Stats()
+	for _, m := range []prometheus.Metric{
+		prometheus.MustNewConstMetric(
+			a.metrics["allocation_count"],
+			prometheus.GaugeValue,
+			float64(s.Allocations),
+		),
+		prometheus.MustNewConstMetric(
+			a.metrics["permission_count"],
+			prometheus.GaugeValue,
+			float64(s.Permissions),
+		),
+		prometheus.MustNewConstMetric(
+			a.metrics["binding_count"],
+			prometheus.GaugeValue,
+			float64(s.Bindings),
+		),
+	} {
+		c <- m
+	}
 }
 
 // ErrPermissionNotFound means that requested allocation (client,addr) is not found.

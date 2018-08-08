@@ -24,7 +24,7 @@ func TestAllocator_New(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := NewAllocator(zap.NewNop(), p)
+	a := NewAllocator(Options{Conn: p})
 	client := Addr{
 		Port: 200,
 		IP:   net.IPv4(127, 0, 0, 1),
@@ -68,7 +68,7 @@ func TestAllocator_New(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		aErr := NewAllocator(zap.NewNop(), pErr)
+		aErr := NewAllocator(Options{Conn: pErr})
 		if _, err := aErr.New(tuple, timeout, nil); errors.Cause(err) != dErr.err {
 			t.Errorf("unexpected error: %s", err)
 		}
@@ -178,7 +178,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := NewAllocator(zap.NewNop(), p)
+	a := NewAllocator(Options{Conn: p})
 	client := Addr{
 		Port: 200,
 		IP:   net.IPv4(127, 0, 0, 1),
@@ -220,7 +220,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		aErr := NewAllocator(zap.NewNop(), pErr)
+		aErr := NewAllocator(Options{Conn: pErr})
 		if _, err := aErr.New(tuple, timeout, nil); errors.Cause(err) != dErr.err {
 			t.Errorf("unexpected error: %s", err)
 		}

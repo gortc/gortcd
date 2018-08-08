@@ -16,6 +16,9 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/server"
 	"github.com/gortc/ice"
@@ -67,6 +70,22 @@ var rootCmd = &cobra.Command{
 		if strings.Split(viper.GetString("version"), ".")[0] != "1" {
 			l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
 		}
+		reg := prometheus.NewPedanticRegistry()
+		if prometheusAddr := viper.GetString("server.prometheus.addr"); prometheusAddr != "" {
+			l.Warn("running prometheus metrics", zap.String("addr", prometheusAddr))
+			go func() {
+				promHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+					ErrorLog:      zap.NewStdLog(l),
+					ErrorHandling: promhttp.HTTPErrorOnError,
+				})
+				if listenErr := http.ListenAndServe(prometheusAddr, promHandler); listenErr != nil {
+					l.Error("prometheus failed to listen",
+						zap.String("addr", prometheusAddr),
+						zap.Error(listenErr),
+					)
+				}
+			}()
+		}
 		if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
 			l.Warn("running pprof", zap.String("addr", pprofAddr))
 			go func() {
@@ -108,9 +127,10 @@ var rootCmd = &cobra.Command{
 		l.Info("parsed credentials", zap.Int("n", len(staticCredentials)))
 		l.Info("realm", zap.String("k", realm))
 		o := server.Options{
-			Realm:   realm,
-			Log:     l,
-			Workers: viper.GetInt("server.workers"),
+			Realm:    realm,
+			Log:      l,
+			Workers:  viper.GetInt("server.workers"),
+			Registry: reg,
 		}
 		if viper.GetBool("auth.public") {
 			l.Warn("auth is public")

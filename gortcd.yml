@@ -6,6 +6,9 @@ server:
   listen:
     - 0.0.0.0:3478
   realm: gortc.io # default realm
+  pprof: "localhost:3256"
+  prometheus:
+    addr: "localhost:3255"
 
 auth:
   public: false
