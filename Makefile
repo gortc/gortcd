@@ -18,6 +18,7 @@ lint:
 		--disable=gocyclo \
 		--disable=gochecknoglobals \
 		--disable=gochecknoinits \
+		--disable=interfacer \
 		--deadline=300s \
 		--dupl-threshold=70 \
 		-j $(PROCS) --vendor ./...

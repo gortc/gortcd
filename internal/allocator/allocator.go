@@ -378,9 +378,12 @@ type Stats struct {
 // Describe implements Collector.
 func (Stats) Describe(c chan<- *prometheus.Desc) {
 	for _, d := range []*prometheus.Desc{
-		prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.", []string{}, prometheus.Labels{}),
-		prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.", []string{}, prometheus.Labels{}),
-		prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.", []string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.",
+			[]string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.",
+			[]string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.",
+			[]string{}, prometheus.Labels{}),
 	} {
 		c <- d
 	}
@@ -390,17 +393,20 @@ func (Stats) Describe(c chan<- *prometheus.Desc) {
 func (s Stats) Collect(c chan<- prometheus.Metric) {
 	for _, m := range []prometheus.Metric{
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.", []string{}, prometheus.Labels{}),
+			prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.",
+				[]string{}, prometheus.Labels{}),
 			prometheus.GaugeValue,
 			float64(s.Allocations),
 		),
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.", []string{}, prometheus.Labels{}),
+			prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.",
+				[]string{}, prometheus.Labels{}),
 			prometheus.GaugeValue,
 			float64(s.Permissions),
 		),
 		prometheus.MustNewConstMetric(
-			prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.", []string{}, prometheus.Labels{}),
+			prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.",
+				[]string{}, prometheus.Labels{}),
 			prometheus.GaugeValue,
 			float64(s.Bindings),
 		),
@@ -409,7 +415,7 @@ func (s Stats) Collect(c chan<- prometheus.Metric) {
 	}
 }
 
-// Allocations returns current allocation count.
+// Stats returns current statistics.
 func (a *Allocator) Stats() Stats {
 	a.allocsMux.Lock()
 	s := Stats{
