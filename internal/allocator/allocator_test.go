@@ -24,7 +24,7 @@ func TestAllocator_New(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := NewAllocator(zap.NewNop(), p)
+	a := NewAllocator(Options{Conn: p})
 	client := Addr{
 		Port: 200,
 		IP:   net.IPv4(127, 0, 0, 1),
@@ -47,9 +47,15 @@ func TestAllocator_New(t *testing.T) {
 		Server: server,
 		Proto:  turn.ProtoUDP,
 	}
+	if a.Stats().Allocations != 0 {
+		t.Error("unexpected allocation count")
+	}
 	relayedAddr, err := a.New(tuple, timeout, nil)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if a.Stats().Allocations != 1 {
+		t.Error("unexpected allocation count")
 	}
 	t.Run("AllocError", func(t *testing.T) {
 		dErr := &dummyErrNetPortAlloc{
@@ -62,7 +68,7 @@ func TestAllocator_New(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		aErr := NewAllocator(zap.NewNop(), pErr)
+		aErr := NewAllocator(Options{Conn: pErr})
 		if _, err := aErr.New(tuple, timeout, nil); errors.Cause(err) != dErr.err {
 			t.Errorf("unexpected error: %s", err)
 		}
@@ -87,19 +93,31 @@ func TestAllocator_New(t *testing.T) {
 	if _, err = a.New(tuple, timeout, nil); err != ErrAllocationMismatch {
 		t.Error("New() with same tuple should return mismatch error")
 	}
+	if a.Stats().Allocations != 1 {
+		t.Error("unexpected allocation count")
+	}
+	if a.Stats().Permissions != 0 {
+		t.Error("unexpected permissions count")
+	}
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*5)); err != nil {
 		t.Error(err)
 	}
 	if err := a.CreatePermission(tuple, peer2, now.Add(time.Second*18)); err != nil {
 		t.Error(err)
 	}
-	a.Collect(now)
+	if a.Stats().Permissions != 2 {
+		t.Error("unexpected permissions count")
+	}
+	a.Prune(now)
+	if a.Stats().Permissions != 2 {
+		t.Error("unexpected permissions count")
+	}
 	// Refreshing first permission to T+8.
 	if err := a.Refresh(tuple, peer, now.Add(time.Second*8)); err != nil {
 		t.Error(err)
 	}
 	// Collecting at T+7.
-	a.Collect(now.Add(time.Second * 7))
+	a.Prune(now.Add(time.Second * 7))
 	// Checking that both permissions still active.
 	if _, err := a.Send(tuple, peer, make([]byte, 100)); err != nil {
 		t.Error(err)
@@ -108,7 +126,7 @@ func TestAllocator_New(t *testing.T) {
 		t.Error(err)
 	}
 	// Collecting T+9. First permission should expire.
-	a.Collect(now.Add(time.Second * 9))
+	a.Prune(now.Add(time.Second * 9))
 	if _, err := a.Send(tuple, peer, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -117,7 +135,7 @@ func TestAllocator_New(t *testing.T) {
 	}
 	// Collecting T+17. Entire allocation expires.
 	// Both permissions should expire too.
-	a.Collect(now.Add(time.Second * 17))
+	a.Prune(now.Add(time.Second * 17))
 	if _, err := a.Send(tuple, peer, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -128,6 +146,9 @@ func TestAllocator_New(t *testing.T) {
 	// result to allocation mismatch.
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*10)); err != ErrAllocationMismatch {
 		t.Error("unexpected allocation error, should be ErrAllocationNotFound")
+	}
+	if a.Stats().Allocations != 0 {
+		t.Errorf("unexpected allocation count")
 	}
 	// Re-creating allocation with same tuple should now succeed.
 	relayedAddr, err = a.New(tuple, timeout, nil)
@@ -157,7 +178,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	a := NewAllocator(zap.NewNop(), p)
+	a := NewAllocator(Options{Conn: p})
 	client := Addr{
 		Port: 200,
 		IP:   net.IPv4(127, 0, 0, 1),
@@ -199,7 +220,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		aErr := NewAllocator(zap.NewNop(), pErr)
+		aErr := NewAllocator(Options{Conn: pErr})
 		if _, err := aErr.New(tuple, timeout, nil); errors.Cause(err) != dErr.err {
 			t.Errorf("unexpected error: %s", err)
 		}
@@ -230,13 +251,13 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	if err := a.ChannelBind(tuple, n2, peer2, now.Add(time.Second*18)); err != nil {
 		t.Error(err)
 	}
-	a.Collect(now)
+	a.Prune(now)
 	// Refreshing first permission to T+8.
 	if err := a.ChannelBind(tuple, n, peer, now.Add(time.Second*8)); err != nil {
 		t.Error(err)
 	}
 	// Collecting at T+7.
-	a.Collect(now.Add(time.Second * 7))
+	a.Prune(now.Add(time.Second * 7))
 	// Checking that both permissions still active.
 	if _, err := a.SendBound(tuple, n, make([]byte, 100)); err != nil {
 		t.Error(err)
@@ -245,7 +266,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		t.Error(err)
 	}
 	// Collecting T+9. First permission should expire.
-	a.Collect(now.Add(time.Second * 9))
+	a.Prune(now.Add(time.Second * 9))
 	if _, err := a.SendBound(tuple, n, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}
@@ -254,7 +275,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	}
 	// Collecting T+17. Entire allocation expires.
 	// Both permissions should expire too.
-	a.Collect(now.Add(time.Second * 17))
+	a.Prune(now.Add(time.Second * 17))
 	if _, err := a.SendBound(tuple, n, make([]byte, 100)); err != ErrPermissionNotFound {
 		t.Errorf("unexpected err: %v", err)
 	}

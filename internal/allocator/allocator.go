@@ -9,16 +9,35 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/gortc/turn"
 )
 
+// Options contain possible settings for Allocator.
+type Options struct {
+	Log    *zap.Logger
+	Conn   RelayedAddrAllocator
+	Labels prometheus.Labels
+}
+
 // NewAllocator initializes and returns new *Allocator.
-func NewAllocator(log *zap.Logger, conn RelayedAddrAllocator) *Allocator {
+func NewAllocator(o Options) *Allocator {
+	if o.Log == nil {
+		o.Log = zap.NewNop()
+	}
 	return &Allocator{
-		log:   log,
-		raddr: conn,
+		log:   o.Log,
+		raddr: o.Conn,
+		metrics: map[string]*prometheus.Desc{
+			"allocation_count": prometheus.NewDesc("gortcd_allocation_count",
+				"Total number of allocations.", []string{}, o.Labels),
+			"permission_count": prometheus.NewDesc("gortcd_permission_count",
+				"Total number of permissions.", []string{}, o.Labels),
+			"binding_count": prometheus.NewDesc("gortcd_binding_count",
+				"Total number of bindings.", []string{}, o.Labels),
+		},
 	}
 }
 
@@ -28,6 +47,38 @@ type Allocator struct {
 	allocsMux sync.RWMutex
 	allocs    []Allocation
 	raddr     RelayedAddrAllocator
+	metrics   map[string]*prometheus.Desc
+}
+
+// Describe implements Collector.
+func (a *Allocator) Describe(c chan<- *prometheus.Desc) {
+	for _, d := range a.metrics {
+		c <- d
+	}
+}
+
+// Collect implements Collector.
+func (a *Allocator) Collect(c chan<- prometheus.Metric) {
+	s := a.Stats()
+	for _, m := range []prometheus.Metric{
+		prometheus.MustNewConstMetric(
+			a.metrics["allocation_count"],
+			prometheus.GaugeValue,
+			float64(s.Allocations),
+		),
+		prometheus.MustNewConstMetric(
+			a.metrics["permission_count"],
+			prometheus.GaugeValue,
+			float64(s.Permissions),
+		),
+		prometheus.MustNewConstMetric(
+			a.metrics["binding_count"],
+			prometheus.GaugeValue,
+			float64(s.Bindings),
+		),
+	} {
+		c <- m
+	}
 }
 
 // ErrPermissionNotFound means that requested allocation (client,addr) is not found.
@@ -141,8 +192,8 @@ func (a *Allocator) Remove(t FiveTuple) {
 	}
 }
 
-// Collect removes any timed out permissions or allocations.
-func (a *Allocator) Collect(t time.Time) {
+// Prune removes any timed out permissions or allocations.
+func (a *Allocator) Prune(t time.Time) {
 	var (
 		newAllocs []Allocation
 		toDealloc []Allocation
@@ -352,4 +403,73 @@ func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error
 	}
 	a.allocsMux.Unlock()
 	return nil
+}
+
+// Stats contains allocator statistics.
+type Stats struct {
+	// Allocations is the total number of allocations.
+	Allocations int
+	// Permissions is the total number of permissions in all allocations.
+	Permissions int
+	// Bindings is the total number of channel bindings in all allocations.
+	Bindings int
+}
+
+// Describe implements Collector.
+func (Stats) Describe(c chan<- *prometheus.Desc) {
+	for _, d := range []*prometheus.Desc{
+		prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.",
+			[]string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.",
+			[]string{}, prometheus.Labels{}),
+		prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.",
+			[]string{}, prometheus.Labels{}),
+	} {
+		c <- d
+	}
+}
+
+// Collect implements Collector.
+func (s Stats) Collect(c chan<- prometheus.Metric) {
+	for _, m := range []prometheus.Metric{
+		prometheus.MustNewConstMetric(
+			prometheus.NewDesc("gortcd_allocation_count", "Total number of allocations.",
+				[]string{}, prometheus.Labels{}),
+			prometheus.GaugeValue,
+			float64(s.Allocations),
+		),
+		prometheus.MustNewConstMetric(
+			prometheus.NewDesc("gortcd_permission_count", "Total number of permissions.",
+				[]string{}, prometheus.Labels{}),
+			prometheus.GaugeValue,
+			float64(s.Permissions),
+		),
+		prometheus.MustNewConstMetric(
+			prometheus.NewDesc("gortcd_binding_count", "Total number of bindings.",
+				[]string{}, prometheus.Labels{}),
+			prometheus.GaugeValue,
+			float64(s.Bindings),
+		),
+	} {
+		c <- m
+	}
+}
+
+// Stats returns current statistics.
+func (a *Allocator) Stats() Stats {
+	a.allocsMux.Lock()
+	s := Stats{
+		Allocations: len(a.allocs),
+	}
+	for i := range a.allocs {
+		s.Permissions += len(a.allocs[i].Permissions)
+		for k := range a.allocs[i].Permissions {
+			if a.allocs[i].Permissions[k].Binding == 0 {
+				continue
+			}
+			s.Bindings++
+		}
+	}
+	a.allocsMux.Unlock()
+	return s
 }

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
@@ -54,6 +55,13 @@ type Options struct {
 	ManualStart bool // don't start bg activity
 	AuthForSTUN bool // require auth for binding requests
 	Workers     int
+	Registry    MetricsRegistry
+	Labels      prometheus.Labels
+}
+
+// MetricsRegistry represents prometheus metrics registry.
+type MetricsRegistry interface {
+	Register(c prometheus.Collector) error
 }
 
 // New initializes and returns new server from options.
@@ -67,13 +75,21 @@ func New(o Options) (*Server, error) {
 	if o.CollectRate == 0 {
 		o.CollectRate = time.Second
 	}
+	if len(o.Labels) == 0 {
+		o.Labels = prometheus.Labels{}
+	}
+	o.Labels["addr"] = o.Conn.LocalAddr().String()
 	netAlloc, err := allocator.NewNetAllocator(
 		o.Log.Named("port"), o.Conn.LocalAddr(), allocator.SystemPortAllocator{},
 	)
 	if err != nil {
 		return nil, err
 	}
-	allocs := allocator.NewAllocator(o.Log.Named("allocator"), netAlloc)
+	allocs := allocator.NewAllocator(allocator.Options{
+		Log:    o.Log.Named("allocator"),
+		Conn:   netAlloc,
+		Labels: o.Labels,
+	})
 	s := &Server{
 		realm:  stun.NewRealm(o.Realm),
 		auth:   o.Auth,
@@ -92,6 +108,11 @@ func New(o Options) (*Server, error) {
 	s.log = o.Log.With(zap.Stringer("server", s.addr))
 	if !o.ManualStart {
 		s.Start(o.CollectRate)
+	}
+	if o.Registry != nil {
+		if err := o.Registry.Register(s.allocs); err != nil {
+			return nil, errors.Wrap(err, "failed to register")
+		}
 	}
 	return s, nil
 }
@@ -146,7 +167,7 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) collect(t time.Time) {
-	s.allocs.Collect(t)
+	s.allocs.Prune(t)
 }
 
 func (s *Server) sendByBinding(ctx *context) error {
