@@ -356,8 +356,12 @@ func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error
 
 // Stats contains allocator statistics.
 type Stats struct {
-	// Allocations is the number of open connections to the database.
+	// Allocations is the total number of allocations.
 	Allocations int
+	// Permissions is the total number of permissions in all allocations.
+	Permissions int
+	// Bindings is the total number of channel bindings in all allocations.
+	Bindings int
 }
 
 // Allocations returns current allocation count.
@@ -365,6 +369,15 @@ func (a *Allocator) Stats() Stats {
 	a.allocsMux.Lock()
 	s := Stats{
 		Allocations: len(a.allocs),
+	}
+	for i := range a.allocs {
+		s.Permissions += len(a.allocs[i].Permissions)
+		for k := range a.allocs[i].Permissions {
+			if a.allocs[i].Permissions[k].Binding == 0 {
+				continue
+			}
+			s.Bindings++
+		}
 	}
 	a.allocsMux.Unlock()
 	return s

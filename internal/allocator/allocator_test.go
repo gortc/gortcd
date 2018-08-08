@@ -96,13 +96,22 @@ func TestAllocator_New(t *testing.T) {
 	if a.Stats().Allocations != 1 {
 		t.Error("unexpected allocation count")
 	}
+	if a.Stats().Permissions != 0 {
+		t.Error("unexpected permissions count")
+	}
 	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*5)); err != nil {
 		t.Error(err)
 	}
 	if err := a.CreatePermission(tuple, peer2, now.Add(time.Second*18)); err != nil {
 		t.Error(err)
 	}
+	if a.Stats().Permissions != 2 {
+		t.Error("unexpected permissions count")
+	}
 	a.Collect(now)
+	if a.Stats().Permissions != 2 {
+		t.Error("unexpected permissions count")
+	}
 	// Refreshing first permission to T+8.
 	if err := a.Refresh(tuple, peer, now.Add(time.Second*8)); err != nil {
 		t.Error(err)
