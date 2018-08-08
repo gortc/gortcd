@@ -354,10 +354,18 @@ func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error
 	return nil
 }
 
+// Stats contains allocator statistics.
+type Stats struct {
+	// Count is current allocations count.
+	Count int
+}
+
 // Count returns current allocation count.
-func (a *Allocator) Count() int {
+func (a *Allocator) Stats() Stats {
 	a.allocsMux.Lock()
-	l := len(a.allocs)
+	s := Stats{
+		Count: len(a.allocs),
+	}
 	a.allocsMux.Unlock()
-	return l
+	return s
 }
