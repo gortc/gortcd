@@ -430,7 +430,7 @@ func (s *Server) processMessage(ctx *context) error {
 					zap.Error(err),
 				)
 			}
-			return ctx.buildErr(stun.CodeWrongCredentials)
+			return ctx.buildErr(stun.CodeUnauthorised)
 		}
 	}
 	// Selecting handler based on request message type.
