@@ -127,10 +127,11 @@ var rootCmd = &cobra.Command{
 		l.Info("parsed credentials", zap.Int("n", len(staticCredentials)))
 		l.Info("realm", zap.String("k", realm))
 		o := server.Options{
-			Realm:    realm,
-			Log:      l,
-			Workers:  viper.GetInt("server.workers"),
-			Registry: reg,
+			Realm:       realm,
+			Log:         l,
+			Workers:     viper.GetInt("server.workers"),
+			Registry:    reg,
+			AuthForSTUN: viper.GetBool("auth.stun"),
 		}
 		if viper.GetBool("auth.public") {
 			l.Warn("auth is public")
@@ -231,6 +232,7 @@ func init() {
 	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
 	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
 	viper.SetDefault("server.workers", 100)
+	viper.SetDefault("auth.stun", false)
 	viper.SetDefault("version", "1")
 }
 
