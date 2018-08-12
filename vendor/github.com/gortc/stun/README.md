@@ -33,7 +33,7 @@ func main() {
 		panic(err)
 	}
 	deadline := time.Now().Add(time.Second * 5)
-	// Bulding binding request with random transaction id.
+	// Building binding request with random transaction id.
 	message := stun.MustBuild(stun.TransactionID, stun.BindingRequest)
 	// Sending request to STUN server, waiting for response message.
 	if err := c.Do(message, deadline, func(res stun.Event) {
@@ -54,7 +54,7 @@ func main() {
 
 ## RFCs
 
-The package aims to implement the follwing RFCs. Note that the requirement status is based on the [WebRTC spec](https://tools.ietf.org/html/draft-ietf-rtcweb-overview), focusing on data channels for now.
+The package aims to implement the following RFCs. Note that the requirement status is based on the [WebRTC spec](https://tools.ietf.org/html/draft-ietf-rtcweb-overview), focusing on data channels for now.
 
 rfc | status | requirement | description
 ----|--------|-------------|----
@@ -135,8 +135,3 @@ BenchmarkXORMappedAddress_AddTo-12            50000000     35.10 ns/op          
 BenchmarkXORMappedAddress_GetFrom-12          50000000     24.00 ns/op                        0 B/op   0 allocs/op
 ok  	github.com/gortc/stun	71.692s
 ```
-
-# Development goals
-
-stun package is low-level core gortc module, so security, efficiency (both memory and cpu), simplicity,
-code quality, and low dependencies are paramount goals.

@@ -10,7 +10,7 @@ var peerConnectionConfig = {
             'credential': 'secret'
         }
     ],
-    'iceTransportPolicy': 'all'
+    'iceTransportPolicy': 'relay'
 };
 const dataChannelOptions = {
     ordered: false, // do not guarantee order

@@ -36,7 +36,7 @@ ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner",
 
 [[constraint]]
   name = "github.com/gortc/turn"
-  version = "0.3"
+  version = "0.4.4"
 
 [[constraint]]
   name = "github.com/gortc/ice"

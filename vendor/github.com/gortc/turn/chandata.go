@@ -10,10 +10,11 @@ import (
 //
 // See RFC 5766 Section 11.4
 type ChannelData struct {
-	Data   []byte // can be subslice of Raw
-	Length int    // ignored while encoding, len(Data) is used
-	Number ChannelNumber
-	Raw    []byte
+	Data    []byte // can be subslice of Raw
+	Length  int    // ignored while encoding, len(Data) is used
+	Padding bool   // use  padding
+	Number  ChannelNumber
+	Raw     []byte
 }
 
 // Equal returns true if b == c.
@@ -57,19 +58,44 @@ func (c *ChannelData) Encode() {
 	c.Raw = c.Raw[:0]
 	c.WriteHeader()
 	c.Raw = append(c.Raw, c.Data...)
+	if !c.Padding {
+		return
+	}
+	padded := nearestPaddedValueLength(len(c.Raw))
+	if bytesToAdd := padded - len(c.Raw); bytesToAdd > 0 {
+		for i := 0; i < bytesToAdd; i++ {
+			c.Raw = append(c.Raw, 0)
+		}
+	}
+}
+
+// STUN aligns attributes on 32-bit boundaries, attributes whose content
+// is not a multiple of 4 bytes are padded with 1, 2, or 3 bytes of
+// padding so that its value contains a multiple of 4 bytes.  The
+// padding bits are ignored, and may be any value.
+//
+// https://tools.ietf.org/html/rfc5389#section-15
+const padding = 4
+
+func nearestPaddedValueLength(l int) int {
+	n := padding * (l / padding)
+	if n < l {
+		n += padding
+	}
+	return n
 }
 
 // WriteHeader writes channel number and length.
 func (c *ChannelData) WriteHeader() {
-	if len(c.Raw) < channelDataHeaderSize {
+	if len(c.Raw) < 4 {
 		// Making WriteHeader call valid even when c.Raw
 		// is nil or len(c.Raw) is less than needed for header.
-		c.grow(channelDataHeaderSize)
+		c.grow(4)
 	}
 	// Early bounds check to guarantee safety of writes below.
 	_ = c.Raw[:channelDataHeaderSize]
-	bin.PutUint16(c.Raw[:channelNumberSize], uint16(c.Number))
-	bin.PutUint16(c.Raw[channelNumberSize:channelDataHeaderSize],
+	bin.PutUint16(c.Raw[:2], uint16(c.Number))
+	bin.PutUint16(c.Raw[2:4],
 		uint16(len(c.Data)),
 	)
 }
@@ -84,23 +110,27 @@ func (c *ChannelData) Decode() error {
 	if len(buf) < channelDataHeaderSize {
 		return io.ErrUnexpectedEOF
 	}
-	num := bin.Uint16(buf[0:channelNumberSize])
+	num := bin.Uint16(buf[0:channelDataNumberSize])
 	c.Number = ChannelNumber(num)
-	l := bin.Uint16(buf[channelNumberSize:channelDataHeaderSize])
+	l := bin.Uint16(buf[channelDataNumberSize:channelDataHeaderSize])
 	c.Data = buf[channelDataHeaderSize:]
 	c.Length = int(l)
-	if int(l) != len(buf[channelDataHeaderSize:]) {
-		return ErrBadChannelDataLength
-	}
 	if !c.Number.Valid() {
 		return ErrInvalidChannelNumber
+	}
+	if int(l) < len(c.Data) {
+		c.Data = c.Data[:int(l)]
+	}
+	if int(l) > len(buf[channelDataHeaderSize:]) {
+		return ErrBadChannelDataLength
 	}
 	return nil
 }
 
 const (
-	channelDataLengthSize = channelNumberSize
-	channelDataHeaderSize = channelNumberSize + channelDataLengthSize
+	channelDataLengthSize = 2
+	channelDataNumberSize = channelDataLengthSize
+	channelDataHeaderSize = channelDataLengthSize + channelDataNumberSize
 )
 
 // IsChannelData returns true if buf looks like the ChannelData Message.
@@ -110,10 +140,5 @@ func IsChannelData(buf []byte) bool {
 	}
 	// Quick check for channel number.
 	num := bin.Uint16(buf[0:channelNumberSize])
-	if !isChannelNumberValid(num) {
-		return false
-	}
-	// Check that length is valid.
-	l := bin.Uint16(buf[channelNumberSize:channelDataHeaderSize])
-	return l == uint16(len(buf[channelDataHeaderSize:]))
+	return isChannelNumberValid(num)
 }

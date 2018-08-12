@@ -1,16 +1,16 @@
-[![Build Status](https://travis-ci.com/gortc/turn.svg)](https://travis-ci.com/gortc/turn)
+[![Build Status](https://travis-ci.com/gortc/turn.svg?branch=master)](https://travis-ci.com/gortc/turn)
 [![Build status](https://ci.appveyor.com/api/projects/status/bodd3l5hgu1agxpf/branch/master?svg=true)](https://ci.appveyor.com/project/ernado/turn-gvuk2/branch/master)
 [![GoDoc](https://godoc.org/github.com/gortc/turn?status.svg)](http://godoc.org/github.com/gortc/turn)
 [![codecov](https://codecov.io/gh/gortc/turn/branch/master/graph/badge.svg)](https://codecov.io/gh/gortc/turn)
 [![Go Report](https://goreportcard.com/badge/github.com/gortc/turn)](http://goreportcard.com/report/gortc/turn)
-
+[![stability-beta](https://img.shields.io/badge/stability-beta-33bbff.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#beta)
 
 # TURN
 
 Package turn implements TURN [[RFC 5766](https://tools.ietf.org/html/rfc5766)] Traversal Using Relays around NAT.
 Complies to [gortc principles](https://gortc.io/#principles) as core package.
 Based on [gortc/stun](https://github.com/gortc/stun) package.
-Work in progress.
+See [gortcd](https://github.com/gortc/gortcd) for TURN server.
 
 ## RFCs
 

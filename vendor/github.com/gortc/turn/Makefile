@@ -23,9 +23,11 @@ lint:
 	@echo "linting on $(PROCS) cores"
 	@gometalinter \
 		--enable-all \
+		--vendor \
 		-e "_test.go.+(gocyclo|errcheck|dupl)" \
 		-e "attributes\.go.+credentials,.+,LOW.+\(gas\)" \
 		-e "parameter v always receives 8" \
+		-e "function \(\*Client\).allocate\(\) is high .+\(gocyclo\)" \
 		--enable="lll" --line-length=100 \
 		--enable="gofmt" \
 		--enable="goimports" \
@@ -33,6 +35,7 @@ lint:
 		--enable="unused" \
 		--deadline=300s \
 		--disable="gochecknoglobals" \
+		--disable="interfacer" \
 		-j $(PROCS)
 	@echo "ok"
 escape:
@@ -48,3 +51,6 @@ test-integration:
 	@cd e2e && ./test.sh
 check-api:
 	api -c api/turn1.txt github.com/gortc/turn
+write-api:
+	api github.com/gortc/turn > api/turn1.txt
+

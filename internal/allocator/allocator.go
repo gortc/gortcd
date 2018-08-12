@@ -91,7 +91,7 @@ func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte
 		conn net.PacketConn
 		addr Addr
 	)
-	a.log.Info("searching for allocation",
+	a.log.Info("searching for bound allocation",
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("n", n),
 	)
@@ -121,6 +121,11 @@ func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("addr", addr),
 		zap.Int("len", len(data)),
+		zap.Stringer("laddr", conn.LocalAddr()),
+		zap.Stringer("raddr", &net.UDPAddr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}),
 	)
 	return conn.WriteTo(data, &net.UDPAddr{
 		IP:   addr.IP,
@@ -334,9 +339,13 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 func (a *Allocator) ChannelBind(
 	tuple FiveTuple, n turn.ChannelNumber, peer Addr, timeout time.Time,
 ) error {
+	if !n.Valid() {
+		return turn.ErrInvalidChannelNumber
+	}
 	updated := false
 	found := false
 	a.allocsMux.Lock()
+	defer a.allocsMux.Unlock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
@@ -354,17 +363,26 @@ func (a *Allocator) ChannelBind(
 			}
 			// Checking for binding conflicts.
 			if a.allocs[i].Permissions[k].conflicts(n, peer) {
-				a.allocsMux.Unlock()
 				// There is existing binding with same channel number or peer address.
 				return ErrAllocationMismatch
 			}
 			a.allocs[i].Permissions[k].Timeout = timeout
 			a.allocs[i].Permissions[k].Binding = n
+			a.log.Debug("updated binding",
+				zap.Stringer("addr", peer),
+				zap.Stringer("tuple", tuple),
+				zap.Stringer("binding", n),
+			)
 			updated = true
 			break
 		}
 		if !updated {
 			// No binding found, creating new one.
+			a.log.Debug("created binding",
+				zap.Stringer("addr", peer),
+				zap.Stringer("tuple", tuple),
+				zap.Stringer("binding", n),
+			)
 			a.allocs[i].Permissions = append(a.allocs[i].Permissions, Permission{
 				Addr:    peer,
 				Binding: n,
@@ -374,12 +392,33 @@ func (a *Allocator) ChannelBind(
 		found = true
 		break
 	}
-	a.allocsMux.Unlock()
 	if !found {
 		// No allocation found.
 		return ErrAllocationMismatch
 	}
 	return nil
+}
+
+// Bound returns currently bound channel for provided 5-tuple.
+func (a *Allocator) Bound(tuple FiveTuple, peer Addr) (turn.ChannelNumber, error) {
+	a.allocsMux.RLock()
+	defer a.allocsMux.RUnlock()
+	for i := range a.allocs {
+		if !a.allocs[i].Tuple.Equal(tuple) {
+			continue
+		}
+		for k := range a.allocs[i].Permissions {
+			var (
+				cN    = a.allocs[i].Permissions[k].Binding
+				cAddr = a.allocs[i].Permissions[k].Addr
+			)
+			if !cAddr.Equal(peer) || cN == 0 {
+				continue
+			}
+			return cN, nil
+		}
+	}
+	return 0, ErrAllocationMismatch
 }
 
 // Refresh updates existing permission timeout to t.

@@ -42,8 +42,11 @@ func (s *Server) setHandlers() {
 		turn.CreatePermissionRequest: s.processCreatePermissionRequest,
 		turn.RefreshRequest:          s.processRefreshRequest,
 		turn.SendIndication:          s.processSendIndication,
+		channelBindRequest:           s.processChannelBinding,
 	}
 }
+
+var channelBindRequest = stun.NewType(stun.MethodChannelBind, stun.ClassRequest)
 
 // Options is set of available options for Server.
 type Options struct {
@@ -176,7 +179,7 @@ func (s *Server) sendByBinding(ctx *context) error {
 		Client: ctx.client,
 		Proto:  turn.ProtoUDP,
 	}
-	s.log.Info("searching for allocation",
+	s.log.Info("searching for allocation via binding",
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("n", ctx.cdata.Number),
 	)
@@ -222,11 +225,24 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	if err := s.conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
 		l.Error("failed to SetWriteDeadline", zap.Error(err))
 	}
+	if n, err := s.allocs.Bound(t, a); err == nil {
+		// Using channel data.
+		d := turn.ChannelData{
+			Number: n,
+			Data:   d,
+		}
+		d.Encode()
+		if _, err := s.conn.WriteTo(d.Raw, destination); err != nil {
+			l.Error("failed to write", zap.Error(err))
+		}
+		l.Info("sent data via channel", zap.Stringer("n", n))
+		return
+	}
 	m := stun.New()
 	if err := m.Build(
 		stun.TransactionID,
 		stun.NewType(stun.MethodData, stun.ClassIndication),
-		turn.Data(d),
+		turn.Data(d), turn.PeerAddress(a),
 		stun.Fingerprint,
 	); err != nil {
 		l.Error("failed to build", zap.Error(err))
@@ -335,9 +351,6 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 			Client: ctx.client,
 		}
 	)
-	if err := s.allocs.CreatePermission(tuple, peer, timeout); err != nil {
-		return errors.Wrap(err, "failed to create allocation")
-	}
 	switch err := s.allocs.CreatePermission(tuple, peer, timeout); err {
 	case allocator.ErrAllocationMismatch:
 		return ctx.buildErr(stun.CodeAllocMismatch)
@@ -383,7 +396,38 @@ var (
 	defaultNonce = stun.NewNonce("nonce")
 )
 
+func (s *Server) processChannelBinding(ctx *context) error {
+	var (
+		addr   turn.PeerAddress
+		number turn.ChannelNumber
+	)
+	if parseErr := ctx.request.Parse(&addr, &number); parseErr != nil {
+		s.log.Debug("channel binding parse failed", zap.Error(parseErr))
+		return ctx.buildErr(stun.CodeBadRequest)
+	}
+	var (
+		peer    = allocator.Addr(addr)
+		timeout = ctx.time.Add(s.cfg.DefaultLifetime())
+		tuple   = allocator.FiveTuple{
+			Proto:  turn.ProtoUDP,
+			Server: ctx.server,
+			Client: ctx.client,
+		}
+	)
+	switch err := s.allocs.ChannelBind(tuple, number, peer, timeout); err {
+	case allocator.ErrAllocationMismatch:
+		return ctx.buildErr(stun.CodeAllocMismatch)
+	case nil:
+		return ctx.buildOk(&number, &turn.Lifetime{
+			Duration: s.cfg.DefaultLifetime(),
+		})
+	default:
+		return errors.Wrap(err, "failed to create allocation")
+	}
+}
+
 func (s *Server) processChannelData(ctx *context) error {
+	ctx.cdata.Raw = ctx.request.Raw
 	if err := ctx.cdata.Decode(); err != nil {
 		if ce := s.log.Check(zapcore.DebugLevel, "failed to decode channel data"); ce != nil {
 			ce.Write(zap.Stringer("addr", ctx.client), zap.Error(err))
@@ -442,7 +486,7 @@ func (s *Server) processMessage(ctx *context) error {
 	if ok {
 		return h(ctx)
 	}
-	s.log.Warn("unsupported request type")
+	s.log.Warn("unsupported request type", zap.Stringer("t", ctx.request.Type))
 	return ctx.buildErr(stun.CodeBadRequest)
 }
 
@@ -455,6 +499,7 @@ func (s *Server) process(ctx *context) error {
 	case turn.IsChannelData(ctx.request.Raw):
 		return s.processChannelData(ctx)
 	default:
+		return s.processChannelData(ctx)
 		if ce := s.log.Check(zapcore.DebugLevel, "not looks like stun message"); ce != nil {
 			ce.Write(zap.Stringer("addr", ctx.client))
 		}
