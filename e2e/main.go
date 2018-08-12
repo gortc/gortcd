@@ -1,270 +1,82 @@
 package main
 
 import (
-	"bytes"
+	"context"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"net"
+	"net/http"
 	"time"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-
-	"github.com/gortc/stun"
-	"github.com/gortc/turn"
+	"github.com/chromedp/chromedp"
+	"github.com/chromedp/chromedp/runner"
 )
 
-const (
-	udp      = "udp"
-	peerPort = 56780
+var (
+	bin           = flag.String("b", "/usr/bin/google-chrome", "path to binary")
+	headless      = flag.Bool("headless", true, "headless mode")
+	httpAddr      = flag.String("addr", "127.0.0.1:8080", "http endpoint to listen")
+	signalingAddr = flag.String("signaling", "signaling:2255", "signaling server addr")
+	timeout       = flag.Duration("timeout", time.Second*5, "test timeout")
+	controlling   = flag.Bool("controlling", false, "agent is controlling")
 )
-
-func isErr(m *stun.Message) bool {
-	return m.Type.Class == stun.ClassErrorResponse
-}
-
-func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stun.Setter) error {
-	start := time.Now()
-	if err := req.Build(attrs...); err != nil {
-		logger.Error("failed to build", zap.Error(err))
-		return err
-	}
-	if _, err := req.WriteTo(c); err != nil {
-		logger.Error("failed to write",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	logger.Info("sent message", zap.Stringer("m", req), zap.Stringer("t", req.Type))
-	if cap(res.Raw) < 800 {
-		res.Raw = make([]byte, 0, 1024)
-	}
-	res.Reset()
-	c.SetReadDeadline(time.Now().Add(time.Second * 2))
-	_, err := res.ReadFrom(c)
-	if err != nil {
-		logger.Error("failed to read",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	if req.Type.Class != stun.ClassIndication && req.TransactionID != res.TransactionID {
-		return fmt.Errorf("transaction ID mismatch: %x (got) != %x (expected)",
-			req.TransactionID, res.TransactionID,
-		)
-	}
-	logger.Info("got message",
-		zap.Stringer("m", res),
-		zap.Stringer("t", res.Type),
-		zap.Duration("rtt", time.Since(start)),
-	)
-	return nil
-}
 
 func main() {
 	flag.Parse()
-	var (
-		serverAddr *net.UDPAddr
-		echoAddr   *net.UDPAddr
-		code       stun.ErrorCodeAttribute
-		username   = stun.NewUsername("username")
-		password   = "secret"
-		req        = new(stun.Message)
-		res        = new(stun.Message)
-	)
-	logCfg := zap.NewDevelopmentConfig()
-	logCfg.DisableCaller = true
-	logCfg.DisableStacktrace = true
-	start := time.Now()
-	logCfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		d := time.Since(start).Nanoseconds() / 1e6
-		enc.AppendString(fmt.Sprintf("%04d", d))
-	}
-	logger, err := logCfg.Build()
-	if err != nil {
-		panic(err)
-	}
-
-	if flag.Arg(0) == "peer" {
-		laddr, err := net.ResolveUDPAddr(udp, fmt.Sprintf(":%d", peerPort))
-		if err != nil {
-			logger.Fatal("failed to resolve UDP addr", zap.Error(err))
-		}
-		c, err := net.ListenUDP(udp, laddr)
-		if err != nil {
-			logger.Fatal("failed to listen", zap.Error(err))
-		}
-		logger.Info("listening as echo server", zap.Stringer("laddr", c.LocalAddr()))
-		for {
-			// Starting echo server.
-			buf := make([]byte, 1024)
-			n, addr, err := c.ReadFromUDP(buf)
-			if err != nil {
-				logger.Fatal("failed to read", zap.Error(err))
+	fmt.Println("bin", *bin, "addr", *httpAddr, "timeout", *timeout)
+	fs := http.FileServer(http.Dir("static"))
+	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+		log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr)
+		fs.ServeHTTP(writer, request)
+	})
+	gotSuccess := make(chan struct{})
+	http.HandleFunc("/success", func(writer http.ResponseWriter, request *http.Request) {
+		gotSuccess <- struct{}{}
+	})
+	http.HandleFunc("/config", func(writer http.ResponseWriter, request *http.Request) {
+		log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr)
+		for i := 0; i < 10; i++ {
+			addr, err := net.ResolveTCPAddr("tcp", *signalingAddr)
+			log.Println("resolve:", addr, err)
+			if err == nil {
+				encoder := json.NewEncoder(writer)
+				if encodeErr := encoder.Encode(struct {
+					Controlling bool   `json:"controlling"`
+					Signaling   string `json:"signaling"`
+				}{
+					Controlling: *controlling,
+					Signaling:   fmt.Sprintf("ws://%s/ws", addr),
+				}); encodeErr != nil {
+					log.Fatal(err)
+				}
+				return
 			}
-			logger.Info("got message",
-				zap.String("body", string(buf[:n])),
-				zap.Stringer("raddr", addr),
-			)
-			// Echoing back.
-			if _, err := c.WriteToUDP(buf[:n], addr); err != nil {
-				logger.Fatal("failed to write back", zap.Error(err))
-			}
-			logger.Info("echoed back",
-				zap.Stringer("raddr", addr),
-			)
+			time.Sleep(time.Millisecond * 100 * time.Duration(i))
 		}
-	}
-
-	for i := 0; i < 10; i++ {
-		serverAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("turn-server:%d", turn.DefaultPort))
-		if err == nil {
-			break
+		log.Fatalln("failed to resolve")
+	})
+	go func() {
+		if err := http.ListenAndServe(*httpAddr, nil); err != nil {
+			log.Fatalln("failed to listen:", err)
 		}
-		time.Sleep(time.Millisecond * 300 * time.Duration(i))
-	}
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
+	defer cancel()
+	c, err := chromedp.New(ctx, chromedp.WithLog(log.Printf), chromedp.WithRunnerOptions(
+		runner.Path(*bin), runner.DisableGPU, runner.Flag("headless", *headless),
+	))
 	if err != nil {
-		panic(err)
+		log.Fatalln("failed to create chrome", err)
 	}
-	for i := 0; i < 10; i++ {
-		echoAddr, err = net.ResolveUDPAddr("udp", fmt.Sprintf("turn-peer:%d", peerPort))
-		if err == nil {
-			break
-		}
-		time.Sleep(time.Millisecond * 300 * time.Duration(i))
+	if err := c.Run(ctx, chromedp.Navigate("http://"+*httpAddr)); err != nil {
+		log.Fatalln("failed to navigate:", err)
 	}
-	if err != nil {
-		panic(err)
+	select {
+	case <-gotSuccess:
+		log.Println("succeeded")
+	case <-ctx.Done():
+		log.Fatalln(ctx.Err())
 	}
-
-	c, err := net.DialUDP(udp, nil, serverAddr)
-	if err != nil {
-		logger.Fatal("failed to dial to TURN server",
-			zap.Error(err),
-		)
-	}
-	logger.Info("dial server",
-		zap.Stringer("laddr", c.LocalAddr()),
-		zap.Stringer("raddr", c.RemoteAddr()),
-	)
-
-	// Constructing allocate request without integrity
-	if err := do(logger, req, res, c,
-		username,
-		stun.TransactionID,
-		turn.AllocateRequest,
-		turn.RequestedTransportUDP,
-	); err != nil {
-		logger.Fatal("failed to do request", zap.Error(err))
-	}
-	if !isErr(res) {
-		logger.Fatal("got no-error response")
-	}
-	var (
-		nonce stun.Nonce
-		realm stun.Realm
-	)
-	if err := res.Parse(&nonce, &realm); err != nil {
-		logger.Fatal("failed to get nonce and realm")
-	}
-	logger.Info("integrity",
-		zap.Stringer("nonce", nonce), zap.Stringer("realm", realm), zap.String("password", password),
-	)
-	integrity := stun.NewLongTermIntegrity(username.String(), realm.String(), password)
-	// Constructing allocate request with integrity
-	if err := do(logger, req, res, c,
-		username, nonce, realm,
-		stun.TransactionID,
-		turn.AllocateRequest,
-		turn.RequestedTransportUDP,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to do request", zap.Error(err))
-	}
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("got error response", zap.Stringer("err", code))
-	}
-
-	// Decoding relayed and mapped address.
-	var (
-		reladdr turn.RelayedAddress
-		maddr   stun.XORMappedAddress
-	)
-	if err := reladdr.GetFrom(res); err != nil {
-		logger.Fatal("failed to get relayed address", zap.Error(err))
-	}
-	logger.Info("relayed address", zap.Stringer("addr", reladdr))
-	if err := maddr.GetFrom(res); err != nil && err != stun.ErrAttributeNotFound {
-		logger.Fatal("failed to decode relayed address", zap.Error(err))
-	} else {
-		logger.Info("mapped address", zap.Stringer("addr", maddr))
-	}
-
-	peerAddr := turn.PeerAddress{
-		IP:   echoAddr.IP,
-		Port: echoAddr.Port,
-	}
-	logger.Info("peer address", zap.Stringer("addr", peerAddr))
-	if err := do(logger, req, res, c, stun.TransactionID,
-		turn.CreatePermissionRequest,
-		username, nonce, realm,
-		peerAddr,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to do request", zap.Error(err))
-	}
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("failed to allocate", zap.Stringer("err", code))
-	}
-	var (
-		sentData = turn.Data("Hello world!")
-	)
-	// Allocation succeed.
-	// Sending data to echo server.
-	// can be as resetTo(type, attrs)?
-	if err := do(logger, req, res, c, stun.TransactionID,
-		turn.SendIndication,
-		username, nonce, realm,
-		sentData,
-		peerAddr,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to build", zap.Error(err))
-	}
-	logger.Info("sent data", zap.String("v", string(sentData)))
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("got error response", zap.Stringer("err", code))
-	}
-	var data turn.Data
-	if err := data.GetFrom(res); err != nil {
-		logger.Fatal("failed to get DATA attribute", zap.Error(err))
-	}
-	logger.Info("got data", zap.String("v", string(data)))
-	if bytes.Equal(data, sentData) {
-		logger.Info("OK")
-	} else {
-		logger.Info("DATA mismatch")
-	}
-
-	// De-allocating.
-	if err := do(logger, req, res, c, stun.TransactionID,
-		username, nonce, realm,
-		turn.RefreshRequest,
-		turn.ZeroLifetime,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to do", zap.Error(err))
-	}
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("got error response", zap.Stringer("err", code))
-	}
-	logger.Info("closing")
 }

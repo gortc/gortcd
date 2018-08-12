@@ -1,33 +1,52 @@
 version: '3'
 
 services:
-  turn-peer:
-    entrypoint:
-      - e2e
-      - peer
-    depends_on:
-      - turn-server
-    links:
-      - turn-server
+  signaling:
     build:
-      context: ..
-      dockerfile: e2e/Dockerfile
+      context: .
+      dockerfile: signaling.Dockerfile
       args:
         CI_GO_VERSION: ${CI_GO_VERSION}
     environment:
       - CI_GO_VERSION
-  turn-client:
+  turn-bob:
+    entrypoint:
+      - ./e2e
+      - "-b=/usr/bin/google-chrome-unstable"
+      - "-timeout=3s"
+      - "-controlling"
     depends_on:
       - turn-server
-      - turn-peer
+      - signaling
     links:
       - turn-server
-      - turn-peer
+      - turn-alice
+      - signaling
     build:
-      context: ..
-      dockerfile: e2e/Dockerfile
+      context: .
+      dockerfile: Dockerfile
       args:
         CI_GO_VERSION: ${CI_GO_VERSION}
+    cap_add:
+      - SYS_ADMIN
+    shm_size: 1024m
+    environment:
+      - CI_GO_VERSION
+  turn-alice:
+    depends_on:
+      - turn-server
+      - signaling
+    links:
+      - turn-server
+      - signaling
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    cap_add:
+      - SYS_ADMIN
+    shm_size: 1024m
     environment:
       - CI_GO_VERSION
   turn-server:
