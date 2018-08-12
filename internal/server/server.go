@@ -251,18 +251,22 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 	if err := transport.GetFrom(ctx.request); err != nil {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
+	lifetime := s.cfg.DefaultLifetime()
 	relayedAddr, err := s.allocs.New(
 		allocator.FiveTuple{
 			Server: ctx.server,
 			Client: ctx.client,
 			Proto:  transport.Protocol,
-		}, ctx.time.Add(s.cfg.DefaultLifetime()), s,
+		}, ctx.time.Add(lifetime), s,
 	)
 	switch err {
 	case nil:
 		return ctx.buildOk(
 			(*stun.XORMappedAddress)(&ctx.client),
 			(*turn.RelayedAddress)(&relayedAddr),
+			turn.Lifetime{
+				Duration: lifetime,
+			},
 		)
 	case allocator.ErrAllocationMismatch:
 		return ctx.buildErr(stun.CodeAllocMismatch)
