@@ -66,7 +66,7 @@ func (c *dummyConn) Close() error {
 }
 
 func (*dummyConn) LocalAddr() net.Addr {
-	panic("implement me")
+	return turn.Addr{}
 }
 
 func (*dummyConn) SetDeadline(t time.Time) error {

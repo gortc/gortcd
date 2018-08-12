@@ -5,6 +5,8 @@ import (
 	"errors"
 	"sync"
 
+	"log"
+
 	"github.com/gortc/stun"
 )
 
@@ -47,6 +49,7 @@ func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 	}]
 	s.mux.RUnlock()
 	if i == nil {
+		log.Println("username:", string(username), "realm:", string(realm))
 		return nil, errors.New("user not found")
 	}
 	return i, i.Check(m)

@@ -12,6 +12,8 @@ type context struct {
 	time      time.Time
 	client    allocator.Addr
 	server    allocator.Addr
+	proto     turn.Protocol
+	tuple     allocator.FiveTuple
 	request   *stun.Message
 	response  *stun.Message
 	cdata     *turn.ChannelData
@@ -22,6 +24,12 @@ type context struct {
 	buf       []byte // buf request
 }
 
+func (c *context) setTuple() {
+	c.tuple.Proto = c.proto
+	c.tuple.Client = c.client
+	c.tuple.Server = c.server
+}
+
 func (c *context) reset() {
 	c.time = time.Time{}
 	c.client = allocator.Addr{}
@@ -29,6 +37,8 @@ func (c *context) reset() {
 	c.request.Reset()
 	c.response.Reset()
 	c.cdata.Reset()
+	c.proto = 0
+	c.setTuple()
 	c.nonce = c.nonce[:0]
 	c.realm = c.realm[:0]
 	c.integrity = nil

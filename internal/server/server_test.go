@@ -357,6 +357,8 @@ func TestServer_processAllocationRequest(t *testing.T) {
 		IP:   addr.IP,
 		Port: addr.Port,
 	}
+	ctx.proto = turn.ProtoUDP
+	ctx.setTuple()
 	copy(ctx.request.Raw, m.Raw)
 	if err := s.process(ctx); err != nil {
 		t.Fatal(err)
@@ -370,6 +372,9 @@ func TestServer_processAllocationRequest(t *testing.T) {
 	)
 	if err := ctx.response.Parse(&realm, &nonce); err != nil {
 		t.Fatal(err)
+	}
+	if len(realm) == 0 {
+		t.Fatal("no realm")
 	}
 	t.Run("Success", func(t *testing.T) {
 		i := stun.NewLongTermIntegrity("username", realm.String(), "secret")
