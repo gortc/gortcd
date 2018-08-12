@@ -44,6 +44,7 @@ type NonceAuth struct {
 }
 
 var (
+	// ErrStaleNonce means that the nonce value should be refresh.
 	ErrStaleNonce = errors.New("stale nonce")
 )
 
@@ -57,7 +58,9 @@ func newNonce() stun.Nonce {
 }
 
 // Check implements NonceManager.
-func (n *NonceAuth) Check(tuple allocator.FiveTuple, value stun.Nonce, at time.Time) (stun.Nonce, error) {
+func (n *NonceAuth) Check(
+	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+) (stun.Nonce, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 	for i := range n.nonces {

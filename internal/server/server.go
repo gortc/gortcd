@@ -434,7 +434,8 @@ func (s *Server) processMessage(ctx *context) error {
 	}
 	if s.needAuth(ctx) {
 		// Getting nonce.
-		if getErr := ctx.nonce.GetFrom(ctx.request); getErr != nil && getErr != stun.ErrAttributeNotFound {
+		nonceGetErr := ctx.nonce.GetFrom(ctx.request)
+		if nonceGetErr != nil && nonceGetErr != stun.ErrAttributeNotFound {
 			return ctx.buildErr(stun.CodeBadRequest)
 		}
 		validNonce, nonceErr := s.nonce.Check(ctx.tuple, ctx.nonce, ctx.time)
