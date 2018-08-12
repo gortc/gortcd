@@ -3,6 +3,9 @@ var peerConnectionConfig = {
     'iceServers': [
         {
             'url': 'stun:turn-server',
+        },
+        {
+            'url': 'turn:turn-server',
             'username': 'username',
             'credential': 'secret'
         }
@@ -25,16 +28,19 @@ function pageReady() {
 }
 
 function receiveChannelCallback(event) {
-    console.log('Receive Channel Callback');
+    console.log('received data channel');
     const receiveChannel = event.channel;
     receiveChannel.onmessage = (event) => {
-        console.log("Got Data Channel Message:", event.data);
+        console.log("dataChannel message:", event.data);
+        fetch("/success").then(function () {
+            console.log("success");
+        })
     };
     receiveChannel.onopen = () => {
-        receiveChannel.send("Hello World!");
+        receiveChannel.send("hello [from controlled]");
     };
     receiveChannel.onclose = () => {
-        console.log("The Data Channel is Closed");
+        console.log("dataChannel closed");
     };
 }
 
@@ -54,7 +60,7 @@ function start(isCaller) {
             })
         };
         dataChannel.onopen = () => {
-            dataChannel.send("hello");
+            dataChannel.send("hello [from caller]");
         };
         dataChannel.onclose = () => {
             console.log("dataChannel closed");
