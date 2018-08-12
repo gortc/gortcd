@@ -8,6 +8,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,12 +26,27 @@ func Dial(network, address string) (*Client, error) {
 
 // ClientOptions are used to initialize Client.
 type ClientOptions struct {
-	Agent       ClientAgent
-	Connection  Connection
-	TimeoutRate time.Duration // defaults to 100 ms
-}
+	// Connection is the only mandatory field in options. Abstracts network.
+	Connection Connection
 
-const defaultTimeoutRate = time.Millisecond * 100
+	// Handler is called if Agent emits the Event with TransactionID that
+	// is not currently registered by Client. Useful for handling
+	// Data indications from TURN server.
+	Handler Handler // default handler (if no transaction found)
+	// Agent is optional implementation of STUN Agent. Defaults to
+	// agent implementation in current package, see agent.go.
+	Agent ClientAgent
+	// RTO as defined in STUN RFC.
+	RTO time.Duration // defaults to 500ms
+	// TimeoutRate is rate passed to Collector, the minimum duration between
+	// two calls of collector function.
+	TimeoutRate time.Duration // defaults to 100ms
+	// Collector is optional implementation of ticker which calls function on each tick.
+	Collector Collector // defaults to ticker collector
+	// Clock is optional source of current time.
+	// Also Clock is passed to default collector if set.
+	Clock Clock // defaults to calling time.Now
+}
 
 // ErrNoConnection means that ClientOptions.Connection is nil.
 var ErrNoConnection = errors.New("no connection provided")
@@ -40,24 +56,52 @@ var ErrNoConnection = errors.New("no connection provided")
 // if necessary. Call Close method after using Client to release
 // resources.
 func NewClient(options ClientOptions) (*Client, error) {
+	const (
+		defaultTimeoutRate = time.Millisecond * 100
+		defaultRTO         = defaultTimeoutRate * 5
+	)
 	c := &Client{
-		close:  make(chan struct{}),
-		c:      options.Connection,
-		a:      options.Agent,
-		gcRate: options.TimeoutRate,
+		close:       make(chan struct{}),
+		c:           options.Connection,
+		a:           options.Agent,
+		collector:   options.Collector,
+		clock:       options.Clock,
+		rto:         int64(options.RTO),
+		t:           make(map[transactionID]*clientTransaction, 100),
+		maxAttempts: 7,
+		handler:     options.Handler,
 	}
 	if c.c == nil {
 		return nil, ErrNoConnection
 	}
 	if c.a == nil {
-		c.a = NewAgent(AgentOptions{})
+		c.a = NewAgent(nil)
 	}
-	if c.gcRate == 0 {
-		c.gcRate = defaultTimeoutRate
+	if options.TimeoutRate == 0 {
+		options.TimeoutRate = defaultTimeoutRate
 	}
-	c.wg.Add(2)
+	if c.rto == 0 {
+		c.rto = int64(defaultRTO)
+	}
+	if c.clock == nil {
+		c.clock = systemClock
+	}
+	if err := c.a.SetHandler(c.handleAgentCallback); err != nil {
+		return nil, err
+	}
+	if c.collector == nil {
+		c.collector = &tickerCollector{
+			close: make(chan struct{}),
+			clock: c.clock,
+		}
+	}
+	if err := c.collector.Start(options.TimeoutRate, func(t time.Time) {
+		closedOrPanic(c.a.Collect(t))
+	}); err != nil {
+		return nil, err
+	}
+	c.wg.Add(1)
 	go c.readUntilClosed()
-	go c.collectUntilClosed()
 	runtime.SetFinalizer(c, clientFinalizer)
 	return c, nil
 }
@@ -89,20 +133,94 @@ type Connection interface {
 type ClientAgent interface {
 	Process(*Message) error
 	Close() error
-	Start(id [TransactionIDSize]byte, deadline time.Time, f Handler) error
+	Start(id [TransactionIDSize]byte, deadline time.Time) error
 	Stop(id [TransactionIDSize]byte) error
 	Collect(time.Time) error
+	SetHandler(h Handler) error
 }
 
 // Client simulates "connection" to STUN server.
 type Client struct {
-	a         ClientAgent
-	c         Connection
-	close     chan struct{}
-	gcRate    time.Duration
-	closed    bool
-	closedMux sync.RWMutex
-	wg        sync.WaitGroup
+	a           ClientAgent
+	c           Connection
+	close       chan struct{}
+	rto         int64 // time.Duration
+	maxAttempts int32
+	closed      bool
+	closedMux   sync.RWMutex
+	wg          sync.WaitGroup
+	clock       Clock
+	handler     Handler
+	collector   Collector
+
+	t    map[transactionID]*clientTransaction
+	tMux sync.RWMutex
+}
+
+// clientTransaction represents transaction in progress.
+// If transaction is succeed or failed, f will be called
+// provided by event.
+// Concurrent access is invalid.
+type clientTransaction struct {
+	id      transactionID
+	attempt int32
+	h       Handler
+	start   time.Time
+	rto     time.Duration
+	raw     []byte
+}
+
+var clientTransactionPool = &sync.Pool{
+	New: func() interface{} {
+		return &clientTransaction{
+			raw: make([]byte, 1500),
+		}
+	},
+}
+
+func acquireClientTransaction() *clientTransaction {
+	return clientTransactionPool.Get().(*clientTransaction)
+}
+
+func putClientTransaction(t *clientTransaction) {
+	clientTransactionPool.Put(t)
+}
+
+func (t clientTransaction) nextTimeout(now time.Time) time.Time {
+	return now.Add(time.Duration(t.attempt) * t.rto)
+}
+
+// start registers transaction.
+//
+// Could return ErrClientClosed, ErrTransactionExists.
+func (c *Client) start(t *clientTransaction) error {
+	c.tMux.Lock()
+	defer c.tMux.Unlock()
+	if c.closed {
+		return ErrClientClosed
+	}
+	_, exists := c.t[t.id]
+	if exists {
+		return ErrTransactionExists
+	}
+	c.t[t.id] = t
+	return nil
+}
+
+// Clock abstracts the source of current time.
+type Clock interface {
+	Now() time.Time
+}
+
+type systemClockService struct{}
+
+func (systemClockService) Now() time.Time { return time.Now() }
+
+var systemClock = systemClockService{}
+
+// SetRTO sets current RTO value.
+func (c *Client) SetRTO(rto time.Duration) {
+	atomic.StoreInt64(&c.rto, int64(rto))
 }
 
 // StopErr occurs when Client fails to stop transaction while
@@ -163,18 +281,42 @@ func closedOrPanic(err error) {
 	panic(err)
 }
 
-func (c *Client) collectUntilClosed() {
-	t := time.NewTicker(c.gcRate)
-	defer c.wg.Done()
-	for {
-		select {
-		case <-c.close:
-			t.Stop()
-			return
-		case gcTime := <-t.C:
-			closedOrPanic(c.a.Collect(gcTime))
+type tickerCollector struct {
+	close chan struct{}
+	wg    sync.WaitGroup
+	clock Clock
+}
+
+// Collector calls function f with constant rate.
+//
+// The simple Collector is ticker which calls function on each tick.
+type Collector interface {
+	Start(rate time.Duration, f func(now time.Time)) error
+	Close() error
+}
+
+func (a *tickerCollector) Start(rate time.Duration, f func(now time.Time)) error {
+	t := time.NewTicker(rate)
+	a.wg.Add(1)
+	go func() {
+		defer a.wg.Done()
+		for {
+			select {
+			case <-a.close:
+				t.Stop()
+				return
+			case <-t.C:
+				f(a.clock.Now())
+			}
 		}
-	}
+	}()
+	return nil
+}
+
+func (a *tickerCollector) Close() error {
+	close(a.close)
+	a.wg.Wait()
+	return nil
 }
 
 // ErrClientClosed indicates that client is closed.
@@ -192,6 +334,9 @@ func (c *Client) Close() error {
 	}
 	c.closed = true
 	c.closedMux.Unlock()
+	if closeErr := c.collector.Close(); closeErr != nil {
+		return closeErr
+	}
 	agentErr, connErr := c.a.Close(), c.c.Close()
 	close(c.close)
 	c.wg.Wait()
@@ -207,11 +352,12 @@ func (c *Client) Close() error {
 // Indicate sends indication m to server. Shorthand to Start call
 // with zero deadline and callback.
 func (c *Client) Indicate(m *Message) error {
-	return c.Start(m, time.Time{}, nil)
+	return c.Start(m, nil)
 }
 
 // callbackWaitHandler blocks on wait() call until callback is called.
 type callbackWaitHandler struct {
+	handler   Handler
 	callback  func(event Event)
 	cond      *sync.Cond
 	processed bool
@@ -241,6 +387,9 @@ func (s *callbackWaitHandler) setCallback(f func(event Event)) {
 		panic("f is nil")
 	}
 	s.callback = f
+	if s.handler == nil {
+		s.handler = s.HandleEvent
+	}
 }
 
 func (s *callbackWaitHandler) reset() {
@@ -271,7 +420,7 @@ func (c *Client) checkInit() error {
 //
 // Do has cpu overhead due to blocking, see BenchmarkClient_Do.
 // Use Start method for less overhead.
-func (c *Client) Do(m *Message, d time.Time, f func(Event)) error {
+func (c *Client) Do(m *Message, f func(Event)) error {
 	if err := c.checkInit(); err != nil {
 		return err
 	}
@@ -284,16 +433,93 @@ func (c *Client) Do(m *Message, d time.Time, f func(Event)) error {
 		h.reset()
 		callbackWaitHandlerPool.Put(h)
 	}()
-	if err := c.Start(m, d, h); err != nil {
+	if err := c.Start(m, h.handler); err != nil {
 		return err
 	}
 	h.wait()
 	return nil
 }
 
+func (c *Client) delete(id transactionID) {
+	c.tMux.Lock()
+	if c.t != nil {
+		t, ok := c.t[id]
+		if ok {
+			putClientTransaction(t)
+		}
+		delete(c.t, id)
+	}
+	c.tMux.Unlock()
+}
+
+func (c *Client) handleAgentCallback(e Event) {
+	c.tMux.Lock()
+	if c.t == nil {
+		c.tMux.Unlock()
+		return
+	}
+	t, found := c.t[e.TransactionID]
+	if found {
+		delete(c.t, t.id)
+	}
+	c.tMux.Unlock()
+	if !found {
+		if c.handler != nil {
+			c.handler(e)
+		}
+		// Ignoring.
+		return
+	}
+	h := t.h
+
+	if atomic.LoadInt32(&c.maxAttempts) < t.attempt || e.Error == nil {
+		// Transaction completed.
+		putClientTransaction(t)
+		h(e)
+		return
+	}
+
+	// Doing re-transmission.
+	t.attempt++
+	if err := c.start(t); err != nil {
+		putClientTransaction(t)
+		e.Error = err
+		h(e)
+		return
+	}
+
+	// Starting transaction in agent.
+	now := c.clock.Now()
+	d := t.nextTimeout(now)
+	if err := c.a.Start(t.id, d); err != nil {
+		c.delete(t.id)
+		e.Error = err
+		h(e)
+		return
+	}
+
+	// Writing message to connection again.
+	_, err := c.c.Write(t.raw)
+	if err != nil {
+		c.delete(t.id)
+		e.Error = err
+
+		// Stopping transaction instead of waiting until deadline.
+		if stopErr := c.a.Stop(t.id); stopErr != nil {
+			e.Error = StopErr{
+				Err:   stopErr,
+				Cause: err,
+			}
+		}
+		h(e)
+		return
+	}
+
+}
+
 // Start starts transaction (if f set) and writes message to server, handler
 // is called asynchronously.
-func (c *Client) Start(m *Message, d time.Time, h Handler) error {
+func (c *Client) Start(m *Message, h Handler) error {
 	if err := c.checkInit(); err != nil {
 		return err
 	}
@@ -305,12 +531,24 @@ func (c *Client) Start(m *Message, d time.Time, h Handler) error {
 	}
 	if h != nil {
 		// Starting transaction only if h is set. Useful for indications.
-		if err := c.a.Start(m.TransactionID, d, h); err != nil {
+		t := acquireClientTransaction()
+		t.id = m.TransactionID
+		t.start = c.clock.Now()
+		t.h = h
+		t.rto = time.Duration(atomic.LoadInt64(&c.rto))
+		t.attempt = 0
+		t.raw = append(t.raw[:0], m.Raw...)
+		d := t.nextTimeout(t.start)
+		if err := c.start(t); err != nil {
+			return err
+		}
+		if err := c.a.Start(m.TransactionID, d); err != nil {
 			return err
 		}
 	}
 	_, err := m.WriteTo(c.c)
 	if err != nil && h != nil {
+		c.delete(m.TransactionID)
 		// Stopping transaction instead of waiting until deadline.
 		if stopErr := c.a.Stop(m.TransactionID); stopErr != nil {
 			return StopErr{

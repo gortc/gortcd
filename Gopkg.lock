@@ -34,23 +34,23 @@
   version = "v0.5.1"
 
 [[projects]]
-  digest = "1:ae8d906e0d66f6a01c86766deb191507238281d3b92e74c1e1983964672c8817"
+  digest = "1:9ec0f2c2ce072da57ad31a972af45592dd0e0baee008d24088fec13a63ad4e3e"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "3309b1d3bd0716c7a82ebf5190a8513fea107ca5"
-  version = "v1.13.1"
+  revision = "1a949ddfeceec7d2eac49aefec0d636cd9a5dcf9"
+  version = "v1.15.1"
 
 [[projects]]
-  digest = "1:393fa76e541226e0fff4065c643c994456b0bf3d03023d225d39de2f2713d3cc"
+  digest = "1:18af9d2693b8acc7b6a9bc14a054995c106221c798383dbf17c6344cc102d96a"
   name = "github.com/gortc/turn"
   packages = ["."]
   pruneopts = "UT"
-  revision = "cae20e25da95271aa462b1223e94d24750093159"
-  version = "v0.3.1"
+  revision = "ba258130d54c094e37d8715623cd09758c706fe2"
+  version = "v0.4.4"
 
 [[projects]]
   branch = "master"

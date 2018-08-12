@@ -20,6 +20,7 @@
 #  name = "github.com/x/y"
 #  version = "2.4.0"
 
+ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner","github.com/gorilla/websocket"]
 
 [[constraint]]
   name = "github.com/gortc/stun"
@@ -35,7 +36,7 @@
 
 [[constraint]]
   name = "github.com/gortc/turn"
-  version = "0.3"
+  version = "0.4.4"
 
 [[constraint]]
   name = "github.com/gortc/ice"

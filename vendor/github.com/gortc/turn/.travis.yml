@@ -19,6 +19,7 @@ matrix:
 before_install:
   - go get github.com/alecthomas/gometalinter
   - gometalinter --install
+  - go get gortc.io/api
 
 install: true
 

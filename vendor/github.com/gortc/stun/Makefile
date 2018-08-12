@@ -40,6 +40,7 @@ lint:
 		-e "internal\/hmac\/hmac_test.+(lll)" \
 		-e "internal\/hmac\/.+Errors unhandled" \
 		-e "internal\/hmac\/.+parameter blocksize always receives 64" \
+		-e "cyclomatic complexity \d+ of function \(\*Client\)\.handleAgentCallback\(\)" \
 		--enable="lll" --line-length=100 \
 		--disable="gochecknoglobals" \
 		--deadline=300s \
@@ -72,7 +73,10 @@ test-integration:
 	@cd e2e && bash ./test.sh
 prepush: test lint test-integration
 check-api:
-	@api -c api/stun1.txt github.com/gortc/stun
+	@cd api && api -c \
+	stun1.txt,stun1.14.txt,stun1.15.txt \
+	-except except.txt \
+	github.com/gortc/stun
 write-api:
 	@api github.com/gortc/stun > api/stun1.txt
 test:

@@ -42,8 +42,11 @@ func (s *Server) setHandlers() {
 		turn.CreatePermissionRequest: s.processCreatePermissionRequest,
 		turn.RefreshRequest:          s.processRefreshRequest,
 		turn.SendIndication:          s.processSendIndication,
+		channelBindRequest:           s.processChannelBinding,
 	}
 }
+
+var channelBindRequest = stun.NewType(stun.MethodChannelBind, stun.ClassRequest)
 
 // Options is set of available options for Server.
 type Options struct {
@@ -170,39 +173,25 @@ func (s *Server) collect(t time.Time) {
 	s.allocs.Prune(t)
 }
 
-func (s *Server) sendByBinding(ctx *context) error {
-	tuple := allocator.FiveTuple{
-		Server: ctx.server,
-		Client: ctx.client,
-		Proto:  turn.ProtoUDP,
-	}
-	s.log.Info("searching for allocation",
-		zap.Stringer("tuple", tuple),
+func (s *Server) sendByBinding(ctx *context, n turn.ChannelNumber, data []byte) error {
+	s.log.Info("searching for allocation via binding",
+		zap.Stringer("tuple", ctx.tuple),
 		zap.Stringer("n", ctx.cdata.Number),
 	)
-	_, err := s.allocs.SendBound(tuple, ctx.cdata.Number, ctx.cdata.Data)
+	_, err := s.allocs.SendBound(ctx.tuple, n, data)
 	return err
 }
 
 func (s *Server) sendByPermission(
 	ctx *context,
-	data turn.Data,
-	addr turn.PeerAddress,
+	addr allocator.Addr,
+	data []byte,
 ) error {
-	tuple := allocator.FiveTuple{
-		Server: ctx.server,
-		Client: ctx.client,
-		Proto:  turn.ProtoUDP,
-	}
 	s.log.Info("searching for allocation",
-		zap.Stringer("tuple", tuple),
+		zap.Stringer("tuple", ctx.tuple),
 		zap.Stringer("addr", addr),
 	)
-	_, err := s.allocs.Send(allocator.FiveTuple{
-		Server: ctx.server,
-		Client: ctx.client,
-		Proto:  turn.ProtoUDP,
-	}, allocator.Addr(addr), data)
+	_, err := s.allocs.Send(ctx.tuple, addr, data)
 	return err
 }
 
@@ -222,11 +211,24 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	if err := s.conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
 		l.Error("failed to SetWriteDeadline", zap.Error(err))
 	}
+	if n, err := s.allocs.Bound(t, a); err == nil {
+		// Using channel data.
+		d := turn.ChannelData{
+			Number: n,
+			Data:   d,
+		}
+		d.Encode()
+		if _, err := s.conn.WriteTo(d.Raw, destination); err != nil {
+			l.Error("failed to write", zap.Error(err))
+		}
+		l.Info("sent data via channel", zap.Stringer("n", n))
+		return
+	}
 	m := stun.New()
 	if err := m.Build(
 		stun.TransactionID,
 		stun.NewType(stun.MethodData, stun.ClassIndication),
-		turn.Data(d),
+		turn.Data(d), turn.PeerAddress(a),
 		stun.Fingerprint,
 	); err != nil {
 		l.Error("failed to build", zap.Error(err))
@@ -251,22 +253,19 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 	if err := transport.GetFrom(ctx.request); err != nil {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
-	relayedAddr, err := s.allocs.New(
-		allocator.FiveTuple{
-			Server: ctx.server,
-			Client: ctx.client,
-			Proto:  transport.Protocol,
-		}, ctx.time.Add(s.cfg.DefaultLifetime()), s,
-	)
+	lifetime := s.cfg.DefaultLifetime()
+	relayedAddr, err := s.allocs.New(ctx.tuple, ctx.time.Add(lifetime), s)
 	switch err {
 	case nil:
 		return ctx.buildOk(
-			(*stun.XORMappedAddress)(&ctx.client),
+			(*stun.XORMappedAddress)(&ctx.tuple.Client),
 			(*turn.RelayedAddress)(&relayedAddr),
+			turn.Lifetime{Duration: lifetime},
 		)
 	case allocator.ErrAllocationMismatch:
 		return ctx.buildErr(stun.CodeAllocMismatch)
 	default:
+		s.log.Warn("failed to allocate", zap.Error(err))
 		return ctx.buildErr(stun.CodeServerError)
 	}
 }
@@ -284,17 +283,15 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 			return errors.Wrap(err, "failed to parse")
 		}
 	}
-	tuple := allocator.FiveTuple{
-		Server: s.addr,
-		Client: ctx.client,
-		Proto:  turn.ProtoUDP, // TODO: fill from request
-	}
 	switch lifetime.Duration {
 	case 0:
-		s.allocs.Remove(tuple)
+		s.allocs.Remove(ctx.tuple)
 	default:
-		t := ctx.time.Add(lifetime.Duration)
-		if err := s.allocs.Refresh(tuple, allocator.Addr(addr), t); err != nil {
+		var (
+			peer    = allocator.Addr(addr)
+			timeout = ctx.time.Add(lifetime.Duration)
+		)
+		if err := s.allocs.Refresh(ctx.tuple, peer, timeout); err != nil {
 			s.log.Error("failed to refresh allocation", zap.Error(err))
 			return ctx.buildErr(stun.CodeServerError)
 		}
@@ -325,16 +322,8 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	var (
 		peer    = allocator.Addr(addr)
 		timeout = ctx.time.Add(lifetime.Duration)
-		tuple   = allocator.FiveTuple{
-			Proto:  turn.ProtoUDP,
-			Server: ctx.server,
-			Client: ctx.client,
-		}
 	)
-	if err := s.allocs.CreatePermission(tuple, peer, timeout); err != nil {
-		return errors.Wrap(err, "failed to create allocation")
-	}
-	switch err := s.allocs.CreatePermission(tuple, peer, timeout); err {
+	switch err := s.allocs.CreatePermission(ctx.tuple, peer, timeout); err {
 	case allocator.ErrAllocationMismatch:
 		return ctx.buildErr(stun.CodeAllocMismatch)
 	case nil:
@@ -354,7 +343,7 @@ func (s *Server) processSendIndication(ctx *context) error {
 		return errors.Wrap(err, "failed to parse send indication")
 	}
 	s.log.Info("sending data", zap.Stringer("to", addr))
-	if err := s.sendByPermission(ctx, data, addr); err != nil {
+	if err := s.sendByPermission(ctx, allocator.Addr(addr), data); err != nil {
 		s.log.Warn("send failed",
 			zap.Error(err),
 		)
@@ -379,6 +368,30 @@ var (
 	defaultNonce = stun.NewNonce("nonce")
 )
 
+func (s *Server) processChannelBinding(ctx *context) error {
+	var (
+		addr   turn.PeerAddress
+		number turn.ChannelNumber
+	)
+	if parseErr := ctx.request.Parse(&addr, &number); parseErr != nil {
+		s.log.Debug("channel binding parse failed", zap.Error(parseErr))
+		return ctx.buildErr(stun.CodeBadRequest)
+	}
+	var (
+		peer     = allocator.Addr(addr)
+		lifetime = s.cfg.DefaultLifetime()
+		timeout  = ctx.time.Add(lifetime)
+	)
+	switch err := s.allocs.ChannelBind(ctx.tuple, number, peer, timeout); err {
+	case allocator.ErrAllocationMismatch:
+		return ctx.buildErr(stun.CodeAllocMismatch)
+	case nil:
+		return ctx.buildOk(&number, &turn.Lifetime{Duration: lifetime})
+	default:
+		return errors.Wrap(err, "failed to create allocation")
+	}
+}
+
 func (s *Server) processChannelData(ctx *context) error {
 	if err := ctx.cdata.Decode(); err != nil {
 		if ce := s.log.Check(zapcore.DebugLevel, "failed to decode channel data"); ce != nil {
@@ -392,7 +405,7 @@ func (s *Server) processChannelData(ctx *context) error {
 			zap.Int("len", ctx.cdata.Length),
 		)
 	}
-	return s.sendByBinding(ctx)
+	return s.sendByBinding(ctx, ctx.cdata.Number, ctx.cdata.Data)
 }
 
 func (s *Server) processMessage(ctx *context) error {
@@ -404,7 +417,10 @@ func (s *Server) processMessage(ctx *context) error {
 	}
 	ctx.software = software
 	ctx.realm = s.realm
-	ctx.nonce = defaultNonce
+	if len(ctx.realm) == 0 {
+		panic("no realm!!11")
+	}
+	ctx.nonce = defaultNonce // TODO(ar): nonce per tuple
 	if ce := s.log.Check(zapcore.InfoLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
 	}
@@ -421,7 +437,7 @@ func (s *Server) processMessage(ctx *context) error {
 			if ce := s.log.Check(zapcore.DebugLevel, "integrity required"); ce != nil {
 				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request))
 			}
-			return ctx.buildErr(stun.CodeUnauthorised)
+			return ctx.buildErr(ctx.realm, stun.CodeUnauthorised)
 		case nil:
 			ctx.integrity = integrity
 		default:
@@ -430,7 +446,7 @@ func (s *Server) processMessage(ctx *context) error {
 					zap.Error(err),
 				)
 			}
-			return ctx.buildErr(stun.CodeWrongCredentials)
+			return ctx.buildErr(ctx.realm, stun.CodeUnauthorised)
 		}
 	}
 	// Selecting handler based on request message type.
@@ -438,7 +454,7 @@ func (s *Server) processMessage(ctx *context) error {
 	if ok {
 		return h(ctx)
 	}
-	s.log.Warn("unsupported request type")
+	s.log.Warn("unsupported request type", zap.Stringer("t", ctx.request.Type))
 	return ctx.buildErr(stun.CodeBadRequest)
 }
 
@@ -469,6 +485,7 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	ctx.server = s.addr
 	ctx.time = time.Now()
 	ctx.request.Raw = ctx.buf[:n]
+	ctx.cdata.Raw = ctx.buf[:n]
 	if ce := s.log.Check(zapcore.DebugLevel, "read"); ce != nil {
 		ce.Write(
 			zap.Int("n", n),
@@ -478,10 +495,12 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 	switch a := addr.(type) {
 	case *net.UDPAddr:
 		ctx.client.FromUDPAddr(a)
+		ctx.proto = turn.ProtoUDP
 	default:
 		s.log.Error("unknown addr", zap.Stringer("addr", addr))
 		return errors.Errorf("unknown addr %s", addr)
 	}
+	ctx.setTuple()
 	if err = s.process(ctx); err != nil {
 		if err != errNotSTUNMessage {
 			s.log.Error("process failed", zap.Error(err))
