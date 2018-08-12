@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/gortc/gortcd/internal/allocator"
+	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
@@ -27,6 +28,7 @@ type Server struct {
 	allocs   *allocator.Allocator
 	conn     net.PacketConn
 	auth     Auth
+	nonce    NonceManager
 	close    chan struct{}
 	wg       sync.WaitGroup
 	handlers map[stun.MessageType]handleFunc
@@ -50,16 +52,17 @@ var channelBindRequest = stun.NewType(stun.MethodChannelBind, stun.ClassRequest)
 
 // Options is set of available options for Server.
 type Options struct {
-	Realm       string
-	Log         *zap.Logger
-	Auth        Auth // no authentication if nil
-	Conn        net.PacketConn
-	CollectRate time.Duration
-	ManualStart bool // don't start bg activity
-	AuthForSTUN bool // require auth for binding requests
-	Workers     int
-	Registry    MetricsRegistry
-	Labels      prometheus.Labels
+	Realm         string
+	Log           *zap.Logger
+	Auth          Auth // no authentication if nil
+	Conn          net.PacketConn
+	CollectRate   time.Duration
+	ManualStart   bool // don't start bg activity
+	AuthForSTUN   bool // require auth for binding requests
+	Workers       int
+	Registry      MetricsRegistry
+	Labels        prometheus.Labels
+	NonceDuration time.Duration // no nonce rotate if 0
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -96,6 +99,7 @@ func New(o Options) (*Server, error) {
 	s := &Server{
 		realm:  stun.NewRealm(o.Realm),
 		auth:   o.Auth,
+		nonce:  auth.NewNonceAuth(o.NonceDuration),
 		conn:   o.Conn,
 		allocs: allocs,
 		close:  make(chan struct{}),
@@ -123,6 +127,11 @@ func New(o Options) (*Server, error) {
 // Auth represents message authenticator.
 type Auth interface {
 	Auth(m *stun.Message) (stun.MessageIntegrity, error)
+}
+
+// NonceManager represents nonce manager (rotate and verify).
+type NonceManager interface {
+	Check(tuple allocator.FiveTuple, value stun.Nonce, at time.Time) (stun.Nonce, error)
 }
 
 var (
@@ -364,10 +373,6 @@ func (s *Server) needAuth(ctx *context) bool {
 	return true
 }
 
-var (
-	defaultNonce = stun.NewNonce("nonce")
-)
-
 func (s *Server) processChannelBinding(ctx *context) error {
 	var (
 		addr   turn.PeerAddress
@@ -417,10 +422,6 @@ func (s *Server) processMessage(ctx *context) error {
 	}
 	ctx.software = software
 	ctx.realm = s.realm
-	if len(ctx.realm) == 0 {
-		panic("no realm!!11")
-	}
-	ctx.nonce = defaultNonce // TODO(ar): nonce per tuple
 	if ce := s.log.Check(zapcore.InfoLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
 	}
@@ -432,12 +433,28 @@ func (s *Server) processMessage(ctx *context) error {
 		}
 	}
 	if s.needAuth(ctx) {
-		switch integrity, err := s.auth.Auth(ctx.request); err {
-		case stun.ErrAttributeNotFound:
+		// Getting nonce.
+		if getErr := ctx.nonce.GetFrom(ctx.request); getErr != nil && getErr != stun.ErrAttributeNotFound {
+			return ctx.buildErr(stun.CodeBadRequest)
+		}
+		validNonce, nonceErr := s.nonce.Check(ctx.tuple, ctx.nonce, ctx.time)
+		if nonceErr != nil && nonceErr != auth.ErrStaleNonce {
+			s.log.Error("nonce error", zap.Error(nonceErr))
+			return ctx.buildErr(stun.CodeServerError)
+		}
+		ctx.nonce = validNonce
+		// Check if client is trying to get nonce and realm.
+		_, integrityAttrErr := ctx.request.Get(stun.AttrMessageIntegrity)
+		if integrityAttrErr == stun.ErrAttributeNotFound {
 			if ce := s.log.Check(zapcore.DebugLevel, "integrity required"); ce != nil {
 				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request))
 			}
-			return ctx.buildErr(ctx.realm, stun.CodeUnauthorised)
+			return ctx.buildErr(stun.CodeUnauthorised)
+		}
+		if nonceErr == auth.ErrStaleNonce {
+			return ctx.buildErr(stun.CodeStaleNonce)
+		}
+		switch integrity, err := s.auth.Auth(ctx.request); err {
 		case nil:
 			ctx.integrity = integrity
 		default:
@@ -446,7 +463,7 @@ func (s *Server) processMessage(ctx *context) error {
 					zap.Error(err),
 				)
 			}
-			return ctx.buildErr(ctx.realm, stun.CodeUnauthorised)
+			return ctx.buildErr(stun.CodeUnauthorised)
 		}
 	}
 	// Selecting handler based on request message type.
