@@ -13,7 +13,7 @@ services:
     entrypoint:
       - ./e2e
       - "-b=/usr/bin/google-chrome-unstable"
-      - "-timeout=3s"
+      - "-timeout=10s"
       - "-controlling"
     depends_on:
       - turn-server
@@ -33,6 +33,10 @@ services:
     environment:
       - CI_GO_VERSION
   turn-alice:
+    entrypoint:
+      - ./e2e
+      - "-b=/usr/bin/google-chrome-unstable"
+      - "-timeout=10s"
     depends_on:
       - turn-server
       - signaling

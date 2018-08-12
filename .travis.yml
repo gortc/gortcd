@@ -6,7 +6,7 @@ services:
   - docker
 
 go:
-  - 1.10.x
+  - stable
   - master
 
 install:
