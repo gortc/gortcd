@@ -11,6 +11,7 @@ lint:
 		-e "isOptional is a pure function but its return value is ignored" \
 		-e "parameter result 0 \(bool\) is never used" \
 		-e "parameter d always receives \"IN\"" \
+		-e "e2e\/.+field \S+ is unused" \
 		-e "\/turn-client\/" \
 		-e "n can be fmt.Stringer" \
 		--enable-all \
