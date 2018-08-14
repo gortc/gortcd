@@ -23,6 +23,14 @@ function pageReady() {
 
         if (myJSON.controlling) {
             start(true);
+        } else {
+            serverConnection.onopen = () => {
+                fetch("/initialized", {
+                    method: "post"
+                }).catch((reason) => {
+                    console.log("failed to init notfy", reason)
+                })
+            }
         }
     });
 }
