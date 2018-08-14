@@ -9,7 +9,7 @@ services:
         CI_GO_VERSION: ${CI_GO_VERSION}
     environment:
       - CI_GO_VERSION
-  turn-bob:
+  turn-controlling:
     entrypoint:
       - ./e2e
       - "-b=/usr/bin/google-chrome-unstable"
@@ -20,7 +20,7 @@ services:
       - signaling
     links:
       - turn-server
-      - turn-alice
+      - turn-controlled
       - signaling
     build:
       context: .
@@ -32,7 +32,7 @@ services:
     shm_size: 1024m
     environment:
       - CI_GO_VERSION
-  turn-alice:
+  turn-controlled:
     entrypoint:
       - ./e2e
       - "-b=/usr/bin/google-chrome-unstable"

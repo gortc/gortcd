@@ -32,10 +32,14 @@ if [ $? -ne 0 ] ; then
 fi
 
 # wait for the test service to complete and grab the exit code
-TEST_EXIT_CODE=`docker wait ci_turn-bob_1`
+TEST_EXIT_CODE=`docker wait ci_turn-controlling_1`
 
 # output the logs for the test (for clarity)
-docker logs ci_turn-bob_1
+docker logs ci_turn-controlling_1 &> log-controlling.txt
+docker logs ci_turn-controlled_1 &> log-controlled.txt
+docker logs ci_turn-server_1 &> log-server.txt
+
+cat log-controlling.txt
 
 # inspect the output of the test and display respective message
 if [ -z ${TEST_EXIT_CODE+x} ] || [ "$TEST_EXIT_CODE" -ne 0 ] ; then

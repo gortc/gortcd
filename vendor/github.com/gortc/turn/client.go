@@ -73,13 +73,10 @@ func NewClient(o ClientOptions) (*Client, error) {
 		}
 		// Starting STUN client on multiplexed connection.
 		var err error
-		o.STUN, err = stun.NewClient(stun.ClientOptions{
-			Handler: c.stunHandler,
-			Connection: bypassWriter{
-				reader: m.stunL,
-				writer: m.conn,
-			},
-		})
+		o.STUN, err = stun.NewClient(bypassWriter{
+			reader: m.stunL,
+			writer: m.conn,
+		}, stun.WithHandler(c.stunHandler))
 		if err != nil {
 			return nil, err
 		}
@@ -128,8 +125,13 @@ func (c *Client) stunHandler(e stun.Event) {
 	c.mux.Unlock()
 }
 
+// ZapChannelNumber returns zap.Field for ChannelNumber.
+func ZapChannelNumber(key string, v ChannelNumber) zap.Field {
+	return zap.String(key, fmt.Sprintf("0x%x", int(v)))
+}
+
 func (c *Client) handleChannelData(data *ChannelData) {
-	c.log.Debug("handleChannelData", zap.Uint32("n", uint32(data.Number)))
+	c.log.Debug("handleChannelData", ZapChannelNumber("number", data.Number))
 	c.mux.Lock()
 	for i := range c.alloc.perms {
 		if data.Number != c.alloc.perms[i].Binding() {
@@ -334,7 +336,7 @@ func (a *Allocation) CreateUDP(addr *net.UDPAddr) (*Permission, error) {
 	if len(a.integrity) > 0 {
 		// Applying auth.
 		setters = append(setters,
-			a.nonce, a.client.username, a.integrity,
+			a.nonce, a.client.username, a.client.realm, a.integrity,
 		)
 	}
 	setters = append(setters, stun.Fingerprint)
@@ -343,8 +345,19 @@ func (a *Allocation) CreateUDP(addr *net.UDPAddr) (*Permission, error) {
 			return nil, setErr
 		}
 	}
-	if doErr := a.client.do(req, nil); doErr != nil {
+	res := stun.New()
+	if doErr := a.client.do(req, res); doErr != nil {
 		return nil, doErr
+	}
+	if res.Type.Class == stun.ClassErrorResponse {
+		var code stun.ErrorCodeAttribute
+		err := fmt.Errorf("unexpected error response: %s", res.Type)
+		if getErr := code.GetFrom(res); getErr == nil {
+			err = fmt.Errorf("unexpected error response: %s (error %s)",
+				res.Type, code,
+			)
+		}
+		return nil, err
 	}
 	p := &Permission{
 		log:      a.log.Named("permission"),
@@ -398,16 +411,30 @@ func (p *Permission) Bind() error {
 	if p.number != 0 {
 		return ErrAlreadyBound
 	}
-	p.client.alloc.minBound++
-	n := p.client.alloc.minBound
+	a := p.client.alloc
+	a.minBound++
+	n := a.minBound
 
 	// Starting transaction.
 	res := stun.New()
-	req := stun.MustBuild(stun.TransactionID,
-		stun.NewType(stun.MethodChannelBind, stun.ClassRequest),
-		n, &p.peerAddr,
-		stun.Fingerprint,
-	)
+	req := stun.New()
+	req.TransactionID = stun.NewTransactionID()
+	req.Type = stun.NewType(stun.MethodChannelBind, stun.ClassRequest)
+	req.WriteHeader()
+	setters := make([]stun.Setter, 0, 10)
+	setters = append(setters, &p.peerAddr, n)
+	if len(a.integrity) > 0 {
+		// Applying auth.
+		setters = append(setters,
+			a.nonce, a.client.username, a.client.realm, a.integrity,
+		)
+	}
+	setters = append(setters, stun.Fingerprint)
+	for _, s := range setters {
+		if setErr := s.AddTo(req); setErr != nil {
+			return setErr
+		}
+	}
 	if doErr := p.client.do(req, res); doErr != nil {
 		return doErr
 	}
