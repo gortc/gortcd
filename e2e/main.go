@@ -35,6 +35,16 @@ func resolve(a string) *net.TCPAddr {
 	panic("failed to resolve")
 }
 
+type dpLogEntry struct {
+	Method string `json:"method"`
+	Params struct {
+		Args []struct {
+			Type  string `json:"type"`
+			Value string `json:"value"`
+		} `json:"args"`
+	} `json:"params"`
+}
+
 func main() {
 	flag.Parse()
 	fmt.Println("bin", *bin, "addr", *httpAddr, "timeout", *timeout)
@@ -93,7 +103,17 @@ func main() {
 	}()
 	ctx, cancel := context.WithTimeout(context.Background(), *timeout)
 	defer cancel()
-	c, err := chromedp.New(ctx, chromedp.WithLog(log.Printf), chromedp.WithRunnerOptions(
+	c, err := chromedp.New(ctx, chromedp.WithLog(func(s string, i ...interface{}) {
+		var entry dpLogEntry
+		if err := json.Unmarshal([]byte(i[0].(string)), &entry); err != nil {
+			log.Fatalln(err)
+		}
+		if entry.Method == "Runtime.consoleAPICalled" {
+			for _, a := range entry.Params.Args {
+				log.Println("agent:", a.Value)
+			}
+		}
+	}), chromedp.WithRunnerOptions(
 		runner.Path(*bin), runner.DisableGPU, runner.Flag("headless", *headless),
 	))
 	if err != nil {
