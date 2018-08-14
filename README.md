@@ -8,7 +8,7 @@ it's [goals](https://gortc.io#goals) and
 [principles](https://gortc.io#principles).
 Based on [gortc/stun](https://github.com/gortc/stun) package.
 
-The goal is feature parity with [coturn](https://github.com/coturn/coturn).
+The goal is [feature parity](https://github.com/gortc/gortcd/issues/6) with [coturn](https://github.com/coturn/coturn).
 Please use only for experiments until [beta](https://github.com/gortc/gortcd/milestone/2).
 
 

@@ -2,9 +2,10 @@
 version: "1.1"
 
 server:
+  workers: 32
   check_fingerprint: true
   listen:
-    - 0.0.0.0:3478
+    - 127.0.0.1:3478
   realm: gortc.io # default realm
   pprof: "localhost:3256"
   prometheus:

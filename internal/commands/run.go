@@ -8,16 +8,16 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 
 	"github.com/mitchellh/go-homedir"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/server"
@@ -60,7 +60,7 @@ var rootCmd = &cobra.Command{
 	Use:   "gortcd",
 	Short: "gortcd is STUN and TURN server",
 	Run: func(cmd *cobra.Command, args []string) {
-		logCfg := zap.NewDevelopmentConfig()
+		logCfg := zap.NewProductionConfig()
 		logCfg.DisableCaller = true
 		logCfg.DisableStacktrace = true
 		l, err := logCfg.Build()
@@ -231,7 +231,7 @@ func init() {
 	rootCmd.Flags().String("pprof", "", "pprof address if specified")
 	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
 	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
-	viper.SetDefault("server.workers", 100)
+	viper.SetDefault("server.workers", runtime.GOMAXPROCS(0))
 	viper.SetDefault("auth.stun", false)
 	viper.SetDefault("version", "1")
 }

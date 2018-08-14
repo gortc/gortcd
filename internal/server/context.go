@@ -43,6 +43,7 @@ func (c *context) reset() {
 	c.realm = c.realm[:0]
 	c.integrity = nil
 	c.software = c.software[:0]
+	c.buf = c.buf[:cap(c.buf)]
 	for i := range c.buf {
 		c.buf[i] = 0
 	}
