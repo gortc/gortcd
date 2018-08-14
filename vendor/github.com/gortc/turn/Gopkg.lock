@@ -2,15 +2,15 @@
 
 
 [[projects]]
-  digest = "1:d6692bc6964911904dc22bbc79c3ca1baf9b5b298081ee496f392c62396f35f8"
+  digest = "1:ef9b9ba167e7924b10bb7273e47aa7d6ece0a9d824b52f9833ee05e779378fdd"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "b917e50d12c444ef53501ddce0712a34a45bea81"
-  version = "v1.16.2"
+  revision = "ff1597ccdfd99ba15dc9fb5c4cdb8081e92ac5b3"
+  version = "v1.16.3"
 
 [[projects]]
   digest = "1:3c1a69cdae3501bf75e76d0d86dc6f2b0a7421bc205c0cb7b96b19eed464a34d"
