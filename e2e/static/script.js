@@ -28,7 +28,7 @@ function pageReady() {
                 fetch("/initialized", {
                     method: "post"
                 }).catch((reason) => {
-                    console.log("failed to init notfy", reason)
+                    console.log("failed to init notify", reason)
                 })
             }
         }

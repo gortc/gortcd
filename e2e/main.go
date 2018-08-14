@@ -62,6 +62,7 @@ func main() {
 		log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr)
 		if *controlling {
 			// Waiting for controlled agent to start.
+			log.Println("waiting for controlled agent init")
 			getAddr := resolve("turn-controlled:8080")
 			getURL := fmt.Sprintf("http://%s/initialized", getAddr)
 			res, getErr := http.Get(getURL)
@@ -71,6 +72,7 @@ func main() {
 			if res.StatusCode != http.StatusOK {
 				log.Fatalln("bad status", res.Status)
 			}
+			log.Println("controlled agent initialized")
 		}
 		encoder := json.NewEncoder(writer)
 		if encodeErr := encoder.Encode(struct {
