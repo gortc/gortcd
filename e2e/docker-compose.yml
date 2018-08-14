@@ -13,7 +13,7 @@ services:
     entrypoint:
       - ./e2e
       - "-b=/usr/bin/google-chrome-unstable"
-      - "-timeout=2s"
+      - "-timeout=10s"
       - "-controlling"
     depends_on:
       - turn-server
@@ -36,7 +36,7 @@ services:
     entrypoint:
       - ./e2e
       - "-b=/usr/bin/google-chrome-unstable"
-      - "-timeout=2s"
+      - "-timeout=10s"
     depends_on:
       - turn-server
       - signaling
