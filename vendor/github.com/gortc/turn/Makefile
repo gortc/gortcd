@@ -26,7 +26,7 @@ lint:
 		--vendor \
 		-e "_test.go.+(gocyclo|errcheck|dupl)" \
 		-e "attributes\.go.+credentials,.+,LOW.+\(gas\)" \
-		-e "parameter v always receives 8" \
+		-e "parameter v always receives 4" \
 		-e "function \(\*Client\).allocate\(\) is high .+\(gocyclo\)" \
 		--enable="lll" --line-length=100 \
 		--enable="gofmt" \

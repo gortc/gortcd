@@ -34,23 +34,23 @@
   version = "v0.5.1"
 
 [[projects]]
-  digest = "1:9ec0f2c2ce072da57ad31a972af45592dd0e0baee008d24088fec13a63ad4e3e"
+  digest = "1:d6692bc6964911904dc22bbc79c3ca1baf9b5b298081ee496f392c62396f35f8"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "1a949ddfeceec7d2eac49aefec0d636cd9a5dcf9"
-  version = "v1.15.1"
+  revision = "b917e50d12c444ef53501ddce0712a34a45bea81"
+  version = "v1.16.2"
 
 [[projects]]
-  digest = "1:18af9d2693b8acc7b6a9bc14a054995c106221c798383dbf17c6344cc102d96a"
+  digest = "1:887168bda7d4deb0c406d6ba3bf29bf756d5b2066186f2c9f5a66e73358f0192"
   name = "github.com/gortc/turn"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ba258130d54c094e37d8715623cd09758c706fe2"
-  version = "v0.4.4"
+  revision = "1522db70c0ba2babd9aa13c70d899f558d81eacb"
+  version = "v0.4.8"
 
 [[projects]]
   branch = "master"
@@ -220,19 +220,19 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:080e5f630945ad754f4b920e60b4d3095ba0237ebf88dc462eb28002932e3805"
+  digest = "1:8a020f916b23ff574845789daee6818daf8d25a4852419aae3f0b12378ba432a"
   name = "github.com/spf13/jwalterweatherman"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7c0cea34c8ece3fbeb2b27ab9b59511d360fb394"
+  revision = "14d3d4c518341bea657dd8a226f5121c0ff8c9f2"
 
 [[projects]]
-  digest = "1:9424f440bba8f7508b69414634aef3b2b3a877e522d8a4624692412805407bb7"
+  digest = "1:dab83a1bbc7ad3d7a6ba1a1cc1760f25ac38cdf7d96a5cdd55cd915a4f5ceaf9"
   name = "github.com/spf13/pflag"
   packages = ["."]
   pruneopts = "UT"
-  revision = "583c0c0531f06d5278b7d917446061adc344b5cd"
-  version = "v1.0.1"
+  revision = "9a97c102cda95a86cec2345a6f09f55a939babf5"
+  version = "v1.0.2"
 
 [[projects]]
   digest = "1:4fc8a61287ccfb4286e1ca5ad2ce3b0b301d746053bf44ac38cf34e40ae10372"
@@ -295,11 +295,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:7e758f807faab4ca5614488e6397d2365f9a5767f6699a805bbe92a1d1a6da23"
+  digest = "1:0316a8ad208917f1d141b077e278980fd5e4594f3a85f835dacbf24d85798252"
   name = "golang.org/x/sys"
   packages = ["unix"]
   pruneopts = "UT"
-  revision = "2be389f392cd91df245b41638f818a1c041f0c08"
+  revision = "4e1fef5609515ec7a2cee7b5de30ba6d9b438cbf"
 
 [[projects]]
   digest = "1:8029e9743749d4be5bc9f7d42ea1659471767860f0cdc34d37c3111bd308a295"

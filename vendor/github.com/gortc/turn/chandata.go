@@ -69,12 +69,6 @@ func (c *ChannelData) Encode() {
 	}
 }
 
-// STUN aligns attributes on 32-bit boundaries, attributes whose content
-// is not a multiple of 4 bytes are padded with 1, 2, or 3 bytes of
-// padding so that its value contains a multiple of 4 bytes.  The
-// padding bits are ignored, and may be any value.
-//
-// https://tools.ietf.org/html/rfc5389#section-15
 const padding = 4
 
 func nearestPaddedValueLength(l int) int {
@@ -87,15 +81,15 @@ func nearestPaddedValueLength(l int) int {
 
 // WriteHeader writes channel number and length.
 func (c *ChannelData) WriteHeader() {
-	if len(c.Raw) < 4 {
+	if len(c.Raw) < channelDataHeaderSize {
 		// Making WriteHeader call valid even when c.Raw
 		// is nil or len(c.Raw) is less than needed for header.
-		c.grow(4)
+		c.grow(channelDataHeaderSize)
 	}
 	// Early bounds check to guarantee safety of writes below.
 	_ = c.Raw[:channelDataHeaderSize]
-	bin.PutUint16(c.Raw[:2], uint16(c.Number))
-	bin.PutUint16(c.Raw[2:4],
+	bin.PutUint16(c.Raw[:channelDataNumberSize], uint16(c.Number))
+	bin.PutUint16(c.Raw[channelDataNumberSize:channelDataHeaderSize],
 		uint16(len(c.Data)),
 	)
 }
@@ -110,7 +104,7 @@ func (c *ChannelData) Decode() error {
 	if len(buf) < channelDataHeaderSize {
 		return io.ErrUnexpectedEOF
 	}
-	num := bin.Uint16(buf[0:channelDataNumberSize])
+	num := bin.Uint16(buf[:channelDataNumberSize])
 	c.Number = ChannelNumber(num)
 	l := bin.Uint16(buf[channelDataNumberSize:channelDataHeaderSize])
 	c.Data = buf[channelDataHeaderSize:]

@@ -19,72 +19,104 @@ func Dial(network, address string) (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewClient(ClientOptions{
-		Connection: conn,
-	})
-}
-
-// ClientOptions are used to initialize Client.
-type ClientOptions struct {
-	// Connection is the only mandatory field in options. Abstracts network.
-	Connection Connection
-
-	// Handler is called if Agent emits the Event with TransactionID that
-	// is not currently registered by Client. Useful for handling
-	// Data indications from TURN server.
-	Handler Handler // default handler (if no transaction found)
-	// Agent is optional implementation of STUN Agent. Defaults to
-	// agent implementation in current package, see agent.go.
-	Agent ClientAgent
-	// RTO as defined in STUN RFC.
-	RTO time.Duration // defaults to 500ms
-	// TimeoutRate is rate passed to Collector, the minimum duration between
-	// two calls of collector function.
-	TimeoutRate time.Duration // defaults to 100ms
-	// Collector is optional implementation of ticker which calls function on each tick.
-	Collector Collector // defaults to ticker collector
-	// Clock is optional source of current time.
-	// Also Clock is passed to default collector if set.
-	Clock Clock // defaults to calling time.Now
+	return NewClient(conn)
 }
 
 // ErrNoConnection means that ClientOptions.Connection is nil.
 var ErrNoConnection = errors.New("no connection provided")
 
+// ClientOption sets some client option.
+type ClientOption func(c *Client)
+
+// WithHandler sets client handler which is called if Agent emits the Event
+// with TransactionID that is not currently registered by Client.
+// Useful for handling Data indications from TURN server.
+func WithHandler(h Handler) ClientOption {
+	return func(c *Client) {
+		c.handler = h
+	}
+}
+
+// WithRTO sets client RTO as defined in STUN RFC.
+func WithRTO(rto time.Duration) ClientOption {
+	return func(c *Client) {
+		c.rto = int64(rto)
+	}
+}
+
+// WithClock sets Clock of client, the source of current time.
+// Also clock is passed to default collector if set.
+func WithClock(clock Clock) ClientOption {
+	return func(c *Client) {
+		c.clock = clock
+	}
+}
+
+// WithTimeoutRate sets RTO timer minimum resolution.
+func WithTimeoutRate(d time.Duration) ClientOption {
+	return func(c *Client) {
+		c.rtoRate = d
+	}
+}
+
+// WithAgent sets client STUN agent.
+//
+// Defaults to agent implementation in current package,
+// see agent.go.
+func WithAgent(a ClientAgent) ClientOption {
+	return func(c *Client) {
+		c.a = a
+	}
+}
+
+// WithCollector rests client timeout collector, the implementation
+// of ticker which calls function on each tick.
+func WithCollector(coll Collector) ClientOption {
+	return func(c *Client) {
+		c.collector = coll
+	}
+}
+
+// WithNoRetransmit disables retransmissions and sets RTO to
+// defaultMaxAttempts * defaultRTO which will be effectively time out
+// if not set.
+//
+// Useful for TCP connections where transport handles RTO.
+func WithNoRetransmit(c *Client) {
+	c.maxAttempts = 0
+	if c.rto == 0 {
+		c.rto = defaultMaxAttempts * int64(defaultRTO)
+	}
+}
+
+const (
+	defaultTimeoutRate = time.Millisecond * 5
+	defaultRTO         = time.Millisecond * 300
+	defaultMaxAttempts = 7
+)
+
 // NewClient initializes new Client from provided options,
 // starting internal goroutines and using default options fields
 // if necessary. Call Close method after using Client to release
 // resources.
-func NewClient(options ClientOptions) (*Client, error) {
-	const (
-		defaultTimeoutRate = time.Millisecond * 100
-		defaultRTO         = defaultTimeoutRate * 5
-	)
+func NewClient(conn Connection, options ...ClientOption) (*Client, error) {
 	c := &Client{
 		close:       make(chan struct{}),
-		c:           options.Connection,
-		a:           options.Agent,
-		collector:   options.Collector,
-		clock:       options.Clock,
-		rto:         int64(options.RTO),
+		c:           conn,
+		clock:       systemClock,
+		rto:         int64(defaultRTO),
+		rtoRate:     defaultTimeoutRate,
 		t:           make(map[transactionID]*clientTransaction, 100),
-		maxAttempts: 7,
-		handler:     options.Handler,
+		maxAttempts: defaultMaxAttempts,
+	}
+	for _, o := range options {
+		o(c)
 	}
 	if c.c == nil {
 		return nil, ErrNoConnection
 	}
 	if c.a == nil {
 		c.a = NewAgent(nil)
-	}
-	if options.TimeoutRate == 0 {
-		options.TimeoutRate = defaultTimeoutRate
-	}
-	if c.rto == 0 {
-		c.rto = int64(defaultRTO)
-	}
-	if c.clock == nil {
-		c.clock = systemClock
 	}
 	if err := c.a.SetHandler(c.handleAgentCallback); err != nil {
 		return nil, err
@@ -95,7 +127,7 @@ func NewClient(options ClientOptions) (*Client, error) {
 			clock: c.clock,
 		}
 	}
-	if err := c.collector.Start(options.TimeoutRate, func(t time.Time) {
+	if err := c.collector.Start(c.rtoRate, func(t time.Time) {
 		closedOrPanic(c.a.Collect(t))
 	}); err != nil {
 		return nil, err
@@ -145,16 +177,17 @@ type Client struct {
 	c           Connection
 	close       chan struct{}
 	rto         int64 // time.Duration
+	rtoRate     time.Duration
 	maxAttempts int32
 	closed      bool
-	closedMux   sync.RWMutex
 	wg          sync.WaitGroup
 	clock       Clock
 	handler     Handler
 	collector   Collector
+	t           map[transactionID]*clientTransaction
 
-	t    map[transactionID]*clientTransaction
-	tMux sync.RWMutex
+	// mux guards closed and t
+	mux sync.RWMutex
 }
 
 // clientTransaction represents transaction in progress.
@@ -183,6 +216,10 @@ func acquireClientTransaction() *clientTransaction {
 }
 
 func putClientTransaction(t *clientTransaction) {
+	t.raw = t.raw[:0]
+	t.start = time.Time{}
+	t.attempt = 0
+	t.id = transactionID{}
 	clientTransactionPool.Put(t)
 }
 
@@ -194,8 +231,8 @@ func (t clientTransaction) nextTimeout(now time.Time) time.Time {
 //
 // Could return ErrClientClosed, ErrTransactionExists.
 func (c *Client) start(t *clientTransaction) error {
-	c.tMux.Lock()
-	defer c.tMux.Unlock()
+	c.mux.Lock()
+	defer c.mux.Unlock()
 	if c.closed {
 		return ErrClientClosed
 	}
@@ -327,13 +364,13 @@ func (c *Client) Close() error {
 	if err := c.checkInit(); err != nil {
 		return err
 	}
-	c.closedMux.Lock()
+	c.mux.Lock()
 	if c.closed {
-		c.closedMux.Unlock()
+		c.mux.Unlock()
 		return ErrClientClosed
 	}
 	c.closed = true
-	c.closedMux.Unlock()
+	c.mux.Unlock()
 	if closeErr := c.collector.Close(); closeErr != nil {
 		return closeErr
 	}
@@ -441,7 +478,7 @@ func (c *Client) Do(m *Message, f func(Event)) error {
 }
 
 func (c *Client) delete(id transactionID) {
-	c.tMux.Lock()
+	c.mux.Lock()
 	if c.t != nil {
 		t, ok := c.t[id]
 		if ok {
@@ -449,72 +486,86 @@ func (c *Client) delete(id transactionID) {
 		}
 		delete(c.t, id)
 	}
-	c.tMux.Unlock()
+	c.mux.Unlock()
+}
+
+type buffer struct {
+	buf []byte
+}
+
+var bufferPool = &sync.Pool{
+	New: func() interface{} {
+		return &buffer{buf: make([]byte, 2048)}
+	},
 }
 
 func (c *Client) handleAgentCallback(e Event) {
-	c.tMux.Lock()
-	if c.t == nil {
-		c.tMux.Unlock()
+	c.mux.Lock()
+	if c.closed {
+		c.mux.Unlock()
 		return
 	}
 	t, found := c.t[e.TransactionID]
 	if found {
 		delete(c.t, t.id)
 	}
-	c.tMux.Unlock()
+	c.mux.Unlock()
 	if !found {
-		if c.handler != nil {
+		if c.handler != nil && e.Error != ErrTransactionStopped {
 			c.handler(e)
 		}
 		// Ignoring.
 		return
 	}
 	h := t.h
-
-	if atomic.LoadInt32(&c.maxAttempts) < t.attempt || e.Error == nil {
+	if atomic.LoadInt32(&c.maxAttempts) <= t.attempt || e.Error == nil {
 		// Transaction completed.
 		putClientTransaction(t)
 		h(e)
 		return
 	}
-
 	// Doing re-transmission.
 	t.attempt++
-	if err := c.start(t); err != nil {
-		putClientTransaction(t)
-		e.Error = err
-		h(e)
-		return
-	}
-
-	// Starting transaction in agent.
-	now := c.clock.Now()
-	d := t.nextTimeout(now)
-	if err := c.a.Start(t.id, d); err != nil {
+	b := bufferPool.Get().(*buffer)
+	b.buf = b.buf[:copy(b.buf[:cap(b.buf)], t.raw)]
+	defer bufferPool.Put(b)
+	var (
+		now     = c.clock.Now()
+		timeOut = t.nextTimeout(now)
+		id      = t.id
+	)
+	// Starting client transaction.
+	if startErr := c.start(t); startErr != nil {
 		c.delete(t.id)
-		e.Error = err
+		e.Error = startErr
 		h(e)
 		return
 	}
-
+	// Starting agent transaction.
+	if startErr := c.a.Start(id, timeOut); startErr != nil {
+		c.delete(id)
+		e.Error = startErr
+		h(e)
+		return
+	}
 	// Writing message to connection again.
-	_, err := c.c.Write(t.raw)
-	if err != nil {
-		c.delete(t.id)
-		e.Error = err
-
-		// Stopping transaction instead of waiting until deadline.
-		if stopErr := c.a.Stop(t.id); stopErr != nil {
+	_, writeErr := c.c.Write(b.buf)
+	if writeErr != nil {
+		c.delete(id)
+		e.Error = writeErr
+		// Stopping agent transaction instead of waiting until it's deadline.
+		// This will call handleAgentCallback with "ErrTransactionStopped" error
+		// which will be ignored.
+		if stopErr := c.a.Stop(id); stopErr != nil {
+			// Failed to stop agent transaction. Wrapping the error in StopError.
 			e.Error = StopErr{
 				Err:   stopErr,
-				Cause: err,
+				Cause: writeErr,
 			}
 		}
 		h(e)
 		return
 	}
-
 }
 
 // Start starts transaction (if f set) and writes message to server, handler
@@ -523,9 +574,9 @@ func (c *Client) Start(m *Message, h Handler) error {
 	if err := c.checkInit(); err != nil {
 		return err
 	}
-	c.closedMux.RLock()
+	c.mux.RLock()
 	closed := c.closed
-	c.closedMux.RUnlock()
+	c.mux.RUnlock()
 	if closed {
 		return ErrClientClosed
 	}
