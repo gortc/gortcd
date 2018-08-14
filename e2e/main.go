@@ -26,8 +26,8 @@ var (
 func resolve(a string) *net.TCPAddr {
 	for i := 0; i < 10; i++ {
 		addr, err := net.ResolveTCPAddr("tcp", a)
-		log.Println("resolve:", addr, err)
 		if err == nil {
+			log.Println("resolved", a, "->", addr)
 			return addr
 		}
 		time.Sleep(time.Millisecond * 100 * time.Duration(i))
@@ -46,6 +46,7 @@ func main() {
 	gotSuccess := make(chan struct{})
 	initialized := make(chan struct{})
 	http.HandleFunc("/initialized", func(writer http.ResponseWriter, request *http.Request) {
+		log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr)
 		switch request.Method {
 		case http.MethodPost:
 			// Should be called by browser after initializing websocket conn.
