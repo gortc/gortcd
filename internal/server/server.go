@@ -2,6 +2,7 @@ package server
 
 import (
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -76,7 +77,7 @@ func New(o Options) (*Server, error) {
 		o.Log = zap.NewNop()
 	}
 	if o.Workers == 0 {
-		o.Workers = 100
+		o.Workers = runtime.GOMAXPROCS(0)
 	}
 	if o.CollectRate == 0 {
 		o.CollectRate = time.Second
@@ -422,7 +423,7 @@ func (s *Server) processMessage(ctx *context) error {
 	}
 	ctx.software = software
 	ctx.realm = s.realm
-	if ce := s.log.Check(zapcore.InfoLevel, "got message"); ce != nil {
+	if ce := s.log.Check(zapcore.DebugLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
 	}
 	if ctx.request.Contains(stun.AttrFingerprint) {
@@ -492,24 +493,10 @@ func (s *Server) process(ctx *context) error {
 	}
 }
 
-func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
-	n, addr, err := c.ReadFrom(ctx.buf)
-	if err != nil {
-		if !isErrConnClosed(err) {
-			s.log.Warn("readFrom failed", zap.Error(err))
-		}
-		return nil
-	}
-	ctx.server = s.addr
+func (s *Server) serveConn(addr net.Addr, ctx *context) error {
 	ctx.time = time.Now()
-	ctx.request.Raw = ctx.buf[:n]
-	ctx.cdata.Raw = ctx.buf[:n]
-	if ce := s.log.Check(zapcore.DebugLevel, "read"); ce != nil {
-		ce.Write(
-			zap.Int("n", n),
-			zap.Stringer("addr", addr),
-		)
-	}
+	ctx.request.Raw = ctx.buf
+	ctx.cdata.Raw = ctx.buf
 	switch a := addr.(type) {
 	case *net.UDPAddr:
 		ctx.client.FromUDPAddr(a)
@@ -519,9 +506,9 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		return errors.Errorf("unknown addr %s", addr)
 	}
 	ctx.setTuple()
-	if err = s.process(ctx); err != nil {
-		if err != errNotSTUNMessage {
-			s.log.Error("process failed", zap.Error(err))
+	if processErr := s.process(ctx); processErr != nil {
+		if processErr != errNotSTUNMessage {
+			s.log.Error("process failed", zap.Error(processErr))
 		}
 		return nil
 	}
@@ -529,13 +516,13 @@ func (s *Server) serveConn(c net.PacketConn, ctx *context) error {
 		// Indication.
 		return nil
 	}
-	if err = c.SetWriteDeadline(ctx.time.Add(time.Second)); err != nil {
-		s.log.Warn("failed to set deadline", zap.Error(err))
+	if setErr := s.conn.SetWriteDeadline(ctx.time.Add(time.Second)); setErr != nil {
+		s.log.Warn("failed to set deadline", zap.Error(setErr))
 	}
-	_, err = c.WriteTo(ctx.response.Raw, addr)
-	if err != nil && !isErrConnClosed(err) {
-		s.log.Warn("writeTo failed", zap.Error(err))
-		return err
+	_, writeErr := s.conn.WriteTo(ctx.response.Raw, addr)
+	if writeErr != nil && !isErrConnClosed(writeErr) {
+		s.log.Warn("writeTo failed", zap.Error(writeErr))
+		return writeErr
 	}
 	return nil
 }
@@ -544,29 +531,58 @@ func isErrConnClosed(err error) bool {
 	return strings.HasSuffix(err.Error(), "use of closed network connection")
 }
 
-func (s *Server) worker() {
-	defer s.wg.Done()
-	s.log.Info("worker started")
-	defer s.log.Info("worker done")
-	var (
-		ctx = &context{
+var contextPool = &sync.Pool{
+	New: func() interface{} {
+		return &context{
 			cdata:    new(turn.ChannelData),
 			response: new(stun.Message),
 			request:  new(stun.Message),
 			buf:      make([]byte, 2048),
 		}
-	)
+	},
+}
+
+func acquireContext() *context {
+	return contextPool.Get().(*context)
+}
+
+func putContext(ctx *context) {
+	ctx.reset()
+	contextPool.Put(ctx)
+}
+
+func (s *Server) worker() {
+	defer s.wg.Done()
+	s.log.Info("worker started")
+	defer s.log.Info("worker done")
+	buf := make([]byte, 2048)
 	for {
-		if err := s.serveConn(s.conn, ctx); err != nil {
-			s.log.Error("serveConn failed", zap.Error(err))
-		}
-		ctx.reset()
 		select {
 		case <-s.close:
 			return
 		default:
 			// pass
 		}
+		n, addr, err := s.conn.ReadFrom(buf)
+		if err != nil {
+			if !isErrConnClosed(err) {
+				s.log.Warn("readFrom failed", zap.Error(err))
+			}
+			break
+		}
+		// Preparing context.
+		ctx := acquireContext()
+		ctx.buf = ctx.buf[:cap(ctx.buf)]
+		copy(ctx.buf, buf)
+		ctx.buf = ctx.buf[:n]
+		ctx.server = s.addr
+		// Spawning serve goroutine.
+		go func(clientAddr net.Addr, context *context) {
+			if serveErr := s.serveConn(clientAddr, context); serveErr != nil {
+				s.log.Error("serveConn failed", zap.Error(serveErr))
+			}
+			putContext(context)
+		}(addr, ctx)
 	}
 }
 
