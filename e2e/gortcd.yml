@@ -2,7 +2,15 @@
 version: "1.1"
 
 server:
-  workers: 10
+  development: true
+  log:
+    level: debug
+    disableStacktrace: true
+    disableCaller: true
+    encoderConfig:
+      levelEncoder: capitalColor
+      timeEncoder: iso8601
+  workers: 1
   check_fingerprint: true
   listen:
     - 0.0.0.0:3478
