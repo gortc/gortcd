@@ -13,9 +13,9 @@ install:
   - make install
 
 script:
+  - make test-e2e
   - make test
   - make lint
-  - make test-e2e
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
