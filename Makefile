@@ -34,6 +34,7 @@ test-e2e:
 	@cd e2e && ./test.sh
 test:
 	@./go.test.sh
+test-fast:
+	@./go.test-fast.sh
 release:
 	goreleaser release --rm-dist
-
