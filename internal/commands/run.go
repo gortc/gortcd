@@ -60,7 +60,7 @@ var rootCmd = &cobra.Command{
 	Use:   "gortcd",
 	Short: "gortcd is STUN and TURN server",
 	Run: func(cmd *cobra.Command, args []string) {
-		logCfg := zap.NewProductionConfig()
+		logCfg := zap.NewDevelopmentConfig()
 		logCfg.DisableCaller = true
 		logCfg.DisableStacktrace = true
 		l, err := logCfg.Build()
