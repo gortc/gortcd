@@ -17,48 +17,6 @@ import (
 	"github.com/gortc/turn"
 )
 
-func isErr(m *stun.Message) bool {
-	return m.Type.Class == stun.ClassErrorResponse
-}
-
-func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stun.Setter) error {
-	start := time.Now()
-	if err := req.Build(attrs...); err != nil {
-		logger.Error("failed to build", zap.Error(err))
-		return err
-	}
-	if _, err := req.WriteTo(c); err != nil {
-		logger.Error("failed to write",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	logger.Info("sent message", zap.Stringer("m", req), zap.Stringer("t", req.Type))
-	if cap(res.Raw) < 800 {
-		res.Raw = make([]byte, 0, 1024)
-	}
-	res.Reset()
-	c.SetReadDeadline(time.Now().Add(time.Second * 2))
-	_, err := res.ReadFrom(c)
-	if err != nil {
-		logger.Error("failed to read",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	if req.Type.Class != stun.ClassIndication && req.TransactionID != res.TransactionID {
-		return fmt.Errorf("transaction ID mismatch: %x (got) != %x (expected)",
-			req.TransactionID, res.TransactionID,
-		)
-	}
-	logger.Info("got message",
-		zap.Stringer("m", res),
-		zap.Stringer("t", res.Type),
-		zap.Duration("rtt", time.Since(start)),
-	)
-	return nil
-}
-
 func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
 	addr := "127.0.0.1:0"
 	if len(addrs) > 0 {
