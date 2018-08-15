@@ -111,7 +111,11 @@ func getZapConfig() (zap.Config, error) {
 	if openErr != nil {
 		return d, openErr
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Println("failed to close config file:", closeErr)
+		}
+	}()
 	buf, readErr := ioutil.ReadAll(f)
 	if readErr != nil {
 		return d, readErr
