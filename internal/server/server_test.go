@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
@@ -14,48 +16,6 @@ import (
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
-
-func isErr(m *stun.Message) bool {
-	return m.Type.Class == stun.ClassErrorResponse
-}
-
-func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stun.Setter) error {
-	start := time.Now()
-	if err := req.Build(attrs...); err != nil {
-		logger.Error("failed to build", zap.Error(err))
-		return err
-	}
-	if _, err := req.WriteTo(c); err != nil {
-		logger.Error("failed to write",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	logger.Info("sent message", zap.Stringer("m", req), zap.Stringer("t", req.Type))
-	if cap(res.Raw) < 800 {
-		res.Raw = make([]byte, 0, 1024)
-	}
-	res.Reset()
-	c.SetReadDeadline(time.Now().Add(time.Second * 2))
-	_, err := res.ReadFrom(c)
-	if err != nil {
-		logger.Error("failed to read",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	if req.Type.Class != stun.ClassIndication && req.TransactionID != res.TransactionID {
-		return fmt.Errorf("transaction ID mismatch: %x (got) != %x (expected)",
-			req.TransactionID, res.TransactionID,
-		)
-	}
-	logger.Info("got message",
-		zap.Stringer("m", res),
-		zap.Stringer("t", res.Type),
-		zap.Duration("rtt", time.Since(start)),
-	)
-	return nil
-}
 
 func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
 	addr := "127.0.0.1:0"
@@ -96,7 +56,12 @@ func newServer(t testing.TB, opts ...Options) (*Server, func()) {
 			{Username: "username", Password: "secret", Realm: "realm"},
 		})
 	}
-
+	var logs *observer.ObservedLogs
+	if o.Log == nil {
+		core, newLogs := observer.New(zapcore.DebugLevel)
+		logs = newLogs
+		o.Log = zap.New(core)
+	}
 	s, err := New(o)
 	if err != nil {
 		t.Fatal(err)
@@ -104,6 +69,16 @@ func newServer(t testing.TB, opts ...Options) (*Server, func()) {
 	return s, func() {
 		if err := s.Close(); err != nil {
 			t.Error(err)
+		}
+		if t.Failed() && logs != nil {
+			encoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+			entries := logs.All()
+			for i := range entries {
+				buf, _ := encoder.EncodeEntry(
+					entries[i].Entry, entries[i].Context,
+				)
+				fmt.Println(buf)
+			}
 		}
 	}
 }
@@ -131,6 +106,29 @@ func TestServer_processBindingRequest(t *testing.T) {
 		t.Errorf("unexpected type: %s", ctx.response.Type)
 	}
 	t.Run("ZeroAlloc", func(t *testing.T) {
+		s, stop := newServer(t, Options{
+			Log: zap.NewNop(),
+		})
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+		}
+		ctx.request.Raw = make([]byte, len(m.Raw))
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.response.Type != stun.BindingSuccess {
+			t.Errorf("unexpected type: %s", ctx.response.Type)
+		}
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
@@ -210,6 +208,34 @@ func TestServer_processChannelData(t *testing.T) {
 		t.Error("unexpected response length")
 	}
 	t.Run("ZeroAlloc", func(t *testing.T) {
+		s, stop := newServer(t, Options{
+			Log: zap.NewNop(),
+		})
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		m := &turn.ChannelData{
+			Number: 0x4001,
+			Data:   []byte{1, 2, 3, 4},
+		}
+		m.Encode()
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+			cdata:    new(turn.ChannelData),
+		}
+		ctx.request.Raw = make([]byte, len(m.Raw))
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if len(ctx.response.Raw) != 0 {
+			t.Error("unexpected response length")
+		}
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
@@ -220,6 +246,65 @@ func TestServer_processChannelData(t *testing.T) {
 			s.process(ctx)
 		})
 	})
+}
+
+type callbackNonceManager func(
+	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+) (stun.Nonce, error)
+
+func (m callbackNonceManager) Check(
+	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+) (stun.Nonce, error) {
+	return m(tuple, value, at)
+}
+
+func TestServer_processChannelBinding(t *testing.T) {
+	s, stop := newServer(t, Options{
+		Realm: "realm",
+		NonceManager: callbackNonceManager(func(
+			tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+		) (stun.Nonce, error) {
+			return stun.NewNonce("nonce"), nil
+		}),
+	})
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	m := stun.MustBuild(stun.TransactionID, channelBindRequest,
+		stun.NewNonce("nonce"),
+		stun.NewUsername("username"),
+		stun.NewRealm("realm"),
+		&turn.PeerAddress{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 1001,
+		},
+		turn.ChannelNumber(0x7070),
+		stun.NewLongTermIntegrity("username", "realm", "secret"),
+		stun.Fingerprint,
+	)
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+		cdata:    new(turn.ChannelData),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	ctx.setTuple()
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.response.Type.Class == stun.ClassErrorResponse {
+		var code stun.ErrorCodeAttribute
+		code.GetFrom(ctx.response)
+		if code.Code != stun.CodeAllocMismatch {
+			t.Errorf("unexpected error: %s", code)
+		}
+	} else {
+		t.Error("unexpected success")
+	}
 }
 
 func BenchmarkServer_processBindingRequest(b *testing.B) {
@@ -250,28 +335,44 @@ func BenchmarkServer_processBindingRequest(b *testing.B) {
 }
 
 func TestServer_notStun(t *testing.T) {
-	s, stop := newServer(t)
-	defer stop()
-	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
-	buf := make([]byte, 512)
-	for i := range buf {
-		buf[i] = byte(i % 127)
-	}
-	ctx := &context{
-		request:  new(stun.Message),
-		response: new(stun.Message),
-	}
-	ctx.request.Raw = make([]byte, len(buf), 1024)
-	copy(ctx.request.Raw, buf)
-	ctx.client = allocator.Addr{
-		IP:   addr.IP,
-		Port: addr.Port,
-	}
-	if err := s.process(ctx); err != errNotSTUNMessage {
-		t.Fatal(err)
-	}
+	t.Run("Message", func(t *testing.T) {
+		s, stop := newServer(t)
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		buf := make([]byte, 512)
+		for i := range buf {
+			buf[i] = byte(i % 127)
+		}
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+		}
+		ctx.request.Raw = make([]byte, len(buf), 1024)
+		copy(ctx.request.Raw, buf)
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		if err := s.process(ctx); err != errNotSTUNMessage {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("ZeroAlloc", func(t *testing.T) {
-		ctx.request.Raw = ctx.request.Raw[:len(buf)]
+		s, stop := newServer(t, Options{
+			Log: zap.NewNop(),
+		})
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		buf := make([]byte, 512)
+		for i := range buf {
+			buf[i] = byte(i % 127)
+		}
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+		}
+		ctx.request.Raw = make([]byte, len(buf), 1024)
 		copy(ctx.request.Raw, buf)
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
@@ -390,6 +491,43 @@ func TestServer_processAllocationRequest(t *testing.T) {
 			errCode.GetFrom(ctx.response)
 			t.Errorf("unexpected error %s: %s", errCode, ctx.response)
 		}
+		t.Run("Refresh", func(t *testing.T) {
+			m = stun.MustBuild(stun.TransactionID, turn.RefreshRequest,
+				turn.Lifetime{Duration: time.Minute * 10},
+				username, realm, nonce, peer, i, stun.Fingerprint,
+			)
+			ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+			if err := s.process(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if ctx.response.Type.Class != stun.ClassSuccessResponse {
+				var errCode stun.ErrorCodeAttribute
+				errCode.GetFrom(ctx.response)
+				t.Errorf("unexpected error %s: %s", errCode, ctx.response)
+			}
+			var lifetime turn.Lifetime
+			if getErr := lifetime.GetFrom(ctx.response); getErr != nil {
+				t.Error(getErr)
+			}
+			if lifetime.Duration != time.Minute*10 {
+				t.Error("bad lifetime")
+			}
+		})
+		t.Run("Dealloc", func(t *testing.T) {
+			m = stun.MustBuild(stun.TransactionID, turn.RefreshRequest,
+				turn.Lifetime{},
+				username, realm, nonce, peer, i, stun.Fingerprint,
+			)
+			ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+			if err := s.process(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if ctx.response.Type.Class != stun.ClassSuccessResponse {
+				var errCode stun.ErrorCodeAttribute
+				errCode.GetFrom(ctx.response)
+				t.Errorf("unexpected error %s: %s", errCode, ctx.response)
+			}
+		})
 	})
 	t.Run("BadIntegrity", func(t *testing.T) {
 		i := stun.NewLongTermIntegrity("username", realm.String(), "secret111")

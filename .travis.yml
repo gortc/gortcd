@@ -1,21 +1,15 @@
 language: go
 
-sudo: required
-
-services:
-  - docker
+sudo: false
 
 go:
   - stable
   - master
 
-install:
-  - make install
+install: true
 
 script:
-  - make test-e2e
-  - make test
-  - make lint
+  - make test-fast
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)

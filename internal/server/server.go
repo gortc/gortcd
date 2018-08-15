@@ -64,6 +64,7 @@ type Options struct {
 	Registry      MetricsRegistry
 	Labels        prometheus.Labels
 	NonceDuration time.Duration // no nonce rotate if 0
+	NonceManager  NonceManager  // optional nonce manager implementation
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -97,10 +98,13 @@ func New(o Options) (*Server, error) {
 		Conn:   netAlloc,
 		Labels: o.Labels,
 	})
+	if o.NonceManager == nil {
+		o.NonceManager = auth.NewNonceAuth(o.NonceDuration)
+	}
 	s := &Server{
 		realm:  stun.NewRealm(o.Realm),
 		auth:   o.Auth,
-		nonce:  auth.NewNonceAuth(o.NonceDuration),
+		nonce:  o.NonceManager,
 		conn:   o.Conn,
 		allocs: allocs,
 		close:  make(chan struct{}),
@@ -306,7 +310,7 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 			return ctx.buildErr(stun.CodeServerError)
 		}
 	}
-	return ctx.buildOk()
+	return ctx.buildOk(&lifetime)
 }
 
 func (s *Server) processCreatePermissionRequest(ctx *context) error {
