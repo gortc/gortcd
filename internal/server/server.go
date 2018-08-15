@@ -310,7 +310,7 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 			return ctx.buildErr(stun.CodeServerError)
 		}
 	}
-	return ctx.buildOk()
+	return ctx.buildOk(&lifetime)
 }
 
 func (s *Server) processCreatePermissionRequest(ctx *context) error {

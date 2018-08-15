@@ -491,6 +491,43 @@ func TestServer_processAllocationRequest(t *testing.T) {
 			errCode.GetFrom(ctx.response)
 			t.Errorf("unexpected error %s: %s", errCode, ctx.response)
 		}
+		t.Run("Refresh", func(t *testing.T) {
+			m = stun.MustBuild(stun.TransactionID, turn.RefreshRequest,
+				turn.Lifetime{Duration: time.Minute * 10},
+				username, realm, nonce, peer, i, stun.Fingerprint,
+			)
+			ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+			if err := s.process(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if ctx.response.Type.Class != stun.ClassSuccessResponse {
+				var errCode stun.ErrorCodeAttribute
+				errCode.GetFrom(ctx.response)
+				t.Errorf("unexpected error %s: %s", errCode, ctx.response)
+			}
+			var lifetime turn.Lifetime
+			if getErr := lifetime.GetFrom(ctx.response); getErr != nil {
+				t.Error(getErr)
+			}
+			if lifetime.Duration != time.Minute*10 {
+				t.Error("bad lifetime")
+			}
+		})
+		t.Run("Dealloc", func(t *testing.T) {
+			m = stun.MustBuild(stun.TransactionID, turn.RefreshRequest,
+				turn.Lifetime{},
+				username, realm, nonce, peer, i, stun.Fingerprint,
+			)
+			ctx.request.Raw = append(ctx.request.Raw[:0], m.Raw...)
+			if err := s.process(ctx); err != nil {
+				t.Fatal(err)
+			}
+			if ctx.response.Type.Class != stun.ClassSuccessResponse {
+				var errCode stun.ErrorCodeAttribute
+				errCode.GetFrom(ctx.response)
+				t.Errorf("unexpected error %s: %s", errCode, ctx.response)
+			}
+		})
 	})
 	t.Run("BadIntegrity", func(t *testing.T) {
 		i := stun.NewLongTermIntegrity("username", realm.String(), "secret111")
