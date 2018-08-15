@@ -147,7 +147,7 @@ func (s *Server) Start(rate time.Duration) {
 
 func (s *Server) startCollect(rate time.Duration) {
 	s.wg.Add(1)
-	s.log.Info("started startCollect with rate", zap.Duration("rate", rate))
+	s.log.Debug("started startCollect with rate", zap.Duration("rate", rate))
 	t := time.NewTicker(rate)
 	go func() {
 		s.log.Debug("startCollect goroutine starting")
@@ -171,7 +171,7 @@ func (s *Server) startCollect(rate time.Duration) {
 func (s *Server) Close() error {
 	// TODO(ar): Free resources.
 	close(s.close)
-	s.log.Info("closing")
+	s.log.Debug("closing")
 	if err := s.conn.Close(); err != nil {
 		s.log.Warn("failed to close connection", zap.Error(err))
 	}
@@ -184,7 +184,7 @@ func (s *Server) collect(t time.Time) {
 }
 
 func (s *Server) sendByBinding(ctx *context, n turn.ChannelNumber, data []byte) error {
-	s.log.Info("searching for allocation via binding",
+	s.log.Debug("searching for allocation via binding",
 		zap.Stringer("tuple", ctx.tuple),
 		zap.Stringer("n", ctx.cdata.Number),
 	)
@@ -197,7 +197,7 @@ func (s *Server) sendByPermission(
 	addr allocator.Addr,
 	data []byte,
 ) error {
-	s.log.Info("searching for allocation",
+	s.log.Debug("searching for allocation",
 		zap.Stringer("tuple", ctx.tuple),
 		zap.Stringer("addr", addr),
 	)
@@ -217,7 +217,7 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 		zap.Int("len", len(d)),
 		zap.Stringer("d", destination),
 	)
-	l.Info("got peer data")
+	l.Debug("got peer data")
 	if err := s.conn.SetWriteDeadline(time.Now().Add(time.Second)); err != nil {
 		l.Error("failed to SetWriteDeadline", zap.Error(err))
 	}
@@ -231,7 +231,7 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 		if _, err := s.conn.WriteTo(d.Raw, destination); err != nil {
 			l.Error("failed to write", zap.Error(err))
 		}
-		l.Info("sent data via channel", zap.Stringer("n", n))
+		l.Debug("sent data via channel", zap.Stringer("n", n))
 		return
 	}
 	m := stun.New()
@@ -247,7 +247,7 @@ func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Add
 	if _, err := s.conn.WriteTo(m.Raw, destination); err != nil {
 		l.Error("failed to write", zap.Error(err))
 	}
-	l.Info("sent data from peer", zap.Stringer("m", m))
+	l.Debug("sent data from peer", zap.Stringer("m", m))
 }
 
 func (s *Server) processBindingRequest(ctx *context) error {
@@ -328,7 +328,7 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	default:
 		return errors.Wrap(err, "failed to get lifetime")
 	}
-	s.log.Info("processing create permission request")
+	s.log.Debug("processing create permission request")
 	var (
 		peer    = allocator.Addr(addr)
 		timeout = ctx.time.Add(lifetime.Duration)
@@ -352,7 +352,7 @@ func (s *Server) processSendIndication(ctx *context) error {
 		s.log.Error("failed to parse send indication", zap.Error(err))
 		return errors.Wrap(err, "failed to parse send indication")
 	}
-	s.log.Info("sending data", zap.Stringer("to", addr))
+	s.log.Debug("sending data", zap.Stringer("to", addr))
 	if err := s.sendByPermission(ctx, allocator.Addr(addr), data); err != nil {
 		s.log.Warn("send failed",
 			zap.Error(err),
@@ -553,8 +553,8 @@ func putContext(ctx *context) {
 
 func (s *Server) worker() {
 	defer s.wg.Done()
-	s.log.Info("worker started")
-	defer s.log.Info("worker done")
+	s.log.Debug("worker started")
+	defer s.log.Debug("worker done")
 	buf := make([]byte, 2048)
 	for {
 		select {
