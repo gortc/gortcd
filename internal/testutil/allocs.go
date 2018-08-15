@@ -6,6 +6,7 @@ import (
 
 // ShouldNotAllocate fails if f allocates.
 func ShouldNotAllocate(t *testing.T, f func()) {
+	t.Helper()
 	if Race {
 		t.Skip("skip while running with -race")
 		return

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
@@ -96,7 +98,12 @@ func newServer(t testing.TB, opts ...Options) (*Server, func()) {
 			{Username: "username", Password: "secret", Realm: "realm"},
 		})
 	}
-
+	var logs *observer.ObservedLogs
+	if o.Log == nil {
+		core, newLogs := observer.New(zapcore.DebugLevel)
+		logs = newLogs
+		o.Log = zap.New(core)
+	}
 	s, err := New(o)
 	if err != nil {
 		t.Fatal(err)
@@ -104,6 +111,16 @@ func newServer(t testing.TB, opts ...Options) (*Server, func()) {
 	return s, func() {
 		if err := s.Close(); err != nil {
 			t.Error(err)
+		}
+		if t.Failed() && logs != nil {
+			encoder := zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig())
+			entries := logs.All()
+			for i := range entries {
+				buf, _ := encoder.EncodeEntry(
+					entries[i].Entry, entries[i].Context,
+				)
+				fmt.Println(buf)
+			}
 		}
 	}
 }
@@ -131,6 +148,29 @@ func TestServer_processBindingRequest(t *testing.T) {
 		t.Errorf("unexpected type: %s", ctx.response.Type)
 	}
 	t.Run("ZeroAlloc", func(t *testing.T) {
+		s, stop := newServer(t, Options{
+			Log: zap.NewNop(),
+		})
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+		}
+		ctx.request.Raw = make([]byte, len(m.Raw))
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if ctx.response.Type != stun.BindingSuccess {
+			t.Errorf("unexpected type: %s", ctx.response.Type)
+		}
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
@@ -210,6 +250,34 @@ func TestServer_processChannelData(t *testing.T) {
 		t.Error("unexpected response length")
 	}
 	t.Run("ZeroAlloc", func(t *testing.T) {
+		s, stop := newServer(t, Options{
+			Log: zap.NewNop(),
+		})
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		m := &turn.ChannelData{
+			Number: 0x4001,
+			Data:   []byte{1, 2, 3, 4},
+		}
+		m.Encode()
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+			cdata:    new(turn.ChannelData),
+		}
+		ctx.request.Raw = make([]byte, len(m.Raw))
+		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		copy(ctx.request.Raw, m.Raw)
+		if err := s.process(ctx); err != nil {
+			t.Fatal(err)
+		}
+		if len(ctx.response.Raw) != 0 {
+			t.Error("unexpected response length")
+		}
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
@@ -220,6 +288,65 @@ func TestServer_processChannelData(t *testing.T) {
 			s.process(ctx)
 		})
 	})
+}
+
+type callbackNonceManager func(
+	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+) (stun.Nonce, error)
+
+func (m callbackNonceManager) Check(
+	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+) (stun.Nonce, error) {
+	return m(tuple, value, at)
+}
+
+func TestServer_processChannelBinding(t *testing.T) {
+	s, stop := newServer(t, Options{
+		Realm: "realm",
+		NonceManager: callbackNonceManager(func(
+			tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+		) (stun.Nonce, error) {
+			return stun.NewNonce("nonce"), nil
+		}),
+	})
+	defer stop()
+	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	m := stun.MustBuild(stun.TransactionID, channelBindRequest,
+		stun.NewNonce("nonce"),
+		stun.NewUsername("username"),
+		stun.NewRealm("realm"),
+		&turn.PeerAddress{
+			IP:   net.IPv4(127, 0, 0, 1),
+			Port: 1001,
+		},
+		turn.ChannelNumber(0x7070),
+		stun.NewLongTermIntegrity("username", "realm", "secret"),
+		stun.Fingerprint,
+	)
+	ctx := &context{
+		request:  new(stun.Message),
+		response: new(stun.Message),
+		cdata:    new(turn.ChannelData),
+	}
+	ctx.request.Raw = make([]byte, len(m.Raw))
+	ctx.client = allocator.Addr{
+		IP:   addr.IP,
+		Port: addr.Port,
+	}
+	ctx.setTuple()
+	copy(ctx.request.Raw, m.Raw)
+	if err := s.process(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if ctx.response.Type.Class == stun.ClassErrorResponse {
+		var code stun.ErrorCodeAttribute
+		code.GetFrom(ctx.response)
+		if code.Code != stun.CodeAllocMismatch {
+			t.Errorf("unexpected error: %s", code)
+		}
+	} else {
+		t.Error("unexpected success")
+	}
 }
 
 func BenchmarkServer_processBindingRequest(b *testing.B) {
@@ -250,28 +377,44 @@ func BenchmarkServer_processBindingRequest(b *testing.B) {
 }
 
 func TestServer_notStun(t *testing.T) {
-	s, stop := newServer(t)
-	defer stop()
-	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
-	buf := make([]byte, 512)
-	for i := range buf {
-		buf[i] = byte(i % 127)
-	}
-	ctx := &context{
-		request:  new(stun.Message),
-		response: new(stun.Message),
-	}
-	ctx.request.Raw = make([]byte, len(buf), 1024)
-	copy(ctx.request.Raw, buf)
-	ctx.client = allocator.Addr{
-		IP:   addr.IP,
-		Port: addr.Port,
-	}
-	if err := s.process(ctx); err != errNotSTUNMessage {
-		t.Fatal(err)
-	}
+	t.Run("Message", func(t *testing.T) {
+		s, stop := newServer(t)
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		buf := make([]byte, 512)
+		for i := range buf {
+			buf[i] = byte(i % 127)
+		}
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+		}
+		ctx.request.Raw = make([]byte, len(buf), 1024)
+		copy(ctx.request.Raw, buf)
+		ctx.client = allocator.Addr{
+			IP:   addr.IP,
+			Port: addr.Port,
+		}
+		if err := s.process(ctx); err != errNotSTUNMessage {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("ZeroAlloc", func(t *testing.T) {
-		ctx.request.Raw = ctx.request.Raw[:len(buf)]
+		s, stop := newServer(t, Options{
+			Log: zap.NewNop(),
+		})
+		defer stop()
+		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+		buf := make([]byte, 512)
+		for i := range buf {
+			buf[i] = byte(i % 127)
+		}
+		ctx := &context{
+			request:  new(stun.Message),
+			response: new(stun.Message),
+		}
+		ctx.request.Raw = make([]byte, len(buf), 1024)
 		copy(ctx.request.Raw, buf)
 		ctx.client = allocator.Addr{
 			IP:   addr.IP,
