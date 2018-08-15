@@ -7,18 +7,15 @@ services:
 
 go:
   - stable
-  - master
 
 install:
-  - make install
+  - go version
 
 script:
-  - make test
-  - make lint
   - make test-e2e
 
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+  - go version
 
 matrix:
   allow_failures:
