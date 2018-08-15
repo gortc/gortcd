@@ -30,10 +30,7 @@ type nonce struct {
 }
 
 func (n nonce) valid(t time.Time) bool {
-	if n.validUntil.IsZero() {
-		return true
-	}
-	return n.validUntil.After(t)
+	return n.validUntil.IsZero() || n.validUntil.After(t)
 }
 
 // NonceAuth is nonce check and rotate implementation.
@@ -72,12 +69,14 @@ func (n *NonceAuth) Check(
 		if current.valid(at) {
 			// Current nonce is valid.
 			if !bytes.Equal(current.value, value) {
+				// Returning ErrStaleNonce with correct nonce.
 				return current.value, ErrStaleNonce
 			}
 			return current.value, nil
 		}
 		// Rotating.
 		current.value = newNonce()
+		current.validUntil = at.Add(n.duration)
 		n.nonces[i] = current
 		return current.value, ErrStaleNonce
 	}
