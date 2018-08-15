@@ -91,7 +91,7 @@ func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte
 		conn net.PacketConn
 		addr Addr
 	)
-	a.log.Info("searching for bound allocation",
+	a.log.Debug("searching for bound allocation",
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("n", n),
 	)
@@ -140,7 +140,7 @@ func (a *Allocator) Send(tuple FiveTuple, peer Addr, data []byte) (int, error) {
 	var (
 		conn net.PacketConn
 	)
-	a.log.Info("searching for allocation",
+	a.log.Debug("searching for allocation",
 		zap.Stringer("t", tuple),
 		zap.Stringer("peer", peer),
 	)
@@ -283,7 +283,7 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 		return Addr{}, errors.Wrap(err, "failed to allocate")
 	}
 	l = l.With(zap.Stringer("raddr", raddr))
-	l.Info("ok")
+	l.Debug("ok")
 	buf := make([]byte, 2048)
 
 	a.allocsMux.Lock()

@@ -18,6 +18,10 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	yaml "gopkg.in/yaml.v2"
+
+	"io/ioutil"
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/server"
@@ -56,16 +60,80 @@ type staticCredElem struct {
 	Realm    string `mapstructure:"realm"`
 }
 
+// getZapConfig decodes zap logging configuration from
+// configuration file.
+func getZapConfig() (zap.Config, error) {
+	// server.log
+	type cfgWrapper struct {
+		Server struct {
+			Log zap.Config `yaml:"log"`
+		} `yaml:"server"`
+	}
+
+	// Default logging configuration.
+	d := zap.Config{
+		DisableCaller:     true,
+		DisableStacktrace: true,
+		Level:             zap.NewAtomicLevel(),
+		Development:       false,
+		Sampling: &zap.SamplingConfig{
+			Initial:    100,
+			Thereafter: 100,
+		},
+		Encoding: "json",
+		EncoderConfig: zapcore.EncoderConfig{
+			TimeKey:        "ts",
+			LevelKey:       "level",
+			NameKey:        "logger",
+			CallerKey:      "caller",
+			MessageKey:     "msg",
+			StacktraceKey:  "stacktrace",
+			EncodeLevel:    zapcore.LowercaseLevelEncoder,
+			EncodeTime:     zapcore.EpochTimeEncoder,
+			EncodeDuration: zapcore.SecondsDurationEncoder,
+		},
+		OutputPaths:      []string{"stderr"},
+		ErrorOutputPaths: []string{"stderr"},
+	}
+	if viper.GetBool("server.development") {
+		// If in development mode, default to development logger
+		// configuration.
+		d = zap.NewDevelopmentConfig()
+	}
+	if len(viper.ConfigFileUsed()) == 0 {
+		return d, nil
+	}
+
+	// Parsing yaml directly.
+	raw := &cfgWrapper{}
+	raw.Server.Log = d
+	f, openErr := os.Open(viper.ConfigFileUsed())
+	if openErr != nil {
+		return d, openErr
+	}
+	defer func() {
+		if closeErr := f.Close(); closeErr != nil {
+			log.Println("failed to close config file:", closeErr)
+		}
+	}()
+	buf, readErr := ioutil.ReadAll(f)
+	if readErr != nil {
+		return d, readErr
+	}
+	return raw.Server.Log, yaml.Unmarshal(buf, &raw)
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gortcd",
 	Short: "gortcd is STUN and TURN server",
 	Run: func(cmd *cobra.Command, args []string) {
-		logCfg := zap.NewProductionConfig()
-		logCfg.DisableCaller = true
-		logCfg.DisableStacktrace = true
-		l, err := logCfg.Build()
-		if err != nil {
-			panic(err)
+		logCfg, logErr := getZapConfig()
+		if logErr != nil {
+			panic(logErr)
+		}
+		l, buildErr := logCfg.Build()
+		if buildErr != nil {
+			panic(buildErr)
 		}
 		if strings.Split(viper.GetString("version"), ".")[0] != "1" {
 			l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
@@ -180,8 +248,8 @@ var rootCmd = &cobra.Command{
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if err = ListenUDPAndServe("udp", normalized, o); err != nil {
-						l.Fatal("failed to listen", zap.Error(err))
+					if logErr = ListenUDPAndServe("udp", normalized, o); logErr != nil {
+						l.Fatal("failed to listen", zap.Error(logErr))
 					}
 				}()
 			}
