@@ -40,12 +40,12 @@ docker logs ci_turn-controlled_1 &> log-controlled.txt
 docker logs ci_turn-server_1 &> log-server.txt
 
 cat log-controlling.txt
-printf "${GREEN}Logs from turn server:${NC}\n"
-cat log-server.txt
 
 # inspect the output of the test and display respective message
 if [ -z ${TEST_EXIT_CODE+x} ] || [ "$TEST_EXIT_CODE" -ne 0 ] ; then
   printf "${RED}Tests Failed${NC} - Exit Code: $TEST_EXIT_CODE\n"
+  printf "${GREEN}Logs from turn server:${NC}\n"
+  cat log-server.txt
 else
   printf "${GREEN}Tests Passed${NC}\n"
 fi
