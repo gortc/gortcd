@@ -1,5 +1,5 @@
 [Unit]
-Description=TURN and STUN server in go.
+Description=TURN and STUN server in go
 Documentation=https://github.com/gortc/gortcd
 After=syslog.target network.target
 Wants=network-online.target
