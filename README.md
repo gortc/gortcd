@@ -1,4 +1,5 @@
 [![codecov](https://codecov.io/gh/gortc/gortcd/branch/master/graph/badge.svg)](https://codecov.io/gh/gortc/gortcd)
+[![Master status](https://tc.gortc.io/app/rest/builds/buildType:(id:gortcd_MasterStatus)/statusIcon.svg)](https://tc.gortc.io)
 [![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 [![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 # gortcd
