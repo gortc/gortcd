@@ -2,6 +2,7 @@
 [![Master status](https://tc.gortc.io/app/rest/builds/buildType:(id:gortcd_MasterStatus)/statusIcon.svg)](https://tc.gortc.io)
 [![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 [![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
+[![GitHub release](https://img.shields.io/github/release/gortc/gortcd.svg)](https://github.com/gortc/gortcd/releases/latest)
 # gortcd
 The gortcd is work-in-progress TURN and STUN server implementation in go.
 As part of [gortc](https://gortc.io) project, gortcd shares
