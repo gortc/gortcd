@@ -25,6 +25,9 @@ builds:
     flags:
       - "-buildmode=pie"
 
+sign:
+  artifacts: checksum
+
 checksum:
   name_template: "{{.ProjectName}}-{{.Version }}-checksums.txt"
 
