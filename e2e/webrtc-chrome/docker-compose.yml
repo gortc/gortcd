@@ -1,0 +1,63 @@
+version: '3'
+
+services:
+  signaling:
+    build:
+      context: .
+      dockerfile: signaling.Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    environment:
+      - CI_GO_VERSION
+  turn-controlling:
+    entrypoint:
+      - ./e2e
+      - "-b=/usr/bin/google-chrome-unstable"
+      - "-timeout=10s"
+      - "-controlling"
+    depends_on:
+      - turn-server
+      - signaling
+    links:
+      - turn-server
+      - turn-controlled
+      - signaling
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    cap_add:
+      - SYS_ADMIN
+    shm_size: 1024m
+    environment:
+      - CI_GO_VERSION
+  turn-controlled:
+    entrypoint:
+      - ./e2e
+      - "-b=/usr/bin/google-chrome-unstable"
+      - "-timeout=10s"
+    depends_on:
+      - turn-server
+      - signaling
+    links:
+      - turn-server
+      - signaling
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    cap_add:
+      - SYS_ADMIN
+    shm_size: 1024m
+    environment:
+      - CI_GO_VERSION
+  turn-server:
+    build:
+      context: ../..
+      dockerfile: e2e/webrtc-chrome/server.Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    environment:
+      - CI_GO_VERSION
