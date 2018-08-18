@@ -1,0 +1,29 @@
+---
+version: "1.1"
+
+server:
+  development: true
+  log:
+    level: debug
+    disableStacktrace: true
+    disableCaller: true
+    encoderConfig:
+      levelEncoder: capital
+      timeEncoder: iso8601
+  workers: 1
+  check_fingerprint: true
+  listen:
+    - 0.0.0.0:3478
+  realm: realm
+
+auth:
+  public: false
+  stun: true
+
+  nonce:
+    static: false
+    timeout: 600s
+
+  static:
+    - username: user
+      password: secret

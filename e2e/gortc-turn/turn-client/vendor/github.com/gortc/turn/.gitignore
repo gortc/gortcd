@@ -1,0 +1,9 @@
+cmd/turn-client/turn-client
+*.zip
+
+
+# go tests
+*.test
+*.out
+
+.idea
