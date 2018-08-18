@@ -8,7 +8,7 @@ server:
     disableStacktrace: true
     disableCaller: true
     encoderConfig:
-      levelEncoder: capitalColor
+      levelEncoder: capital
       timeEncoder: iso8601
   workers: 1
   check_fingerprint: true
