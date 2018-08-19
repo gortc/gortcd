@@ -18,6 +18,31 @@ Please use only for experiments until [beta](https://github.com/gortc/gortcd/mil
 See [releases](https://github.com/gortc/gortcd/releases/latest) for latest
 binaries and packages or [snapshot](https://tc.gortc.io/viewType.html?buildTypeId=gortcd_snapshot&guest=1)
 artifacts for bleeding-edge ones.
+
+## Configuration
+Please see `gortc.yml` for configuration tips. Server listens on all
+available interfaces by default, STUN is public, TURN is private and
+no valid credentials are provided.
+
+Server searches for `gortc.yml` in current directory, in the
+`/etc/gortcd/` and in home directory.
+```yml
+auth:
+# Put here valid credentials.
+# So, if you are passing to RTCPeerConnection 
+# something like that: 
+#  {
+#    urls: "turn:turnserver.example.org",
+#    username: "webrtc",
+#    credential: "turnpassword"
+#  }
+# Use the following:
+  static:
+    - username: webrtc
+      password: turnpassword
+```
+If you want TURN without auth, set `auth.public` to `true`.
+
 ## Docker
 ```
 docker run -d -p 3478:3478/udp gortc/gortcd

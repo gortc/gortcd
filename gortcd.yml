@@ -2,32 +2,43 @@
 version: "1.1"
 
 server:
+  # log config, see https://github.com/uber-go/zap
   log:
-    level: "warn"
+    level: "info"
     disableCaller: true
     disableStacktrace: true
-  workers: 32
-  check_fingerprint: true
+  # count of listeners on one UDP socket,
+  # each transaction is handled in separate goroutine,
+  # so can be even 1
+  workers: 4
   listen:
-    - 127.0.0.1:3478
-  realm: gortc.io # default realm
+    - 0.0.0.0:3478
+  # default realm
+  realm: gortc.io
+
+  # export pprof metrics
   pprof: "localhost:3256"
+  # export prometheus metrics
   prometheus:
     addr: "localhost:3255"
+  check_fingerprint: true
 
 auth:
+  # if true, no credentials are checked
   public: false
 
   nonce:
     static: false
     timeout: 600s
 
-  static:
-    - username: user
-      realm: realm
-      key: 0xfb6cb9e166c6c764ff2bdea12175a8aa
-    - username: user2
-      password: secret
-    - username: user3
-      pasword: supersecret
-      realm: realm1.gortc.io
+# Put here valid credentials.
+# So, if you are passing to RTCPeerConnection something like this:
+#  {
+#    urls: "turn:turnserver.example.org",
+#    username: "webrtc",
+#    credential: "turnpassword"
+#  }
+# Use the following:
+#  static:
+#    - username: webrtc
+#      password: turnpassword
