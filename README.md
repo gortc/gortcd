@@ -16,7 +16,8 @@ Please use only for experiments until [beta](https://github.com/gortc/gortcd/mil
 
 # Install
 See [releases](https://github.com/gortc/gortcd/releases/latest) for latest
-binaries and packages.
+binaries and packages or [snapshot](https://tc.gortc.io/viewType.html?buildTypeId=gortcd_snapshot&guest=1)
+artifacts for bleeding-edge ones.
 ## Docker
 ```
 docker run -d -p 3478:3478/udp gortc/gortcd
@@ -74,4 +75,5 @@ Server behavior is tested and verified in many ways:
   * Standard unit-tests with coverage reporting
 
 See [TeamCity project](https://tc.gortc.io/project.html?projectId=gortcd&guest=1) and `e2e` directory
-for more information.
+for more information. Also the Wireshark `.pcap` files are available for some of e2e tests in
+artifacts for build.
