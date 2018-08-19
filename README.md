@@ -62,3 +62,16 @@ Supported TURN authentication mechanisms:
   * 'classic' long-term credentials mechanism;
 
 Project supports all platforms that [supports](https://github.com/golang/go/wiki/MinimumRequirements#minimum-requirements) go.
+
+# Testing
+
+Server behavior is tested and verified in many ways:
+  * End-To-End with long-term credentials
+    * **webrtc**: Two browsers using gortcd as relay for WebRTC data channels (linux)
+    * **gortc**: The [gortc/turn](https://github.com/gortc/turn) client (windows)
+    * **coturn**: The coturn [uclient](https://github.com/coturn/coturn/wiki/turnutils_uclient) (linux)
+  * Bunch of code static checkers (linters)
+  * Standard unit-tests with coverage reporting
+
+See [TeamCity project](https://tc.gortc.io/project.html?projectId=gortcd&guest=1) and `e2e` directory
+for more information.
