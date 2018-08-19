@@ -85,14 +85,18 @@ func TestFiveTuple_String(t *testing.T) {
 }
 
 func TestPermission_String(t *testing.T) {
-	s := fmt.Sprint(Permission{
+	p := Permission{
 		Addr: turn.Addr{
 			Port: 100,
 			IP:   net.IPv4(127, 0, 0, 1),
 		},
 		Timeout: time.Date(2017, 1, 1, 1, 1, 1, 1, time.UTC),
-	})
-	if s != "127.0.0.1:100 [2017-01-01T01:01:01Z]" {
+	}
+	if p.String() != "127.0.0.1:100 [2017-01-01T01:01:01Z]" {
+		t.Error("unexpected stringer output")
+	}
+	p.Binding = 0x4001
+	if p.String() != "127.0.0.1:100 (0x4001) [2017-01-01T01:01:01Z]" {
 		t.Error("unexpected stringer output")
 	}
 }

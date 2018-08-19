@@ -32,7 +32,7 @@ func (p Permission) String() string {
 	if p.Binding == 0 {
 		return fmt.Sprintf("%s [%s]", p.Addr, p.Timeout.Format(time.RFC3339))
 	}
-	return fmt.Sprintf("%s (c%s) [%s]", p.Addr, p.Binding, p.Timeout.Format(time.RFC3339))
+	return fmt.Sprintf("%s (0x%x) [%s]", p.Addr, int(p.Binding), p.Timeout.Format(time.RFC3339))
 }
 
 func (p *Permission) conflicts(n turn.ChannelNumber, peer turn.Addr) bool {
