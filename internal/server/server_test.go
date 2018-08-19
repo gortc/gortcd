@@ -179,6 +179,33 @@ func TestServer_processBindingRequest(t *testing.T) {
 	})
 }
 
+func TestServer_HandlePeerData(t *testing.T) {
+	s, stop := newServer(t)
+	defer stop()
+	addr := turn.Addr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	peerAddr := turn.Addr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
+	now := time.Now()
+	clientTuple := turn.FiveTuple{
+		Client: addr,
+		Proto:  turn.ProtoUDP,
+	}
+	timeout := now.Add(time.Minute)
+	_, allocErr := s.allocs.New(clientTuple, timeout, s)
+	if allocErr != nil {
+		t.Fatal(allocErr)
+	}
+	t.Log("created allocation")
+	if createErr := s.allocs.CreatePermission(clientTuple, peerAddr, timeout); createErr != nil {
+		t.Fatal(createErr)
+	}
+	t.Log("created permission")
+	if bindErr := s.allocs.ChannelBind(clientTuple, 0x4001, peerAddr, timeout); bindErr != nil {
+		t.Fatal(bindErr)
+	}
+	t.Log("created binding")
+	s.HandlePeerData([]byte("hello"), clientTuple, peerAddr)
+}
+
 func TestServer_processChannelData(t *testing.T) {
 	s, stop := newServer(t)
 	defer stop()
