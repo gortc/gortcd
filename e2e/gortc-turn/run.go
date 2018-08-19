@@ -11,17 +11,18 @@ import (
 	"time"
 )
 
-func run(ctx context.Context, name string, params ...string) {
-	c := exec.CommandContext(ctx, name, params...)
+func dockerCompose(ctx context.Context, params ...string) {
+	c := exec.CommandContext(ctx, "docker-compose", params...)
 	c.Stderr = os.Stderr
 	c.Stdout = os.Stdout
 	if err := c.Run(); err != nil {
-		log.Fatalln("failed to run", name, params)
+		log.Fatalln("failed to docker-compose", params)
 	}
 }
 
 func captureLogs(ctx context.Context, name string) (*bytes.Buffer, error) {
-	captureCtx, _ := context.WithTimeout(ctx, time.Second*5)
+	captureCtx, cancel := context.WithTimeout(ctx, time.Second*5)
+	defer cancel()
 	c := exec.CommandContext(captureCtx, "docker", "logs", "ci_turn-"+name+"_1")
 	buf := new(bytes.Buffer)
 	c.Stderr = buf
@@ -38,9 +39,11 @@ func captureLogs(ctx context.Context, name string) (*bytes.Buffer, error) {
 }
 
 func main() {
-	ctx, _ := context.WithTimeout(context.Background(), time.Minute*5)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
 		c := exec.CommandContext(cleanupCtx, "docker-compose", "-p", "ci", "kill")
 		buf := new(bytes.Buffer)
 		c.Stderr = buf
@@ -52,7 +55,8 @@ func main() {
 		cancel()
 		buf.Reset()
 
-		cleanupCtx, _ = context.WithTimeout(context.Background(), time.Second*5)
+		cleanupCtx, cancel = context.WithTimeout(context.Background(), time.Second*5)
+		defer cancel()
 		c = exec.CommandContext(cleanupCtx, "docker-compose", "-p", "ci", "rm", "-f")
 		c.Stderr = buf
 		c.Stdout = buf
@@ -61,8 +65,9 @@ func main() {
 			log.Println("cleanup: failed to rm -f")
 		}
 	}()
-	run(ctx, "docker-compose", "-p", "ci", "build")
-	run(ctx, "docker-compose", "-p", "ci", "up", "-d")
+
+	dockerCompose(ctx, "-p", "ci", "build")
+	dockerCompose(ctx, "-p", "ci", "up", "-d")
 
 	c := exec.CommandContext(ctx, "docker", "wait", "ci_turn-client_1")
 	c.Stderr = os.Stderr
