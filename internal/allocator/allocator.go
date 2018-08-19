@@ -86,10 +86,10 @@ var ErrPermissionNotFound = errors.New("permission not found")
 
 // SendBound uses existing allocation identified by tuple with bound channel number n
 // to send data.
-func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte) (int, error) {
+func (a *Allocator) SendBound(tuple turn.FiveTuple, n turn.ChannelNumber, data []byte) (int, error) {
 	var (
 		conn net.PacketConn
-		addr Addr
+		addr turn.Addr
 	)
 	a.log.Debug("searching for bound allocation",
 		zap.Stringer("tuple", tuple),
@@ -105,8 +105,8 @@ func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte
 				continue
 			}
 			conn = a.allocs[i].Conn
-			// Copy p.Addr to addr.
-			addr = Addr{
+			// Copy p.Addr to turn.Addr.
+			addr = turn.Addr{
 				Port: p.Addr.Port,
 				IP:   make(net.IP, len(p.Addr.IP)),
 			}
@@ -133,10 +133,10 @@ func (a *Allocator) SendBound(tuple FiveTuple, n turn.ChannelNumber, data []byte
 	})
 }
 
-// Send uses existing allocation for client to write data to remote addr.
+// Send uses existing allocation for client to write data to remote turn.Addr.
 //
 // Returns ErrPermissionNotFound if no allocation found for (client,addr).
-func (a *Allocator) Send(tuple FiveTuple, peer Addr, data []byte) (int, error) {
+func (a *Allocator) Send(tuple turn.FiveTuple, peer turn.Addr, data []byte) (int, error) {
 	var (
 		conn net.PacketConn
 	)
@@ -172,7 +172,7 @@ func (a *Allocator) Send(tuple FiveTuple, peer Addr, data []byte) (int, error) {
 }
 
 // Remove de-allocates and removes allocation.
-func (a *Allocator) Remove(t FiveTuple) {
+func (a *Allocator) Remove(t turn.FiveTuple) {
 	var (
 		newAllocs []Allocation
 		toDealloc []Allocation
@@ -233,11 +233,11 @@ func (a *Allocator) Prune(t time.Time) {
 	}
 }
 
-// RelayedAddrAllocator represents allocator for relayed addresses on
+// RelayedAddrAllocator represents allocator for relayed turn.Addresses on
 // specified interface.
 type RelayedAddrAllocator interface {
-	New(proto turn.Protocol) (Addr, net.PacketConn, error)
-	Remove(addr Addr, proto turn.Protocol) error
+	New(proto turn.Protocol) (turn.Addr, net.PacketConn, error)
+	Remove(addr turn.Addr, proto turn.Protocol) error
 }
 
 // ErrAllocationMismatch is a 437 (Allocation Mismatch) error
@@ -245,14 +245,14 @@ var ErrAllocationMismatch = errors.New("5-tuple is currently in use")
 
 // New creates new allocation for provided client and proto. Any data received
 // by allocated socket is passed to callback.
-func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler) (Addr, error) {
+func (a *Allocator) New(tuple turn.FiveTuple, timeout time.Time, callback PeerHandler) (turn.Addr, error) {
 	l := a.log.Named("allocation").With(zap.Stringer("tuple", tuple))
 	l.Debug("new", zap.Time("timeout", timeout))
 	switch tuple.Proto {
 	case turn.ProtoUDP:
 		// pass
 	default:
-		return Addr{}, errors.Errorf("proto %s not implemented", tuple.Proto)
+		return turn.Addr{}, errors.Errorf("proto %s not implemented", tuple.Proto)
 	}
 	a.allocsMux.Lock()
 	// Searching for existing allocation.
@@ -261,7 +261,7 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 			a.allocsMux.Unlock()
 			// The 5-tuple is currently in use by an existing allocation,
 			// returning allocation mismatch error.
-			return Addr{}, ErrAllocationMismatch
+			return turn.Addr{}, ErrAllocationMismatch
 		}
 	}
 	// Not found, creating new allocation.
@@ -280,7 +280,7 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 			zap.Stringer("tuple", tuple),
 			zap.Error(err),
 		)
-		return Addr{}, errors.Wrap(err, "failed to allocate")
+		return turn.Addr{}, errors.Wrap(err, "failed to allocate")
 	}
 	l = l.With(zap.Stringer("raddr", raddr))
 	l.Debug("ok")
@@ -305,7 +305,7 @@ func (a *Allocator) New(tuple FiveTuple, timeout time.Time, callback PeerHandler
 }
 
 // CreatePermission creates new permission for existing client allocation.
-func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Time) error {
+func (a *Allocator) CreatePermission(tuple turn.FiveTuple, peer turn.Addr, timeout time.Time) error {
 	permission := Permission{
 		Timeout: timeout,
 		Addr:    peer,
@@ -337,7 +337,7 @@ func (a *Allocator) CreatePermission(tuple FiveTuple, peer Addr, timeout time.Ti
 //
 // Allocator implementation does not assume any default timeout.
 func (a *Allocator) ChannelBind(
-	tuple FiveTuple, n turn.ChannelNumber, peer Addr, timeout time.Time,
+	tuple turn.FiveTuple, n turn.ChannelNumber, peer turn.Addr, timeout time.Time,
 ) error {
 	if !n.Valid() {
 		return turn.ErrInvalidChannelNumber
@@ -357,13 +357,13 @@ func (a *Allocator) ChannelBind(
 				cAddr = a.allocs[i].Permissions[k].Addr
 			)
 			if (cN != n || cN == 0) && !cAddr.Equal(peer) {
-				// Skipping permission for different peer address if it is unbound
+				// Skipping permission for different peer turn.Address if it is unbound
 				// or has different channel number.
 				continue
 			}
 			// Checking for binding conflicts.
 			if a.allocs[i].Permissions[k].conflicts(n, peer) {
-				// There is existing binding with same channel number or peer address.
+				// There is existing binding with same channel number or peer turn.Address.
 				return ErrAllocationMismatch
 			}
 			a.allocs[i].Permissions[k].Timeout = timeout
@@ -400,7 +400,7 @@ func (a *Allocator) ChannelBind(
 }
 
 // Bound returns currently bound channel for provided 5-tuple.
-func (a *Allocator) Bound(tuple FiveTuple, peer Addr) (turn.ChannelNumber, error) {
+func (a *Allocator) Bound(tuple turn.FiveTuple, peer turn.Addr) (turn.ChannelNumber, error) {
 	a.allocsMux.RLock()
 	defer a.allocsMux.RUnlock()
 	for i := range a.allocs {
@@ -422,7 +422,7 @@ func (a *Allocator) Bound(tuple FiveTuple, peer Addr) (turn.ChannelNumber, error
 }
 
 // Refresh updates existing permission timeout to t.
-func (a *Allocator) Refresh(tuple FiveTuple, peer Addr, timeout time.Time) error {
+func (a *Allocator) Refresh(tuple turn.FiveTuple, peer turn.Addr, timeout time.Time) error {
 	// TODO: handle permission not found error.
 	a.allocsMux.Lock()
 	for i := range a.allocs {

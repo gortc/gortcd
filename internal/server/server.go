@@ -24,7 +24,7 @@ import (
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
 	realm    stun.Realm
-	addr     allocator.Addr
+	addr     turn.Addr
 	log      *zap.Logger
 	allocs   *allocator.Allocator
 	conn     net.PacketConn
@@ -136,7 +136,7 @@ type Auth interface {
 
 // NonceManager represents nonce manager (rotate and verify).
 type NonceManager interface {
-	Check(tuple allocator.FiveTuple, value stun.Nonce, at time.Time) (stun.Nonce, error)
+	Check(tuple turn.FiveTuple, value stun.Nonce, at time.Time) (stun.Nonce, error)
 }
 
 var (
@@ -198,7 +198,7 @@ func (s *Server) sendByBinding(ctx *context, n turn.ChannelNumber, data []byte) 
 
 func (s *Server) sendByPermission(
 	ctx *context,
-	addr allocator.Addr,
+	addr turn.Addr,
 	data []byte,
 ) error {
 	s.log.Debug("searching for allocation",
@@ -210,7 +210,7 @@ func (s *Server) sendByPermission(
 }
 
 // HandlePeerData implements allocator.PeerHandler.
-func (s *Server) HandlePeerData(d []byte, t allocator.FiveTuple, a allocator.Addr) {
+func (s *Server) HandlePeerData(d []byte, t turn.FiveTuple, a turn.Addr) {
 	destination := &net.UDPAddr{
 		IP:   t.Client.IP,
 		Port: t.Client.Port,
@@ -302,7 +302,7 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 		s.allocs.Remove(ctx.tuple)
 	default:
 		var (
-			peer    = allocator.Addr(addr)
+			peer    = turn.Addr(addr)
 			timeout = ctx.time.Add(lifetime.Duration)
 		)
 		if err := s.allocs.Refresh(ctx.tuple, peer, timeout); err != nil {
@@ -334,7 +334,7 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	}
 	s.log.Debug("processing create permission request")
 	var (
-		peer    = allocator.Addr(addr)
+		peer    = turn.Addr(addr)
 		timeout = ctx.time.Add(lifetime.Duration)
 	)
 	switch err := s.allocs.CreatePermission(ctx.tuple, peer, timeout); err {
@@ -357,7 +357,7 @@ func (s *Server) processSendIndication(ctx *context) error {
 		return errors.Wrap(err, "failed to parse send indication")
 	}
 	s.log.Debug("sending data", zap.Stringer("to", addr))
-	if err := s.sendByPermission(ctx, allocator.Addr(addr), data); err != nil {
+	if err := s.sendByPermission(ctx, turn.Addr(addr), data); err != nil {
 		s.log.Warn("send failed",
 			zap.Error(err),
 		)
@@ -388,7 +388,7 @@ func (s *Server) processChannelBinding(ctx *context) error {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
 	var (
-		peer     = allocator.Addr(addr)
+		peer     = turn.Addr(addr)
 		lifetime = s.cfg.DefaultLifetime()
 		timeout  = ctx.time.Add(lifetime)
 	)

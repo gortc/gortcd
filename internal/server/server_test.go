@@ -10,7 +10,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/testutil"
 	"github.com/gortc/stun"
@@ -94,7 +93,7 @@ func TestServer_processBindingRequest(t *testing.T) {
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-	ctx.client = allocator.Addr{
+	ctx.client = turn.Addr{
 		IP:   addr.IP,
 		Port: addr.Port,
 	}
@@ -118,7 +117,7 @@ func TestServer_processBindingRequest(t *testing.T) {
 		}
 		ctx.request.Raw = make([]byte, len(m.Raw))
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -130,7 +129,7 @@ func TestServer_processBindingRequest(t *testing.T) {
 			t.Errorf("unexpected type: %s", ctx.response.Type)
 		}
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -143,7 +142,7 @@ func TestServer_processBindingRequest(t *testing.T) {
 		username := stun.NewUsername("username")
 		s.cfg.setAuthForSTUN(true)
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -196,7 +195,7 @@ func TestServer_processChannelData(t *testing.T) {
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-	ctx.client = allocator.Addr{
+	ctx.client = turn.Addr{
 		IP:   addr.IP,
 		Port: addr.Port,
 	}
@@ -225,7 +224,7 @@ func TestServer_processChannelData(t *testing.T) {
 		}
 		ctx.request.Raw = make([]byte, len(m.Raw))
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -237,7 +236,7 @@ func TestServer_processChannelData(t *testing.T) {
 			t.Error("unexpected response length")
 		}
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -249,11 +248,11 @@ func TestServer_processChannelData(t *testing.T) {
 }
 
 type callbackNonceManager func(
-	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+	tuple turn.FiveTuple, value stun.Nonce, at time.Time,
 ) (stun.Nonce, error)
 
 func (m callbackNonceManager) Check(
-	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+	tuple turn.FiveTuple, value stun.Nonce, at time.Time,
 ) (stun.Nonce, error) {
 	return m(tuple, value, at)
 }
@@ -262,7 +261,7 @@ func TestServer_processChannelBinding(t *testing.T) {
 	s, stop := newServer(t, Options{
 		Realm: "realm",
 		NonceManager: callbackNonceManager(func(
-			tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+			tuple turn.FiveTuple, value stun.Nonce, at time.Time,
 		) (stun.Nonce, error) {
 			return stun.NewNonce("nonce"), nil
 		}),
@@ -287,7 +286,7 @@ func TestServer_processChannelBinding(t *testing.T) {
 		cdata:    new(turn.ChannelData),
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
-	ctx.client = allocator.Addr{
+	ctx.client = turn.Addr{
 		IP:   addr.IP,
 		Port: addr.Port,
 	}
@@ -323,7 +322,7 @@ func BenchmarkServer_processBindingRequest(b *testing.B) {
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	for i := 0; i < b.N; i++ {
 		ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -349,7 +348,7 @@ func TestServer_notStun(t *testing.T) {
 		}
 		ctx.request.Raw = make([]byte, len(buf), 1024)
 		copy(ctx.request.Raw, buf)
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -374,7 +373,7 @@ func TestServer_notStun(t *testing.T) {
 		}
 		ctx.request.Raw = make([]byte, len(buf), 1024)
 		copy(ctx.request.Raw, buf)
-		ctx.client = allocator.Addr{
+		ctx.client = turn.Addr{
 			IP:   addr.IP,
 			Port: addr.Port,
 		}
@@ -396,7 +395,7 @@ func TestServer_badRequest(t *testing.T) {
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-	ctx.client = allocator.Addr{
+	ctx.client = turn.Addr{
 		IP:   addr.IP,
 		Port: addr.Port,
 	}
@@ -421,7 +420,7 @@ func TestServer_badFingerprint(t *testing.T) {
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-	ctx.client = allocator.Addr{
+	ctx.client = turn.Addr{
 		IP:   addr.IP,
 		Port: addr.Port,
 	}
@@ -454,7 +453,7 @@ func TestServer_processAllocationRequest(t *testing.T) {
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
-	ctx.client = allocator.Addr{
+	ctx.client = turn.Addr{
 		IP:   addr.IP,
 		Port: addr.Port,
 	}

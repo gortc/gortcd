@@ -5,7 +5,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
@@ -14,7 +13,7 @@ func TestNonceAuth_Check(t *testing.T) {
 	a := NewNonceAuth(time.Minute * 30)
 	now := time.Now()
 	t.Run("BlankNonce", func(t *testing.T) {
-		n, err := a.Check(allocator.FiveTuple{}, stun.Nonce{}, now)
+		n, err := a.Check(turn.FiveTuple{}, stun.Nonce{}, now)
 		if err != ErrStaleNonce {
 			t.Error(err)
 		}
@@ -22,12 +21,12 @@ func TestNonceAuth_Check(t *testing.T) {
 			t.Error("unexpected nonce length")
 		}
 	})
-	tuple := allocator.FiveTuple{
-		Server: allocator.Addr{
+	tuple := turn.FiveTuple{
+		Server: turn.Addr{
 			IP:   net.IPv4(127, 0, 0, 1),
 			Port: 1001,
 		},
-		Client: allocator.Addr{
+		Client: turn.Addr{
 			IP:   net.IPv4(127, 0, 0, 2),
 			Port: 2001,
 		},

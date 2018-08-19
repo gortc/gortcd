@@ -3,17 +3,16 @@ package server
 import (
 	"time"
 
-	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
 
 type context struct {
 	time      time.Time
-	client    allocator.Addr
-	server    allocator.Addr
+	client    turn.Addr
+	server    turn.Addr
 	proto     turn.Protocol
-	tuple     allocator.FiveTuple
+	tuple     turn.FiveTuple
 	request   *stun.Message
 	response  *stun.Message
 	cdata     *turn.ChannelData
@@ -32,8 +31,8 @@ func (c *context) setTuple() {
 
 func (c *context) reset() {
 	c.time = time.Time{}
-	c.client = allocator.Addr{}
-	c.server = allocator.Addr{}
+	c.client = turn.Addr{}
+	c.server = turn.Addr{}
 	c.request.Reset()
 	c.response.Reset()
 	c.cdata.Reset()

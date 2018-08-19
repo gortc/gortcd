@@ -12,7 +12,7 @@ import (
 
 // NetAllocation represents allocated port.
 type NetAllocation struct {
-	Addr  Addr
+	Addr  turn.Addr
 	Proto turn.Protocol
 	Conn  net.PacketConn
 }
@@ -21,7 +21,7 @@ type NetAllocation struct {
 func (n *NetAllocation) Close() error {
 	err := n.Conn.Close()
 	n.Conn = nil
-	n.Addr = Addr{}
+	n.Addr = turn.Addr{}
 	n.Proto = 0
 	return err
 }
@@ -43,10 +43,10 @@ type NetPortAllocator interface {
 }
 
 // New allocates new free port from internal port allocator.
-func (a *NetAllocator) New(proto turn.Protocol) (Addr, net.PacketConn, error) {
+func (a *NetAllocator) New(proto turn.Protocol) (turn.Addr, net.PacketConn, error) {
 	n, err := a.ports.AllocatePort(proto, "udp4", a.defaultAddr)
 	if err != nil {
-		return Addr{}, nil, err
+		return turn.Addr{}, nil, err
 	}
 	a.allocsMux.Lock()
 	a.allocs = append(a.allocs, n)
@@ -55,7 +55,7 @@ func (a *NetAllocator) New(proto turn.Protocol) (Addr, net.PacketConn, error) {
 }
 
 // Remove de-allocates ports for provided addr and proto.
-func (a *NetAllocator) Remove(addr Addr, proto turn.Protocol) error {
+func (a *NetAllocator) Remove(addr turn.Addr, proto turn.Protocol) error {
 	var (
 		toRemove []NetAllocation // TODO: optimize heap alloc
 	)

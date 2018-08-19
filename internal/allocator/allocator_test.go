@@ -25,24 +25,24 @@ func TestAllocator_New(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := NewAllocator(Options{Conn: p})
-	client := Addr{
+	client := turn.Addr{
 		Port: 200,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
-	server := Addr{
+	server := turn.Addr{
 		Port: 300,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
-	peer := Addr{
+	peer := turn.Addr{
 		Port: 201,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
-	peer2 := Addr{
+	peer2 := turn.Addr{
 		Port: 202,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
 	timeout := now.Add(time.Second * 10)
-	tuple := FiveTuple{
+	tuple := turn.FiveTuple{
 		Client: client,
 		Server: server,
 		Proto:  turn.ProtoUDP,
@@ -74,7 +74,7 @@ func TestAllocator_New(t *testing.T) {
 		}
 	})
 	t.Run("BadProto", func(t *testing.T) {
-		if _, err := a.New(FiveTuple{
+		if _, err := a.New(turn.FiveTuple{
 			Client: client,
 			Server: server,
 			Proto:  1,
@@ -82,7 +82,7 @@ func TestAllocator_New(t *testing.T) {
 			t.Error("should error")
 		}
 	})
-	expectedAddr := Addr{
+	expectedAddr := turn.Addr{
 		Port: 5101,
 		IP:   allocateIP,
 	}
@@ -155,7 +155,7 @@ func TestAllocator_New(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedAddr = Addr{
+	expectedAddr = turn.Addr{
 		Port: 5102,
 		IP:   allocateIP,
 	}
@@ -179,19 +179,19 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		t.Fatal(err)
 	}
 	a := NewAllocator(Options{Conn: p})
-	client := Addr{
+	client := turn.Addr{
 		Port: 200,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
-	server := Addr{
+	server := turn.Addr{
 		Port: 300,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
-	peer := Addr{
+	peer := turn.Addr{
 		Port: 201,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
-	peer2 := Addr{
+	peer2 := turn.Addr{
 		Port: 202,
 		IP:   net.IPv4(127, 0, 0, 1),
 	}
@@ -200,7 +200,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		n2 = n + 1
 	)
 	timeout := now.Add(time.Second * 10)
-	tuple := FiveTuple{
+	tuple := turn.FiveTuple{
 		Client: client,
 		Server: server,
 		Proto:  turn.ProtoUDP,
@@ -226,7 +226,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 		}
 	})
 	t.Run("BadProto", func(t *testing.T) {
-		if _, err := a.New(FiveTuple{
+		if _, err := a.New(turn.FiveTuple{
 			Client: client,
 			Server: server,
 			Proto:  1,
@@ -234,7 +234,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 			t.Error("should error")
 		}
 	})
-	expectedAddr := Addr{
+	expectedAddr := turn.Addr{
 		Port: 5101,
 		IP:   allocateIP,
 	}
@@ -292,7 +292,7 @@ func TestAllocator_ChannelBind(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedAddr = Addr{
+	expectedAddr = turn.Addr{
 		Port: 5102,
 		IP:   allocateIP,
 	}

@@ -17,7 +17,7 @@ func TestAddr_FromUDPAddr(t *testing.T) {
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: 1234,
 	}
-	a := new(Addr)
+	a := new(turn.Addr)
 	a.FromUDPAddr(u)
 	if !u.IP.Equal(a.IP) || u.Port != a.Port {
 		t.Error("not equal")
@@ -27,7 +27,7 @@ func TestAddr_FromUDPAddr(t *testing.T) {
 func TestFiveTuple_Equal(t *testing.T) {
 	for _, tc := range []struct {
 		name string
-		a, b FiveTuple
+		a, b turn.FiveTuple
 		v    bool
 	}{
 		{
@@ -36,22 +36,22 @@ func TestFiveTuple_Equal(t *testing.T) {
 		},
 		{
 			name: "proto",
-			a: FiveTuple{
+			a: turn.FiveTuple{
 				Proto: turn.ProtoUDP,
 			},
 		},
 		{
 			name: "server",
-			a: FiveTuple{
-				Server: Addr{
+			a: turn.FiveTuple{
+				Server: turn.Addr{
 					Port: 100,
 				},
 			},
 		},
 		{
 			name: "client",
-			a: FiveTuple{
-				Client: Addr{
+			a: turn.FiveTuple{
+				Client: turn.Addr{
 					Port: 100,
 				},
 			},
@@ -68,13 +68,13 @@ func TestFiveTuple_Equal(t *testing.T) {
 }
 
 func TestFiveTuple_String(t *testing.T) {
-	s := fmt.Sprint(FiveTuple{
+	s := fmt.Sprint(turn.FiveTuple{
 		Proto: turn.ProtoUDP,
-		Server: Addr{
+		Server: turn.Addr{
 			Port: 100,
 			IP:   net.IPv4(127, 0, 0, 1),
 		},
-		Client: Addr{
+		Client: turn.Addr{
 			Port: 200,
 			IP:   net.IPv4(127, 0, 0, 1),
 		},
@@ -86,7 +86,7 @@ func TestFiveTuple_String(t *testing.T) {
 
 func TestPermission_String(t *testing.T) {
 	s := fmt.Sprint(Permission{
-		Addr: Addr{
+		Addr: turn.Addr{
 			Port: 100,
 			IP:   net.IPv4(127, 0, 0, 1),
 		},
@@ -97,9 +97,9 @@ func TestPermission_String(t *testing.T) {
 	}
 }
 
-type peerHandlerFunc func(d []byte, t FiveTuple, a Addr)
+type peerHandlerFunc func(d []byte, t turn.FiveTuple, a turn.Addr)
 
-func (h peerHandlerFunc) HandlePeerData(d []byte, t FiveTuple, a Addr) {
+func (h peerHandlerFunc) HandlePeerData(d []byte, t turn.FiveTuple, a turn.Addr) {
 	h(d, t, a)
 }
 
@@ -158,7 +158,7 @@ func TestAllocation_ReadUntilClosed(t *testing.T) {
 					return 10, &net.UDPAddr{}, nil
 				},
 			},
-			Callback: peerHandlerFunc(func(d []byte, tuple FiveTuple, a Addr) {
+			Callback: peerHandlerFunc(func(d []byte, tuple turn.FiveTuple, a turn.Addr) {
 				called = true
 				if len(d) != 10 {
 					t.Error("incorrect length")

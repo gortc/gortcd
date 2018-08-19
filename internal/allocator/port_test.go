@@ -88,7 +88,7 @@ func (p *DummyNetPortAlloc) AllocatePort(
 	ip := net.ParseIP(h)
 	return NetAllocation{
 		Proto: proto,
-		Addr: Addr{
+		Addr: turn.Addr{
 			Port: int(atomic.AddInt32(&p.currentPort, 1)),
 			IP:   ip,
 		},

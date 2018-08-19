@@ -24,7 +24,7 @@ func (s SystemPortAllocator) AllocatePort(
 	realAddr := conn.LocalAddr().(*net.UDPAddr)
 	a := NetAllocation{
 		Proto: proto,
-		Addr: Addr{
+		Addr: turn.Addr{
 			Port: realAddr.Port,
 			IP:   realAddr.IP,
 		},

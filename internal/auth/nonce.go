@@ -9,8 +9,8 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/stun"
+	"github.com/gortc/turn"
 )
 
 // NewNonceAuth initializes new nonce manager.
@@ -24,7 +24,7 @@ func NewNonceAuth(duration time.Duration) *NonceAuth {
 }
 
 type nonce struct {
-	tuple      allocator.FiveTuple
+	tuple      turn.FiveTuple
 	value      stun.Nonce
 	validUntil time.Time
 }
@@ -56,7 +56,7 @@ func newNonce() stun.Nonce {
 
 // Check implements NonceManager.
 func (n *NonceAuth) Check(
-	tuple allocator.FiveTuple, value stun.Nonce, at time.Time,
+	tuple turn.FiveTuple, value stun.Nonce, at time.Time,
 ) (stun.Nonce, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()

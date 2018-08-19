@@ -15,7 +15,7 @@ lint:
 		-e "\/turn-client\/" \
 		-e "n can be fmt.Stringer" \
 		--enable-all \
-		--enable="lll" --line-length=100 \
+		--enable="lll" --line-length=120 \
 		--disable=gocyclo \
 		--disable=gochecknoglobals \
 		--disable=gochecknoinits \
