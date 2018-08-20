@@ -30,7 +30,6 @@ auth:
   nonce:
     static: false
     timeout: 600s
-
 # Put here valid credentials.
 # So, if you are passing to RTCPeerConnection something like this:
 #  {
@@ -42,3 +41,14 @@ auth:
 #  static:
 #    - username: webrtc
 #      password: turnpassword
+
+# Rules for filtering peer addresses (the target address of relayed data).
+# If address is filtered, the client will get 403 (Forbidden) error during
+# STUN transaction.
+peer:
+  # Default filtering action, if no matches in rules.
+  action: allow
+# Put here your filtering rules.
+  rules:
+    - action: forbid # can be "allow", "forbid", or "pass" (no-op).
+      net: 127.0.0.1/32 # should be CIDR

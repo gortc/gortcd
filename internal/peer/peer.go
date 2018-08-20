@@ -10,6 +10,16 @@ import (
 // Action is possible action that can be applied to address.
 type Action byte
 
+var actionToStr = map[Action]string{
+	Pass:   "pass",
+	Allow:  "allow",
+	Forbid: "forbid",
+}
+
+func (a Action) String() string {
+	return actionToStr[a]
+}
+
 // Possible action list.
 const (
 	Pass Action = iota

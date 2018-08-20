@@ -68,6 +68,7 @@ type Options struct {
 	Labels        prometheus.Labels
 	NonceDuration time.Duration // no nonce rotate if 0
 	NonceManager  NonceManager  // optional nonce manager implementation
+	Peer          peer.Rule
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -104,6 +105,9 @@ func New(o Options) (*Server, error) {
 	if o.NonceManager == nil {
 		o.NonceManager = auth.NewNonceAuth(o.NonceDuration)
 	}
+	if o.Peer == nil {
+		o.Peer = peer.AllowAll
+	}
 	s := &Server{
 		realm:      stun.NewRealm(o.Realm),
 		auth:       o.Auth,
@@ -112,7 +116,7 @@ func New(o Options) (*Server, error) {
 		allocs:     allocs,
 		close:      make(chan struct{}),
 		cfg:        newConfig(o),
-		peerFilter: peer.AllowAll,
+		peerFilter: o.Peer,
 	}
 	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
