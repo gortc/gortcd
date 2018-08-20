@@ -67,5 +67,6 @@ archive:
   files:
     - README.md
     - LICENSE
+    - gortcd.yml
 release:
   draft: true
