@@ -113,7 +113,7 @@ func TestAllocator_New(t *testing.T) {
 		t.Error("unexpected permissions count")
 	}
 	// Refreshing first permission to T+8.
-	if err := a.Refresh(tuple, peer, now.Add(time.Second*8)); err != nil {
+	if err := a.CreatePermission(tuple, peer, now.Add(time.Second*8)); err != nil {
 		t.Error(err)
 	}
 	// Collecting at T+7.
@@ -162,7 +162,9 @@ func TestAllocator_New(t *testing.T) {
 	if !expectedAddr.Equal(relayedAddr) {
 		t.Errorf("unexpected relayed addr: %s", relayedAddr)
 	}
-	a.Remove(tuple)
+	if remErr := a.Remove(tuple); remErr != nil {
+		t.Fatal(remErr)
+	}
 }
 
 func TestAllocator_ChannelBind(t *testing.T) {

@@ -172,12 +172,11 @@ func (a *Allocator) Send(tuple turn.FiveTuple, peer turn.Addr, data []byte) (int
 }
 
 // Remove de-allocates and removes allocation.
-func (a *Allocator) Remove(t turn.FiveTuple) {
+func (a *Allocator) Remove(t turn.FiveTuple) error {
 	var (
 		newAllocs []Allocation
 		toDealloc []Allocation
 	)
-
 	a.allocsMux.Lock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(t) {
@@ -189,12 +188,15 @@ func (a *Allocator) Remove(t turn.FiveTuple) {
 	n := copy(a.allocs, newAllocs)
 	a.allocs = a.allocs[:n]
 	a.allocsMux.Unlock()
-
+	if len(toDealloc) == 0 {
+		return ErrAllocationMismatch
+	}
 	for i := range toDealloc {
 		if err := a.raddr.Remove(toDealloc[i].Tuple.Server, toDealloc[i].Tuple.Proto); err != nil {
 			a.log.Warn("failed to remove allocation", zap.Error(err))
 		}
 	}
+	return nil
 }
 
 // Prune removes any timed out permissions or allocations.
@@ -310,23 +312,39 @@ func (a *Allocator) CreatePermission(tuple turn.FiveTuple, peer turn.Addr, timeo
 		Timeout: timeout,
 		Addr:    peer,
 	}
-	var found bool
+	var (
+		found   bool
+		updated bool
+	)
 	a.allocsMux.Lock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
-		a.allocs[i].Permissions = append(a.allocs[i].Permissions, permission)
 		found = true
+		for k := range a.allocs[i].Permissions {
+			if !a.allocs[i].Permissions[k].Addr.Equal(peer) {
+				continue
+			}
+			// Updating.
+			a.allocs[i].Permissions[k].Timeout = timeout
+			updated = true
+			break
+		}
+		if !updated {
+			// Creating new permission instead.
+			a.allocs[i].Permissions = append(a.allocs[i].Permissions, permission)
+		}
 		break
 	}
 	a.allocsMux.Unlock()
 	if !found {
 		return ErrAllocationMismatch
 	}
-	a.log.Debug("created permission",
+	a.log.Debug("permission",
 		zap.Stringer("tuple", tuple),
 		zap.Stringer("peer", peer),
+		zap.Bool("updated", updated),
 		zap.Time("timeout", timeout),
 	)
 	return nil
@@ -421,23 +439,15 @@ func (a *Allocator) Bound(tuple turn.FiveTuple, peer turn.Addr) (turn.ChannelNum
 	return 0, ErrAllocationMismatch
 }
 
-// Refresh updates existing permission timeout to t.
-func (a *Allocator) Refresh(tuple turn.FiveTuple, peer turn.Addr, timeout time.Time) error {
+// Refresh updates existing allocation timeout.
+func (a *Allocator) Refresh(tuple turn.FiveTuple, timeout time.Time) error {
 	// TODO: handle permission not found error.
 	a.allocsMux.Lock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
-		for k := range a.allocs[i].Permissions {
-			p := a.allocs[i].Permissions[k]
-			if !peer.Equal(p.Addr) {
-				continue
-			}
-			p.Timeout = timeout
-			a.allocs[i].Permissions[k] = p
-			break
-		}
+		a.allocs[i].Timeout = timeout
 		break
 	}
 	a.allocsMux.Unlock()

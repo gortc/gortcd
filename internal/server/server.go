@@ -289,35 +289,28 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 
 func (s *Server) processRefreshRequest(ctx *context) error {
 	var (
-		addr     turn.PeerAddress
 		lifetime turn.Lifetime
+		allocErr error
 	)
-	if err := ctx.request.Parse(&addr); err != nil && err != stun.ErrAttributeNotFound {
-		return errors.Wrap(err, "failed to parse refresh request")
-	}
-	if err := ctx.request.Parse(&lifetime); err != nil {
-		if err != stun.ErrAttributeNotFound {
-			return errors.Wrap(err, "failed to parse")
-		}
+	if err := ctx.request.Parse(&lifetime); err != nil && err != stun.ErrAttributeNotFound {
+		return errors.Wrap(err, "failed to parse")
 	}
 	switch lifetime.Duration {
 	case 0:
-		s.allocs.Remove(ctx.tuple)
+		allocErr = s.allocs.Remove(ctx.tuple)
 	default:
-		var (
-			peerAddr = turn.Addr(addr)
-			timeout  = ctx.time.Add(lifetime.Duration)
-		)
-		if s.peerFilter.Action(peerAddr) != peer.Allow {
-			// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
-			return ctx.buildErr(stun.CodeForbidden)
-		}
-		if err := s.allocs.Refresh(ctx.tuple, peerAddr, timeout); err != nil {
-			s.log.Error("failed to refresh allocation", zap.Error(err))
-			return ctx.buildErr(stun.CodeServerError)
-		}
+		timeout := ctx.time.Add(lifetime.Duration)
+		allocErr = s.allocs.Refresh(ctx.tuple, timeout)
 	}
-	return ctx.buildOk(&lifetime)
+	switch allocErr {
+	case nil:
+		return ctx.buildOk(&lifetime)
+	case allocator.ErrAllocationMismatch:
+		return ctx.buildErr(stun.CodeAllocMismatch)
+	default:
+		s.log.Error("failed to process refresh request", zap.Error(allocErr))
+		return ctx.buildErr(stun.CodeServerError)
+	}
 }
 
 func (s *Server) processCreatePermissionRequest(ctx *context) error {
