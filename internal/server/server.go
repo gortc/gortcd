@@ -141,7 +141,6 @@ type NonceManager interface {
 }
 
 var (
-	software          = stun.NewSoftware("gortc/gortcd")
 	errNotSTUNMessage = errors.New("not stun message")
 )
 
