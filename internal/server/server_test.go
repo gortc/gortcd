@@ -38,7 +38,8 @@ func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {
 
 func newServer(t testing.TB, opts ...Options) (*Server, func()) {
 	o := Options{
-		Realm: "realm",
+		Realm:    "realm",
+		Software: "gortcd:test",
 	}
 	if len(opts) > 0 {
 		o = opts[0]
@@ -104,6 +105,15 @@ func TestServer_processBindingRequest(t *testing.T) {
 	if ctx.response.Type != stun.BindingSuccess {
 		t.Errorf("unexpected type: %s", ctx.response.Type)
 	}
+	t.Run("Software", func(t *testing.T) {
+		var soft stun.Software
+		if getErr := soft.GetFrom(ctx.response); getErr != nil {
+			t.Fatal(getErr)
+		}
+		if soft.String() != "gortcd:test" {
+			t.Errorf("bad software: %s", soft)
+		}
+	})
 	t.Run("ZeroAlloc", func(t *testing.T) {
 		s, stop := newServer(t, Options{
 			Log: zap.NewNop(),
@@ -383,7 +393,6 @@ func TestServer_notStun(t *testing.T) {
 			t.Fatal(err)
 		}
 	})
-
 	t.Run("ZeroAlloc", func(t *testing.T) {
 		s, stop := newServer(t, Options{
 			Log: zap.NewNop(),

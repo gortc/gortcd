@@ -53,6 +53,7 @@ var channelBindRequest = stun.NewType(stun.MethodChannelBind, stun.ClassRequest)
 
 // Options is set of available options for Server.
 type Options struct {
+	Software      string // not adding SOFTWARE attribute if blank
 	Realm         string
 	Log           *zap.Logger
 	Auth          Auth // no authentication if nil
@@ -425,7 +426,7 @@ func (s *Server) processMessage(ctx *context) error {
 		}
 		return nil
 	}
-	ctx.software = software
+	ctx.software = s.cfg.AppendSoftware(ctx.software[:0])
 	ctx.realm = s.realm
 	if ce := s.log.Check(zapcore.DebugLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
