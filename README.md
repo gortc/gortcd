@@ -44,7 +44,8 @@ auth:
 If you want TURN without auth, set `auth.public` to `true`.
 
 ## Docker
-
+[![](https://images.microbadger.com/badges/image/gortc/gortcd.svg)](https://microbadger.com/images/gortc/gortcd "Get your own image badge on microbadger.com")
+[![](https://images.microbadger.com/badges/version/gortc/gortcd.svg)](https://microbadger.com/images/gortc/gortcd "Get your own version badge on microbadger.com")
 [![Docker Pulls](https://img.shields.io/docker/pulls/gortc/gortcd.svg)](https://hub.docker.com/r/gortc/gortcd/)
 
 The gortcd docker image is automatically built on every release from
