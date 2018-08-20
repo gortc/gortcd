@@ -1,9 +1,7 @@
 package main
 
-import (
-	"github.com/gortc/gortcd/internal/commands"
-)
+import "github.com/spf13/cobra/cobra/cmd"
 
 func main() {
-	commands.Execute()
+	cmd.Execute()
 }

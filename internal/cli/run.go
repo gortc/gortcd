@@ -1,9 +1,10 @@
-// Package commands implements cli for gortcd.
-package commands
+// Package cli implements command line interface for gortcd.
+package cli
 
 import (
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -19,9 +20,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	yaml "gopkg.in/yaml.v2"
-
-	"io/ioutil"
+	"gopkg.in/yaml.v2"
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/server"
