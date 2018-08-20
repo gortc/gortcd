@@ -53,11 +53,11 @@ is available as separate tagged image, e.g. `gortc/gortcd:v0.5.1`.
 
 ```bash
 # Run with default config:
-$ docker run -d -p 3478:3478/udp gortc/gortcd
+$ docker run --name turn -d -p 3478:3478/udp gortc/gortcd
 
 # You can supply custom config file, for example `gortcd.yml` 
 # from current directory:
-$ docker run -p 3478:3478/udp \
+$ docker run --name turn -d -p 3478:3478/udp \
   -v $(pwd)/gortcd.yml:/etc/gortc/gortc.yml \
   gortc/gortcd --config /etc/gortc/gortc.yml
 ```
