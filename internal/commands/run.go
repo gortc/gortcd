@@ -201,6 +201,10 @@ var rootCmd = &cobra.Command{
 			Workers:     viper.GetInt("server.workers"),
 			Registry:    reg,
 			AuthForSTUN: viper.GetBool("auth.stun"),
+			Software:    viper.GetString("server.software"),
+		}
+		if o.Software != "" {
+			l.Info("will be sending SOFTWARE attribute", zap.String("software", o.Software))
 		}
 		if viper.GetBool("auth.public") {
 			l.Warn("auth is public")
@@ -301,6 +305,7 @@ func init() {
 	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
 	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
 	viper.SetDefault("server.workers", runtime.GOMAXPROCS(0))
+	viper.SetDefault("server.software", "gortc/gortcd")
 	viper.SetDefault("auth.stun", false)
 	viper.SetDefault("version", "1")
 }
