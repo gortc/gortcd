@@ -19,6 +19,12 @@ See [releases](https://github.com/gortc/gortcd/releases/latest) for latest
 binaries and packages or [snapshot](https://tc.gortc.io/viewType.html?buildTypeId=gortcd_snapshot&guest=1)
 artifacts for bleeding-edge ones.
 
+## PIE version
+Note that `gortcd-*-linux-arm64.tar.gz` archive also contains the
+`gortcd-pie` binary which is [position-independent](https://en.wikipedia.org/wiki/Position-independent_code)
+executable version. The `gortcd-pie` is installed with `gortcd-*-linux-arm64.deb`
+too, but not used by default.
+
 ## Configuration
 Please see `gortc.yml` for configuration tips. Server listens on all
 available interfaces by default, STUN is public, TURN is private and
