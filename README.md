@@ -3,6 +3,7 @@
 [![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 [![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 [![GitHub release](https://img.shields.io/github/release/gortc/gortcd.svg)](https://github.com/gortc/gortcd/releases/latest)
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgortc%2Fgortcd.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgortc%2Fgortcd?ref=badge_shield)
 # gortcd
 The gortcd is work-in-progress TURN and STUN server implementation in go.
 As part of [gortc](https://gortc.io) project, gortcd shares
@@ -124,3 +125,6 @@ $ gpg --decrypt gortcd-*-checksums.txt.sig
 $ grep -F "$(sha256sum gortcd-*-linux-amd64.deb)" gortcd-*-checksums.txt
 4316f8f7b66bdba636a991198701914e12d11935748547fca1d97386808ce323  gortcd-0.4.0-linux-amd64.deb
 ```
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgortc%2Fgortcd.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgortc%2Fgortcd?ref=badge_large)
