@@ -49,6 +49,10 @@ type ClientOptions struct {
 	// Long-term integrity.
 	Username string
 	Password string
+
+	// STUN client options.
+	RTO          time.Duration
+	NoRetransmit bool
 }
 
 // NewClient creates and initializes new TURN client.
@@ -73,10 +77,19 @@ func NewClient(o ClientOptions) (*Client, error) {
 		}
 		// Starting STUN client on multiplexed connection.
 		var err error
+		stunOptions := []stun.ClientOption{
+			stun.WithHandler(c.stunHandler),
+		}
+		if o.NoRetransmit {
+			stunOptions = append(stunOptions, stun.WithNoRetransmit)
+		}
+		if o.RTO > 0 {
+			stunOptions = append(stunOptions, stun.WithRTO(o.RTO))
+		}
 		o.STUN, err = stun.NewClient(bypassWriter{
 			reader: m.stunL,
 			writer: m.conn,
-		}, stun.WithHandler(c.stunHandler))
+		}, stunOptions...)
 		if err != nil {
 			return nil, err
 		}

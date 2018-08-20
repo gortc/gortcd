@@ -24,7 +24,7 @@ ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner",
 
 [[constraint]]
   name = "github.com/gortc/stun"
-  version = "1.16.3"
+  version = "1.17.2"
 
 [[constraint]]
   name = "github.com/pkg/errors"
@@ -36,7 +36,7 @@ ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner",
 
 [[constraint]]
   name = "github.com/gortc/turn"
-  version = "0.4.9"
+  version = "0.5"
 
 [[constraint]]
   name = "github.com/gortc/ice"
