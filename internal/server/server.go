@@ -14,6 +14,7 @@ import (
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
+	"github.com/gortc/gortcd/internal/peer"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
@@ -23,17 +24,18 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	realm    stun.Realm
-	addr     turn.Addr
-	log      *zap.Logger
-	allocs   *allocator.Allocator
-	conn     net.PacketConn
-	auth     Auth
-	nonce    NonceManager
-	close    chan struct{}
-	wg       sync.WaitGroup
-	handlers map[stun.MessageType]handleFunc
-	cfg      *config
+	realm      stun.Realm
+	addr       turn.Addr
+	log        *zap.Logger
+	allocs     *allocator.Allocator
+	conn       net.PacketConn
+	auth       Auth
+	nonce      NonceManager
+	close      chan struct{}
+	wg         sync.WaitGroup
+	handlers   map[stun.MessageType]handleFunc
+	peerFilter peer.Rule
+	cfg        *config
 }
 
 type handleFunc = func(ctx *context) error
@@ -103,13 +105,14 @@ func New(o Options) (*Server, error) {
 		o.NonceManager = auth.NewNonceAuth(o.NonceDuration)
 	}
 	s := &Server{
-		realm:  stun.NewRealm(o.Realm),
-		auth:   o.Auth,
-		nonce:  o.NonceManager,
-		conn:   o.Conn,
-		allocs: allocs,
-		close:  make(chan struct{}),
-		cfg:    newConfig(o),
+		realm:      stun.NewRealm(o.Realm),
+		auth:       o.Auth,
+		nonce:      o.NonceManager,
+		conn:       o.Conn,
+		allocs:     allocs,
+		close:      make(chan struct{}),
+		cfg:        newConfig(o),
+		peerFilter: peer.AllowAll,
 	}
 	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
