@@ -305,10 +305,14 @@ func (s *Server) processRefreshRequest(ctx *context) error {
 		s.allocs.Remove(ctx.tuple)
 	default:
 		var (
-			peer    = turn.Addr(addr)
-			timeout = ctx.time.Add(lifetime.Duration)
+			peerAddr = turn.Addr(addr)
+			timeout  = ctx.time.Add(lifetime.Duration)
 		)
-		if err := s.allocs.Refresh(ctx.tuple, peer, timeout); err != nil {
+		if s.peerFilter.Action(peerAddr) != peer.Allow {
+			// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
+			return ctx.buildErr(stun.CodeForbidden)
+		}
+		if err := s.allocs.Refresh(ctx.tuple, peerAddr, timeout); err != nil {
 			s.log.Error("failed to refresh allocation", zap.Error(err))
 			return ctx.buildErr(stun.CodeServerError)
 		}
@@ -337,10 +341,14 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	}
 	s.log.Debug("processing create permission request")
 	var (
-		peer    = turn.Addr(addr)
-		timeout = ctx.time.Add(lifetime.Duration)
+		peerAddr = turn.Addr(addr)
+		timeout  = ctx.time.Add(lifetime.Duration)
 	)
-	switch err := s.allocs.CreatePermission(ctx.tuple, peer, timeout); err {
+	if s.peerFilter.Action(peerAddr) != peer.Allow {
+		// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
+		return ctx.buildErr(stun.CodeForbidden)
+	}
+	switch err := s.allocs.CreatePermission(ctx.tuple, peerAddr, timeout); err {
 	case allocator.ErrAllocationMismatch:
 		return ctx.buildErr(stun.CodeAllocMismatch)
 	case nil:
@@ -391,11 +399,15 @@ func (s *Server) processChannelBinding(ctx *context) error {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
 	var (
-		peer     = turn.Addr(addr)
+		peerAddr = turn.Addr(addr)
 		lifetime = s.cfg.DefaultLifetime()
 		timeout  = ctx.time.Add(lifetime)
 	)
-	switch err := s.allocs.ChannelBind(ctx.tuple, number, peer, timeout); err {
+	if s.peerFilter.Action(peerAddr) != peer.Allow {
+		// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
+		return ctx.buildErr(stun.CodeForbidden)
+	}
+	switch err := s.allocs.ChannelBind(ctx.tuple, number, peerAddr, timeout); err {
 	case allocator.ErrAllocationMismatch:
 		return ctx.buildErr(stun.CodeAllocMismatch)
 	case nil:
