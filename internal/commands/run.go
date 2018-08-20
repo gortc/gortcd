@@ -135,6 +135,7 @@ var rootCmd = &cobra.Command{
 		if buildErr != nil {
 			panic(buildErr)
 		}
+		l.Info("config file used", zap.String("path", viper.ConfigFileUsed()))
 		if strings.Split(viper.GetString("version"), ".")[0] != "1" {
 			l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
 		}
