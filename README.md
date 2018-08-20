@@ -44,8 +44,22 @@ auth:
 If you want TURN without auth, set `auth.public` to `true`.
 
 ## Docker
-```
-docker run -d -p 3478:3478/udp gortc/gortcd
+
+[![Docker Pulls](https://img.shields.io/docker/pulls/gortc/gortcd.svg)](https://hub.docker.com/r/gortc/gortcd/)
+
+The gortcd docker image is automatically built on every release from
+the `release.Dockerfile` which is based on `scratch`. Also each release
+is available as separate tagged image, e.g. `gortc/gortcd:v0.5.1`.
+
+```bash
+# Run with default config:
+$ docker run -d -p 3478:3478/udp gortc/gortcd
+
+# You can supply custom config file, for example `gortcd.yml` 
+# from current directory:
+$ docker run -p 3478:3478/udp \
+  -v $(pwd)/gortcd.yml:/etc/gortc/gortc.yml \
+  gortc/gortcd --config /etc/gortc/gortc.yml
 ```
 
 # Supported specifications
