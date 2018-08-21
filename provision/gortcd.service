@@ -5,9 +5,16 @@ After=syslog.target network.target
 Wants=network-online.target
 
 [Service]
+# You can use "gortcd-pie" binary if provided.
+# ExecStart=/usr/local/bin/gortcd-pie --config /etc/gortcd/gortcd.yml
 ExecStart=/usr/local/bin/gortcd --config /etc/gortcd/gortcd.yml
 Restart=on-failure
 LimitNOFILE=65536
 RestartSec=5s
 PrivateTmp=yes
 NotifyAccess=main
+CPUAccounting=true
+MemoryAccounting=true
+
+[Install]
+WantedBy=multi-user.target
