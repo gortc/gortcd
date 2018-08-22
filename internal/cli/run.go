@@ -320,7 +320,7 @@ func initSnapConfig() {
 	var (
 		cfgRoot = os.Getenv("SNAP_USER_DATA")
 	)
-	cfgDir, err := os.Open(cfgRoot)
+	cfgDir, err := os.Open(cfgRoot) // #nosec
 	if err != nil {
 		log.Fatalln("failed to open config directory:", err)
 	}
