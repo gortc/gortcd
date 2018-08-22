@@ -24,18 +24,19 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	realm      stun.Realm
-	addr       turn.Addr
-	log        *zap.Logger
-	allocs     *allocator.Allocator
-	conn       net.PacketConn
-	auth       Auth
-	nonce      NonceManager
-	close      chan struct{}
-	wg         sync.WaitGroup
-	handlers   map[stun.MessageType]handleFunc
-	peerFilter filter.Rule
-	cfg        *config
+	realm        stun.Realm
+	addr         turn.Addr
+	log          *zap.Logger
+	allocs       *allocator.Allocator
+	conn         net.PacketConn
+	auth         Auth
+	nonce        NonceManager
+	close        chan struct{}
+	wg           sync.WaitGroup
+	handlers     map[stun.MessageType]handleFunc
+	peerFilter   filter.Rule
+	clientFilter filter.Rule
+	cfg          *config
 }
 
 type handleFunc = func(ctx *context) error
@@ -68,7 +69,8 @@ type Options struct {
 	Labels        prometheus.Labels
 	NonceDuration time.Duration // no nonce rotate if 0
 	NonceManager  NonceManager  // optional nonce manager implementation
-	Peer          filter.Rule
+	PeeRule       filter.Rule
+	ClientRule    filter.Rule // filtering rule for clients
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -105,18 +107,22 @@ func New(o Options) (*Server, error) {
 	if o.NonceManager == nil {
 		o.NonceManager = auth.NewNonceAuth(o.NonceDuration)
 	}
-	if o.Peer == nil {
-		o.Peer = filter.AllowAll
+	if o.PeeRule == nil {
+		o.PeeRule = filter.AllowAll
+	}
+	if o.ClientRule == nil {
+		o.ClientRule = filter.AllowAll
 	}
 	s := &Server{
-		realm:      stun.NewRealm(o.Realm),
-		auth:       o.Auth,
-		nonce:      o.NonceManager,
-		conn:       o.Conn,
-		allocs:     allocs,
-		close:      make(chan struct{}),
-		cfg:        newConfig(o),
-		peerFilter: o.Peer,
+		realm:        stun.NewRealm(o.Realm),
+		auth:         o.Auth,
+		nonce:        o.NonceManager,
+		conn:         o.Conn,
+		allocs:       allocs,
+		close:        make(chan struct{}),
+		cfg:          newConfig(o),
+		peerFilter:   o.PeeRule,
+		clientFilter: o.ClientRule,
 	}
 	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
@@ -520,6 +526,14 @@ func (s *Server) serveConn(addr net.Addr, ctx *context) error {
 	default:
 		s.log.Error("unknown addr", zap.Stringer("addr", addr))
 		return errors.Errorf("unknown addr %s", addr)
+	}
+	if s.clientFilter.Action(ctx.client) == filter.Deny {
+		if ce := s.log.Check(zapcore.DebugLevel, "client denied"); ce != nil {
+			ce.Write(
+				zap.Stringer("addr", ctx.client),
+			)
+		}
+		return nil
 	}
 	ctx.setTuple()
 	if processErr := s.process(ctx); processErr != nil {

@@ -124,6 +124,59 @@ func getZapConfig() (zap.Config, error) {
 	return raw.Server.Log, yaml.Unmarshal(buf, &raw)
 }
 
+func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, error) {
+	l := parentLogger.Named(key)
+	type rawRuleItem struct {
+		Net    string `mapstructure:"net"`
+		Action string `mapstructure:"action"`
+	}
+	var rawRules []rawRuleItem
+	if keyErr := viper.UnmarshalKey("filter."+key+".rules", &rawRules); keyErr != nil {
+		l.Fatal("failed to parse rules", zap.Error(keyErr))
+	}
+	var rules []filter.Rule
+	for _, rawRule := range rawRules {
+		var (
+			action filter.Action
+		)
+		switch strings.ToLower(rawRule.Action) {
+		case "allow":
+			action = filter.Allow
+		case "drop", "forbid", "deny", "block":
+			action = filter.Deny
+		case "pass", "none", "":
+			action = filter.Pass
+		default:
+			l.Fatal("failed to parse action", zap.String("action", rawRule.Action))
+		}
+		rule, ruleErr := filter.StaticNetRule(action, rawRule.Net)
+		if ruleErr != nil {
+			l.Fatal("failed to parse subnet",
+				zap.Error(ruleErr), zap.String("net", rawRule.Net),
+			)
+		}
+		l.Info("added rule",
+			zap.Stringer("action", action),
+			zap.String("net", rawRule.Net),
+		)
+		rules = append(rules, rule)
+	}
+	defaultAction := filter.Allow
+	switch strings.ToLower(viper.GetString("filter." + key + ".action")) {
+	case "allow", "":
+		// Same as default.
+	case "drop", "forbid", "deny", "block":
+		defaultAction = filter.Deny
+	case "pass", "none":
+		l.Fatal("default action cannot be pass")
+	default:
+		l.Fatal("unknown default action")
+	}
+	l.Info("default action set", zap.Stringer("action", defaultAction))
+	f := filter.NewFilter(defaultAction, rules...)
+	return f, nil
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gortcd",
 	Short: "gortcd is STUN and TURN server",
@@ -204,55 +257,15 @@ var rootCmd = &cobra.Command{
 			AuthForSTUN: viper.GetBool("auth.stun"),
 			Software:    viper.GetString("server.software"),
 		}
-		{
-			// Parsing peer filtering rules.
-			type peerRuleElem struct {
-				Net    string `mapstructure:"net"`
-				Action string `mapstructure:"action"`
-			}
-			var rawRules []peerRuleElem
-			if keyErr := viper.UnmarshalKey("peer.rules", &rawRules); keyErr != nil {
-				l.Fatal("failed to parse peer rules", zap.Error(keyErr))
-			}
-			var rules []filter.Rule
-			for _, rawRule := range rawRules {
-				var (
-					action filter.Action
-				)
-				switch strings.ToLower(rawRule.Action) {
-				case "allow":
-					action = filter.Allow
-				case "drop", "forbid", "deny", "block":
-					action = filter.Deny
-				case "pass", "none", "":
-					action = filter.Pass
-				default:
-					l.Fatal("failed to parse action", zap.String("action", rawRule.Action))
-				}
-				rule, ruleErr := filter.StaticNetRule(action, rawRule.Net)
-				if ruleErr != nil {
-					l.Fatal("failed to parse subnet", zap.Error(ruleErr), zap.String("net", rawRule.Net))
-				}
-				l.Info("added peer filtering rule",
-					zap.Stringer("action", action),
-					zap.String("net", rawRule.Net),
-				)
-				rules = append(rules, rule)
-			}
-			defaultAction := filter.Allow
-			switch strings.ToLower(viper.GetString("peer.action")) {
-			case "allow", "":
-				// Same as default.
-			case "drop", "forbid", "deny", "block":
-				defaultAction = filter.Deny
-			case "pass", "none":
-				l.Fatal("default peer filter action cannot be pass")
-			default:
-				l.Fatal("unknown default peer filter action")
-			}
-			l.Info("default peer filtering action set", zap.Stringer("action", defaultAction))
-			f := filter.NewFilter(defaultAction, rules...)
-			o.Peer = f
+		var (
+			parseErr error
+		)
+		fillterLog := l.Named("filter")
+		if o.PeeRule, parseErr = parseFilteringRules(fillterLog, "peer"); parseErr != nil {
+			l.Error("failed to parse peer rules", zap.Error(parseErr))
+		}
+		if o.ClientRule, parseErr = parseFilteringRules(fillterLog, "client"); parseErr != nil {
+			l.Error("failed to parse client rules", zap.Error(parseErr))
 		}
 		if o.Software != "" {
 			l.Info("will be sending SOFTWARE attribute", zap.String("software", o.Software))

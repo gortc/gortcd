@@ -1,7 +1,10 @@
 package cli
 
 const defaultConfigFileContent = `---
-version: "1.1"
+# The only valid version is currently 1, but there are no backward
+# compatibility until gortcd reached v1.0.0. After that, config file 
+# will be versioned.
+version: "1"
 
 server:
   # log config, see https://github.com/uber-go/zap
@@ -44,24 +47,29 @@ auth:
 #    - username: webrtc
 #      password: turnpassword
 
-# Rules for filtering peer addresses (the target address of relayed data).
-# If address is filtered, the client will get 403 (Forbidden) error during
-# STUN transaction.
-peer:
-  # Default filtering action, if no matches in rules.
-  action: allow
-# Put here your filtering rules.
-#  rules:
-#    - action: forbid # can be "allow", "forbid", or "pass" (no-op).
-#      net: 127.0.0.1/32 # should be CIDR
-# E.g. to allow only two networks, use following:
-# peer:
-#   action: forbid
-#   rules:
-#     - net: 10.0.0.0/24
-#       action: allow
-#     - net: 10.5.0.0/24
-#       action: allow
-# Attempts to relay data to address that is not in those networks
-# will result in 403 error.
+filter:
+  # Rules for filtering peer addresses (the target address of relayed data).
+  # If address is filtered, the client will get 403 (Forbidden) error during
+  # STUN transaction.
+  peer:
+    # Default filtering action, if no matches in rules.
+    action: allow
+  # Put here your filtering rules.
+  #  rules:
+  #    - action: deny # can be "allow", "deny", or "pass" (no-op).
+  #      net: 127.0.0.1/32 # should be CIDR
+  # E.g. to allow only two networks, use following:
+  # peer:
+  #   action: deny
+  #   rules:
+  #     - net: 10.0.0.0/24
+  #       action: allow
+  #     - net: 10.5.0.0/24
+  #       action: allow
+  # Attempts to relay data to address that is not in those networks
+  # will result in 403 error.
+  
+  client:
+    # same as "peer" section, but for client addresses.
+    action: allow
 `
