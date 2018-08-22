@@ -50,11 +50,11 @@ peer:
   action: allow
 # Put here your filtering rules.
 #  rules:
-#    - action: forbid # can be "allow", "forbid", or "pass" (no-op).
+#    - action: deny # can be "allow", "deny", or "pass" (no-op).
 #      net: 127.0.0.1/32 # should be CIDR
 # E.g. to allow only two networks, use following:
 # peer:
-#   action: forbid
+#   action: deny
 #   rules:
 #     - net: 10.0.0.0/24
 #       action: allow

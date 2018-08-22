@@ -24,7 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/gortcd/internal/peer"
+	"github.com/gortc/gortcd/internal/filter"
 	"github.com/gortc/gortcd/internal/server"
 	"github.com/gortc/ice"
 	"github.com/gortc/stun"
@@ -214,22 +214,22 @@ var rootCmd = &cobra.Command{
 			if keyErr := viper.UnmarshalKey("peer.rules", &rawRules); keyErr != nil {
 				l.Fatal("failed to parse peer rules", zap.Error(keyErr))
 			}
-			var rules []peer.Rule
+			var rules []filter.Rule
 			for _, rawRule := range rawRules {
 				var (
-					action peer.Action
+					action filter.Action
 				)
 				switch strings.ToLower(rawRule.Action) {
 				case "allow":
-					action = peer.Allow
+					action = filter.Allow
 				case "drop", "forbid", "deny", "block":
-					action = peer.Forbid
+					action = filter.Deny
 				case "pass", "none", "":
-					action = peer.Pass
+					action = filter.Pass
 				default:
 					l.Fatal("failed to parse action", zap.String("action", rawRule.Action))
 				}
-				rule, ruleErr := peer.StaticNetRule(action, rawRule.Net)
+				rule, ruleErr := filter.StaticNetRule(action, rawRule.Net)
 				if ruleErr != nil {
 					l.Fatal("failed to parse subnet", zap.Error(ruleErr), zap.String("net", rawRule.Net))
 				}
@@ -239,19 +239,19 @@ var rootCmd = &cobra.Command{
 				)
 				rules = append(rules, rule)
 			}
-			defaultAction := peer.Allow
+			defaultAction := filter.Allow
 			switch strings.ToLower(viper.GetString("peer.action")) {
 			case "allow", "":
 				// Same as default.
 			case "drop", "forbid", "deny", "block":
-				defaultAction = peer.Forbid
+				defaultAction = filter.Deny
 			case "pass", "none":
 				l.Fatal("default peer filter action cannot be pass")
 			default:
 				l.Fatal("unknown default peer filter action")
 			}
 			l.Info("default peer filtering action set", zap.Stringer("action", defaultAction))
-			f := peer.NewFilter(defaultAction, rules...)
+			f := filter.NewFilter(defaultAction, rules...)
 			o.Peer = f
 		}
 		if o.Software != "" {

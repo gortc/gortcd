@@ -1,4 +1,4 @@
-package peer
+package filter
 
 import (
 	"net"
@@ -78,7 +78,7 @@ func TestForbidNet(t *testing.T) {
 		Action Action
 	}{
 		{
-			turn.Addr{IP: net.IPv4(192, 168, 0, 1)}, Forbid,
+			turn.Addr{IP: net.IPv4(192, 168, 0, 1)}, Deny,
 		},
 		{
 			turn.Addr{IP: net.IPv4(127, 0, 0, 2)}, Pass,
@@ -101,16 +101,16 @@ func TestFilter_Allowed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	filter := NewFilter(Forbid, allowLoopback, forbidNet)
+	filter := NewFilter(Deny, allowLoopback, forbidNet)
 	for _, tc := range []struct {
 		Addr   turn.Addr
 		Action Action
 	}{
 		{
-			turn.Addr{IP: net.IPv4(192, 120, 0, 1)}, Forbid,
+			turn.Addr{IP: net.IPv4(192, 120, 0, 1)}, Deny,
 		},
 		{
-			turn.Addr{IP: net.IPv4(192, 168, 0, 1)}, Forbid,
+			turn.Addr{IP: net.IPv4(192, 168, 0, 1)}, Deny,
 		},
 		{
 			turn.Addr{IP: net.IPv4(127, 0, 0, 1)}, Allow,
@@ -132,7 +132,7 @@ func TestFilter_Allowed(t *testing.T) {
 			turn.Addr{IP: net.IPv4(192, 120, 0, 1)}, Allow,
 		},
 		{
-			turn.Addr{IP: net.IPv4(192, 168, 0, 1)}, Forbid,
+			turn.Addr{IP: net.IPv4(192, 168, 0, 1)}, Deny,
 		},
 		{
 			turn.Addr{IP: net.IPv4(127, 0, 0, 1)}, Allow,

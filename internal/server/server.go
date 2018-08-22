@@ -14,7 +14,7 @@ import (
 
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/gortcd/internal/peer"
+	"github.com/gortc/gortcd/internal/filter"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
@@ -34,7 +34,7 @@ type Server struct {
 	close      chan struct{}
 	wg         sync.WaitGroup
 	handlers   map[stun.MessageType]handleFunc
-	peerFilter peer.Rule
+	peerFilter filter.Rule
 	cfg        *config
 }
 
@@ -68,7 +68,7 @@ type Options struct {
 	Labels        prometheus.Labels
 	NonceDuration time.Duration // no nonce rotate if 0
 	NonceManager  NonceManager  // optional nonce manager implementation
-	Peer          peer.Rule
+	Peer          filter.Rule
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -106,7 +106,7 @@ func New(o Options) (*Server, error) {
 		o.NonceManager = auth.NewNonceAuth(o.NonceDuration)
 	}
 	if o.Peer == nil {
-		o.Peer = peer.AllowAll
+		o.Peer = filter.AllowAll
 	}
 	s := &Server{
 		realm:      stun.NewRealm(o.Realm),
@@ -341,7 +341,7 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 		peerAddr = turn.Addr(addr)
 		timeout  = ctx.time.Add(lifetime.Duration)
 	)
-	if s.peerFilter.Action(peerAddr) != peer.Allow {
+	if s.peerFilter.Action(peerAddr) != filter.Allow {
 		// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
 		return ctx.buildErr(stun.CodeForbidden)
 	}
@@ -400,7 +400,7 @@ func (s *Server) processChannelBinding(ctx *context) error {
 		lifetime = s.cfg.DefaultLifetime()
 		timeout  = ctx.time.Add(lifetime)
 	)
-	if s.peerFilter.Action(peerAddr) != peer.Allow {
+	if s.peerFilter.Action(peerAddr) != filter.Allow {
 		// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
 		return ctx.buildErr(stun.CodeForbidden)
 	}

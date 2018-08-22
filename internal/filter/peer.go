@@ -1,4 +1,5 @@
-package peer
+// Package filter implements address filtering.
+package filter
 
 import (
 	"net"
@@ -11,9 +12,9 @@ import (
 type Action byte
 
 var actionToStr = map[Action]string{
-	Pass:   "pass",
-	Allow:  "allow",
-	Forbid: "forbid",
+	Pass:  "pass",
+	Allow: "allow",
+	Deny:  "deny",
 }
 
 func (a Action) String() string {
@@ -24,7 +25,7 @@ func (a Action) String() string {
 const (
 	Pass Action = iota
 	Allow
-	Forbid
+	Deny
 )
 
 type subnetRule struct {
@@ -47,7 +48,7 @@ func AllowNet(subnet string) (Rule, error) {
 
 // ForbidNet blocks any address from subnet.
 func ForbidNet(subnet string) (Rule, error) {
-	return StaticNetRule(Forbid, subnet)
+	return StaticNetRule(Deny, subnet)
 }
 
 // StaticNetRule returns static rule for provided subnet that will apply
@@ -67,7 +68,7 @@ type allowAll struct{}
 
 func (allowAll) Action(addr turn.Addr) Action { return Allow }
 
-// AllowAll is Rule that always returns true.
+// AllowAll is Rule that always returns Allow.
 var AllowAll Rule = allowAll{}
 
 // Rule represents filtering rule.
@@ -75,29 +76,32 @@ type Rule interface {
 	Action(addr turn.Addr) Action
 }
 
-// Filter is list of rules with default action.
-type Filter struct {
+// List is list of rules with default action.
+type List struct {
 	action  Action
 	ruleMux sync.RWMutex
 	rules   []Rule
 }
 
 // SetAction replaces current default action.
-func (f *Filter) SetAction(action Action) {
+func (f *List) SetAction(action Action) {
 	f.ruleMux.Lock()
 	f.action = action
 	f.ruleMux.Unlock()
 }
 
 // SetRules replaces current rule set with provided one.
-func (f *Filter) SetRules(rules []Rule) {
+func (f *List) SetRules(rules []Rule) {
 	f.ruleMux.Lock()
 	f.rules = append(f.rules[:0], rules...)
 	f.ruleMux.Unlock()
 }
 
 // Action implements Rule.
-func (f *Filter) Action(addr turn.Addr) Action {
+//
+// Returns first matched rule from list or default action if none found.
+// Matched is rule that returned Allow or Deny action (not "Pass").
+func (f *List) Action(addr turn.Addr) Action {
 	f.ruleMux.RLock()
 	defer f.ruleMux.RUnlock()
 	for i := range f.rules {
@@ -110,10 +114,10 @@ func (f *Filter) Action(addr turn.Addr) Action {
 	return f.action
 }
 
-// NewFilter initializes and returns new Filter with provided default action
+// NewFilter initializes and returns new List with provided default action
 // and rule list.
-func NewFilter(action Action, rules ...Rule) *Filter {
-	return &Filter{
+func NewFilter(action Action, rules ...Rule) *List {
+	return &List{
 		rules:  rules,
 		action: action,
 	}
