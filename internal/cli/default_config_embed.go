@@ -1,0 +1,67 @@
+package cli
+
+const defaultConfigFileContent = `---
+version: "1.1"
+
+server:
+  # log config, see https://github.com/uber-go/zap
+  log:
+    level: "info"
+    disableCaller: true
+    disableStacktrace: true
+  # count of listeners on one UDP socket,
+  # each transaction is handled in separate goroutine,
+  # so can be even 1
+  workers: 4
+  listen:
+    - 0.0.0.0:3478
+  # default realm
+  realm: gortc.io
+
+  # export pprof metrics
+  pprof: "localhost:3256"
+  # export prometheus metrics
+  prometheus:
+    addr: "localhost:3255"
+  check_fingerprint: true
+
+auth:
+  # if true, no credentials are checked
+  public: false
+
+  nonce:
+    static: false
+    timeout: 600s
+# Put here valid credentials.
+# So, if you are passing to RTCPeerConnection something like this:
+#  {
+#    urls: "turn:turnserver.example.org",
+#    username: "webrtc",
+#    credential: "turnpassword"
+#  }
+# Use the following:
+#  static:
+#    - username: webrtc
+#      password: turnpassword
+
+# Rules for filtering peer addresses (the target address of relayed data).
+# If address is filtered, the client will get 403 (Forbidden) error during
+# STUN transaction.
+peer:
+  # Default filtering action, if no matches in rules.
+  action: allow
+# Put here your filtering rules.
+#  rules:
+#    - action: forbid # can be "allow", "forbid", or "pass" (no-op).
+#      net: 127.0.0.1/32 # should be CIDR
+# E.g. to allow only two networks, use following:
+# peer:
+#   action: forbid
+#   rules:
+#     - net: 10.0.0.0/24
+#       action: allow
+#     - net: 10.5.0.0/24
+#       action: allow
+# Attempts to relay data to address that is not in those networks
+# will result in 403 error.
+`

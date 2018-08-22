@@ -22,6 +22,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v2"
 
+	"path/filepath"
+
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/peer"
 	"github.com/gortc/gortcd/internal/server"
@@ -315,29 +317,68 @@ var rootCmd = &cobra.Command{
 
 var cfgFile string
 
+func initSnapConfig() {
+	var (
+		cfgRoot = os.Getenv("SNAP_USER_DATA")
+	)
+	cfgDir, err := os.Open(cfgRoot)
+	if err != nil {
+		log.Fatalln("failed to open config directory:", err)
+	}
+	stat, statErr := cfgDir.Stat()
+	if statErr != nil {
+		log.Fatalln("failed to stat config directory:", statErr)
+	}
+	if !stat.IsDir() {
+		log.Fatalln("the", cfgDir, "is not directory")
+	}
+	_, statErr = os.Stat(filepath.Join(cfgRoot, "gortcd.yml"))
+	if statErr != nil {
+		if !os.IsNotExist(statErr) {
+			log.Fatalln("failed to stat config file:", statErr)
+		}
+		f, createErr := os.Create(filepath.Join(cfgRoot, "gortcd.yml"))
+		if createErr != nil {
+			log.Fatalln("failed to create initial config file:", createErr)
+		}
+		defer func() {
+			if closeErr := f.Close(); closeErr != nil {
+				log.Fatalln("failed to close config file:", closeErr)
+			}
+		}()
+		if _, writeErr := fmt.Fprint(f, defaultConfigFileContent); writeErr != nil {
+			log.Fatalln("failed to write default config file:", writeErr)
+		}
+	}
+	viper.AddConfigPath(cfgRoot)
+}
+
+func initConfigCommon() {
+	home, err := homedir.Dir()
+	if err != nil {
+		log.Fatalln("failed to find home directory:", err)
+	}
+	viper.AddConfigPath(".")
+	viper.AddConfigPath("/etc/gortcd/")
+	viper.AddConfigPath(home)
+}
+
 func initConfig() {
 	// Don't forget to read config either from cfgFile or from home directory!
 	if cfgFile != "" {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+		if os.Getenv("SNAP_NAME") != "" {
+			initSnapConfig()
+		} else {
+			initConfigCommon()
 		}
-
-		viper.AddConfigPath(".")
-		viper.AddConfigPath("/etc/gortcd/")
-		viper.AddConfigPath(home)
 		viper.SetConfigName("gortcd")
 		viper.SetConfigType("yaml")
 	}
-
 	if err := viper.ReadInConfig(); err != nil {
-		fmt.Println("Can't read config:", err)
-		os.Exit(1)
+		log.Fatalln("failed to read config:", err)
 	}
 }
 
