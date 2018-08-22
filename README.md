@@ -27,7 +27,7 @@ executable version. The `gortcd-pie` is installed with `gortcd-*-linux-arm64.deb
 too, but not used by default.
 
 ## Configuration
-Please see `gortc.yml` for configuration tips. Server listens on all
+Please see [gortc.yml](https://github.com/gortc/gortcd/blob/master/gortcd.yml) for configuration tips. Server listens on all
 available interfaces by default, STUN is public, TURN is private and
 no valid credentials are provided.
 
