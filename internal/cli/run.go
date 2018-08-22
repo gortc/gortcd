@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -21,8 +22,6 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/yaml.v2"
-
-	"path/filepath"
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/peer"
