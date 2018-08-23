@@ -1,8 +1,9 @@
 package cli
 
 const defaultConfigFileContent = `---
+---
 # The only valid version is currently 1, but there are no backward
-# compatibility until gortcd reached v1.0.0. After that, config file 
+# compatibility until gortcd reached v1.0.0. After that, config file
 # will be versioned.
 version: "1"
 
@@ -20,13 +21,17 @@ server:
     - 0.0.0.0:3478
   # default realm
   realm: gortc.io
+  # the SOFTWARE attribute value;
+  # not sending attribute if not set
+  software: gortcd
+  # verify the FINGERPRINT attribute
+  check_fingerprint: true
 
   # export pprof metrics
-  pprof: "localhost:3256"
+  # pprof: "localhost:3256"
   # export prometheus metrics
-  prometheus:
-    addr: "localhost:3255"
-  check_fingerprint: true
+  # prometheus:
+    # addr: "localhost:3255"
 
 auth:
   # if true, no credentials are checked
@@ -68,7 +73,7 @@ filter:
   #       action: allow
   # Attempts to relay data to address that is not in those networks
   # will result in 403 error.
-  
+
   client:
     # same as "peer" section, but for client addresses.
     action: allow

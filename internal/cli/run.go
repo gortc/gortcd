@@ -408,7 +408,6 @@ func init() {
 	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
 	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
 	viper.SetDefault("server.workers", runtime.GOMAXPROCS(0))
-	viper.SetDefault("server.software", "gortc/gortcd")
 	viper.SetDefault("auth.stun", false)
 	viper.SetDefault("version", "1")
 }
