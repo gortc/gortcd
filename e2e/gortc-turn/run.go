@@ -44,7 +44,7 @@ func main() {
 	defer func() {
 		cleanupCtx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		c := exec.CommandContext(cleanupCtx, "docker-compose", "-p", "ci", "kill")
+		c := exec.CommandContext(cleanupCtx, "docker-compose", "--no-ansi", "-p", "ci", "kill")
 		buf := new(bytes.Buffer)
 		c.Stderr = buf
 		c.Stdout = buf
@@ -57,7 +57,7 @@ func main() {
 
 		cleanupCtx, cancel = context.WithTimeout(context.Background(), time.Second*5)
 		defer cancel()
-		c = exec.CommandContext(cleanupCtx, "docker-compose", "-p", "ci", "rm", "-f")
+		c = exec.CommandContext(cleanupCtx, "docker-compose", "--no-ansi", "-p", "ci", "rm", "-f")
 		c.Stderr = buf
 		c.Stdout = buf
 		if err := c.Run(); err != nil {
@@ -66,8 +66,8 @@ func main() {
 		}
 	}()
 
-	dockerCompose(ctx, "-p", "ci", "build")
-	dockerCompose(ctx, "-p", "ci", "up", "-d")
+	dockerCompose(ctx, "--no-ansi", "-p", "ci", "build")
+	dockerCompose(ctx, "--no-ansi", "-p", "ci", "up", "-d")
 
 	c := exec.CommandContext(ctx, "docker", "wait", "ci_turn-client_1")
 	c.Stderr = os.Stderr

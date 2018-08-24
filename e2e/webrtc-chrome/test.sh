@@ -18,8 +18,8 @@ printf "${GREEN}Go version \"${CI_GO_VERSION}\"${NC}\n"
 cleanup () {
   docker stop ci_gortcd_tcpdump
   docker rm -f ci_gortcd_tcpdump
-  docker-compose -p ci kill
-  docker-compose -p ci rm -f
+  docker-compose --no-ansi -p ci kill
+  docker-compose --no-ansi -p ci rm -f
   docker network rm gortcd_e2e_webrtc
 }
 
@@ -43,7 +43,7 @@ docker run -e INTERFACE=${CAPTURE_INTERFACE} -e SUBNET=${NETWORK_SUBNET} -d \
 
 
 # build and run the composed services
-docker-compose -p ci build && docker-compose -p ci up -d
+docker-compose --no-ansi -p ci build && docker-compose --no-ansi -p ci up -d
 if [ $? -ne 0 ] ; then
   printf "${RED}Docker Compose Failed${NC}\n"
   exit -1
