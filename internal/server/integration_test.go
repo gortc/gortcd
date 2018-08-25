@@ -51,14 +51,12 @@ func TestServerIntegration(t *testing.T) {
 	}()
 	go func() {
 		for {
-			// Starting echo server.
 			buf := make([]byte, 1024)
 			n, addr, err := echoConn.ReadFromUDP(buf)
 			if err != nil {
 				t.Errorf("peer: failed to read: %v", err)
 			}
 			t.Logf("peer: got message: %s", string(buf[:n]))
-			// Echoing back.
 			if _, err := echoConn.WriteToUDP(buf[:n], addr); err != nil {
 				t.Errorf("peer: failed to write back: %v", err)
 			}
@@ -66,7 +64,6 @@ func TestServerIntegration(t *testing.T) {
 		}
 	}()
 	go func() {
-		// Starting server.
 		if err := s.Serve(); err != nil {
 			t.Error(err)
 		}
@@ -118,7 +115,6 @@ func TestServerIntegration(t *testing.T) {
 		t.Fatal("should be bound")
 	}
 	t.Logf("bound to channel: 0x%x", int(p.Binding()))
-	// Sending and receiving "hello" message.
 	if _, err := fmt.Fprint(p, "hello"); err != nil {
 		t.Fatalf("failed to write data: %v", err)
 	}
