@@ -109,7 +109,7 @@ Server behavior is tested and verified in many ways:
     * **gortc**: The [gortc/turn](https://github.com/gortc/turn) client (windows)
     * **coturn**: The coturn [uclient](https://github.com/coturn/coturn/wiki/turnutils_uclient) (linux)
   * Bunch of code static checkers (linters)
-  * Standard unit-tests with coverage reporting
+  * Standard unit-tests with coverage reporting (linux {amd64, **arm**64}, windows)
 
 See [TeamCity project](https://tc.gortc.io/project.html?projectId=gortcd&guest=1) and `e2e` directory
 for more information. Also the Wireshark `.pcap` files are available for some of e2e tests in
