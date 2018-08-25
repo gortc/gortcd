@@ -4,6 +4,8 @@ import (
 	"net"
 	"testing"
 
+	"crypto/rand"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 )
@@ -24,6 +26,7 @@ func TestSystemPortPooledAllocator_AllocatePort(t *testing.T) {
 		network: "udp4",
 		maxPort: 34010,
 		minPort: 34000,
+		rand:    rand.Reader,
 	}
 	if err := a.init(); err != nil {
 		t.Fatal(err)

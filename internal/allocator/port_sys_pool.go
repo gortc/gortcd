@@ -1,7 +1,11 @@
 package allocator
 
 import (
+	"crypto/rand"
 	"errors"
+	"io"
+	"math/big"
+	mathRand "math/rand"
 	"net"
 	"sync"
 
@@ -25,7 +29,9 @@ type SystemPortPooledAllocator struct {
 	minPort int
 	maxPort int
 	ports   []pooledPort
+	free    []int
 	mux     sync.RWMutex
+	rand    io.Reader
 }
 
 // Close de-allocates all ports.
@@ -52,17 +58,32 @@ func (w *wrappedConn) Close() error {
 	return nil
 }
 
+func (a *SystemPortPooledAllocator) randomFree() pooledPort {
+	// Assuming a.mux is locked.
+	max := big.NewInt(int64(len(a.free)))
+	i := 0
+	// Trying to get cryptographically random port.
+	n, err := rand.Int(a.rand, max)
+	if err == nil {
+		i = int(n.Int64())
+	} else {
+		// Falling back to pseudo-random.
+		i = mathRand.Intn(len(a.free))
+	}
+	return a.ports[i]
+}
+
 func (a *SystemPortPooledAllocator) allocate() (NetAllocation, error) {
 	a.mux.Lock()
 	var p pooledPort
+	a.free = a.free[:0]
 	for i := range a.ports {
 		if a.ports[i].allocated {
 			continue
 		}
-		a.ports[i].allocated = true
-		p = a.ports[i]
-		break
+		a.free = append(a.free, i)
 	}
+	p = a.randomFree()
 	a.mux.Unlock()
 	if p.conn == nil {
 		return NetAllocation{}, errors.New("out of capacity")
