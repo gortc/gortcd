@@ -55,12 +55,12 @@ func TestServerIntegration(t *testing.T) {
 			buf := make([]byte, 1024)
 			n, addr, err := echoConn.ReadFromUDP(buf)
 			if err != nil {
-				t.Fatalf("peer: failed to read: %v", err)
+				t.Errorf("peer: failed to read: %v", err)
 			}
 			t.Logf("peer: got message: %s", string(buf[:n]))
 			// Echoing back.
 			if _, err := echoConn.WriteToUDP(buf[:n], addr); err != nil {
-				t.Fatalf("peer: failed to write back: %v", err)
+				t.Errorf("peer: failed to write back: %v", err)
 			}
 			t.Logf("peer: echoed back")
 		}
