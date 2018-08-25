@@ -5,70 +5,40 @@ import (
 	"fmt"
 	"net"
 	"testing"
-	"time"
 
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
 
-func isErr(m *stun.Message) bool {
-	return m.Type.Class == stun.ClassErrorResponse
-}
-
-func do(logger *zap.Logger, req, res *stun.Message, c *net.UDPConn, attrs ...stun.Setter) error {
-	start := time.Now()
-	if err := req.Build(attrs...); err != nil {
-		logger.Error("failed to build", zap.Error(err))
-		return err
+func ensureNoErrors(t *testing.T, logs *observer.ObservedLogs) {
+	for _, e := range logs.TakeAll() {
+		if e.Level == zapcore.ErrorLevel {
+			t.Error(e.Message)
+		}
 	}
-	if _, err := req.WriteTo(c); err != nil {
-		logger.Error("failed to write",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	logger.Info("sent message", zap.Stringer("m", req), zap.Stringer("t", req.Type))
-	if cap(res.Raw) < 800 {
-		res.Raw = make([]byte, 0, 1024)
-	}
-	res.Reset()
-	c.SetReadDeadline(time.Now().Add(time.Second * 2))
-	_, err := res.ReadFrom(c)
-	if err != nil {
-		logger.Error("failed to read",
-			zap.Error(err), zap.Stringer("m", req),
-		)
-		return err
-	}
-	if req.Type.Class != stun.ClassIndication && req.TransactionID != res.TransactionID {
-		return fmt.Errorf("transaction ID mismatch: %x (got) != %x (expected)",
-			req.TransactionID, res.TransactionID,
-		)
-	}
-	logger.Info("got message",
-		zap.Stringer("m", res),
-		zap.Stringer("t", res.Type),
-		zap.Duration("rtt", time.Since(start)),
-	)
-	return nil
 }
 
 func TestServerIntegration(t *testing.T) {
+	// Test is same as e2e/gortc-turn.
+	const (
+		username = "username"
+		password = "password"
+		realm    = "realm"
+	)
 	echoConn, echoUDPAddr := listenUDP(t)
 	serverConn, serverUDPAddr := listenUDP(t)
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		t.Fatal(err)
-	}
+	serverCore, serverLogs := observer.New(zap.DebugLevel)
+	defer ensureNoErrors(t, serverLogs)
 	s, err := New(Options{
-		Log:   logger.Named("server"),
+		Log:   zap.New(serverCore),
 		Conn:  serverConn,
-		Realm: "realm",
+		Realm: realm,
 		Auth: auth.NewStatic([]auth.StaticCredential{
-			{Username: "username", Password: "secret", Realm: "realm"},
+			{Username: username, Password: password, Realm: realm},
 		}),
 	})
 	if err != nil {
@@ -80,25 +50,19 @@ func TestServerIntegration(t *testing.T) {
 		}
 	}()
 	go func() {
-		logger.Info("listening as echo server", zap.Stringer("laddr", echoUDPAddr))
 		for {
 			// Starting echo server.
 			buf := make([]byte, 1024)
 			n, addr, err := echoConn.ReadFromUDP(buf)
 			if err != nil {
-				logger.Fatal("failed to read", zap.Error(err))
+				t.Fatalf("peer: failed to read: %v", err)
 			}
-			logger.Info("got message",
-				zap.String("body", string(buf[:n])),
-				zap.Stringer("raddr", addr),
-			)
+			t.Logf("peer: got message: %s", string(buf[:n]))
 			// Echoing back.
 			if _, err := echoConn.WriteToUDP(buf[:n], addr); err != nil {
-				logger.Fatal("failed to write back", zap.Error(err))
+				t.Fatalf("peer: failed to write back: %v", err)
 			}
-			logger.Info("echoed back",
-				zap.Stringer("raddr", addr),
-			)
+			t.Logf("peer: echoed back")
 		}
 	}()
 	go func() {
@@ -107,143 +71,62 @@ func TestServerIntegration(t *testing.T) {
 			t.Error(err)
 		}
 	}()
+	// Creating connection from client to server.
 	c, err := net.DialUDP("udp", nil, serverUDPAddr)
 	if err != nil {
-		logger.Fatal("failed to dial to TURN server",
-			zap.Error(err),
-		)
+		t.Fatalf("failed to dial to TURN server: %v", err)
 	}
-	var (
-		req      = stun.New()
-		res      = stun.New()
-		username = stun.NewUsername("username")
-		password = "secret"
-		code     stun.ErrorCodeAttribute
-	)
+	clientCore, clientLogs := observer.New(zap.DebugLevel)
+	defer ensureNoErrors(t, clientLogs)
+	client, err := turn.NewClient(turn.ClientOptions{
+		Log:      zap.New(clientCore),
+		Conn:     c,
+		Username: username,
+		Password: password,
+	})
 	if err != nil {
-		logger.Fatal("failed to dial to TURN server",
-			zap.Error(err),
-		)
+		t.Fatalf("failed to create client: %v", err)
 	}
-	logger.Info("dial server",
-		zap.Stringer("laddr", c.LocalAddr()),
-		zap.Stringer("raddr", c.RemoteAddr()),
-	)
-
-	// Constructing allocate request without integrity
-	if err := do(logger, req, res, c,
-		username,
-		stun.TransactionID,
-		turn.AllocateRequest,
-		turn.RequestedTransportUDP,
-	); err != nil {
-		logger.Fatal("failed to do request", zap.Error(err))
+	a, err := client.Allocate()
+	if err != nil {
+		t.Fatalf("failed to create allocation: %v", err)
 	}
-	if !isErr(res) {
-		logger.Fatal("got no-error response")
+	p, err := a.Create(echoUDPAddr)
+	if err != nil {
+		t.Fatalf("failed to create permission: %v", err)
 	}
-	var (
-		nonce stun.Nonce
-		realm stun.Realm
-	)
-	if err := res.Parse(&nonce, &realm); err != nil {
-		logger.Fatal("failed to get nonce and realm")
+	// Sending and receiving "hello" message.
+	if _, err := fmt.Fprint(p, "hello"); err != nil {
+		t.Fatal("failed to write data")
 	}
-	integrity := stun.NewLongTermIntegrity(username.String(), realm.String(), password)
-	// Constructing allocate request with integrity
-	if err := do(logger, req, res, c,
-		username, nonce, realm,
-		stun.TransactionID,
-		turn.AllocateRequest,
-		turn.RequestedTransportUDP,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to do request", zap.Error(err))
+	sent := []byte("hello")
+	got := make([]byte, len(sent))
+	if _, err = p.Read(got); err != nil {
+		t.Fatalf("failed to read data: %v", err)
 	}
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("got error response", zap.Stringer("err", code))
+	if !bytes.Equal(got, sent) {
+		t.Fatal("got incorrect data")
 	}
-
-	// Decoding relayed and mapped address.
-	var (
-		reladdr turn.RelayedAddress
-		maddr   stun.XORMappedAddress
-	)
-	if err := reladdr.GetFrom(res); err != nil {
-		logger.Fatal("failed to get relayed address", zap.Error(err))
+	// Repeating via channel binding.
+	for i := range got {
+		got[i] = 0
 	}
-	logger.Info("relayed address", zap.Stringer("addr", reladdr))
-	if err := maddr.GetFrom(res); err != nil && err != stun.ErrAttributeNotFound {
-		logger.Fatal("failed to decode relayed address", zap.Error(err))
-	} else {
-		logger.Info("mapped address", zap.Stringer("addr", maddr))
+	if bindErr := p.Bind(); bindErr != nil {
+		t.Fatal("failed to bind", zap.Error(err))
 	}
-
-	peerAddr := turn.PeerAddress{
-		IP:   echoUDPAddr.IP,
-		Port: echoUDPAddr.Port,
+	if !p.Bound() {
+		t.Fatal("should be bound")
 	}
-	logger.Info("peer address", zap.Stringer("addr", peerAddr))
-	if err := do(logger, req, res, c, stun.TransactionID,
-		turn.CreatePermissionRequest,
-		username, nonce, realm,
-		peerAddr,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to do request", zap.Error(err))
+	t.Logf("bound to channel: 0x%x", int(p.Binding()))
+	// Sending and receiving "hello" message.
+	if _, err := fmt.Fprint(p, "hello"); err != nil {
+		t.Fatalf("failed to write data: %v", err)
 	}
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("failed to allocate", zap.Stringer("err", code))
+	if _, err = p.Read(got); err != nil {
+		t.Fatalf("failed to read data: %v", err)
 	}
-	var (
-		sentData = turn.Data("Hello world!")
-	)
-	// Allocation succeed.
-	// Sending data to echo server.
-	// can be as resetTo(type, attrs)?
-	if err := do(logger, req, res, c, stun.TransactionID,
-		turn.SendIndication,
-		username, nonce, realm,
-		sentData,
-		peerAddr,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to build", zap.Error(err))
+	t.Logf("client: got message: %s", string(got))
+	if !bytes.Equal(got, sent) {
+		t.Error("data mismatch")
 	}
-	logger.Info("sent data", zap.String("v", string(sentData)))
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("got error response", zap.Stringer("err", code))
-	}
-	var data turn.Data
-	if err := data.GetFrom(res); err != nil {
-		logger.Fatal("failed to get DATA attribute", zap.Error(err))
-	}
-	logger.Info("got data", zap.String("v", string(data)))
-	if bytes.Equal(data, sentData) {
-		logger.Info("OK")
-	} else {
-		logger.Info("DATA mismatch")
-	}
-
-	// De-allocating.
-	if err := do(logger, req, res, c, stun.TransactionID,
-		username, nonce, realm,
-		turn.RefreshRequest,
-		turn.ZeroLifetime,
-		integrity,
-		stun.Fingerprint,
-	); err != nil {
-		logger.Fatal("failed to do", zap.Error(err))
-	}
-	if isErr(res) {
-		code.GetFrom(res)
-		logger.Fatal("got error response", zap.Stringer("err", code))
-	}
-	logger.Info("closing")
 }
