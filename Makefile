@@ -23,7 +23,7 @@ lint:
 		--deadline=300s \
 		--dupl-threshold=70 \
 		-j $(PROCS) --vendor ./...
-	@gocritic check-project --exclude "\S+_test/.go|testdata/|vendor/|builtin/" .
+	@gocritic check-project --exclude "testutil|testdata|vendor|builtin" .
 	@echo "ok"
 install:
 	go get gortc.io/api

@@ -7,22 +7,12 @@ import (
 	"testing"
 
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gortc/gortcd/internal/auth"
+	"github.com/gortc/gortcd/internal/testutil"
 	"github.com/gortc/turn"
 )
-
-func ensureNoErrors(t *testing.T, logs *observer.ObservedLogs) {
-	all := logs.TakeAll()
-	for i := range all {
-		if all[i].Level != zapcore.ErrorLevel {
-			continue
-		}
-		t.Error(all[i].Message)
-	}
-}
 
 func TestServerIntegration(t *testing.T) {
 	// Test is same as e2e/gortc-turn.
@@ -34,7 +24,7 @@ func TestServerIntegration(t *testing.T) {
 	echoConn, echoUDPAddr := listenUDP(t)
 	serverConn, serverUDPAddr := listenUDP(t)
 	serverCore, serverLogs := observer.New(zap.DebugLevel)
-	defer ensureNoErrors(t, serverLogs)
+	defer testutil.EnsureNoErrors(t, serverLogs)
 	s, err := New(Options{
 		Log:   zap.New(serverCore),
 		Conn:  serverConn,
@@ -76,7 +66,7 @@ func TestServerIntegration(t *testing.T) {
 		t.Fatalf("failed to dial to TURN server: %v", err)
 	}
 	clientCore, clientLogs := observer.New(zap.DebugLevel)
-	defer ensureNoErrors(t, clientLogs)
+	defer testutil.EnsureNoErrors(t, clientLogs)
 	client, err := turn.NewClient(turn.ClientOptions{
 		Log:      zap.New(clientCore),
 		Conn:     c,
