@@ -15,10 +15,12 @@ import (
 )
 
 func ensureNoErrors(t *testing.T, logs *observer.ObservedLogs) {
-	for _, e := range logs.TakeAll() {
-		if e.Level == zapcore.ErrorLevel {
-			t.Error(e.Message)
+	all := logs.TakeAll()
+	for i := range all {
+		if all[i].Level != zapcore.ErrorLevel {
+			continue
 		}
+		t.Error(all[i].Message)
 	}
 }
 
