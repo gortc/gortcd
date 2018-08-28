@@ -5,7 +5,7 @@
 [![GitHub release](https://img.shields.io/github/release/gortc/gortcd.svg)](https://github.com/gortc/gortcd/releases/latest)
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgortc%2Fgortcd.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgortc%2Fgortcd?ref=badge_shield)
 # gortcd
-The gortcd is work-in-progress TURN and STUN server implementation in go.
+The gortcd is work-in-progress TURN [[RFC5776](https://tools.ietf.org/html/rfc5766)] and STUN [[RFC5389](https://tools.ietf.org/html/rfc5389)] server implementation in go.
 As part of [gortc](https://gortc.io) project, gortcd shares
 it's [goals](https://gortc.io#goals) and
 [principles](https://gortc.io#principles).
