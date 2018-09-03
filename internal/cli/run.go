@@ -10,11 +10,13 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/prometheus/client_golang/prometheus"
@@ -320,6 +322,28 @@ var rootCmd = &cobra.Command{
 			l.Fatal("failed to parse", zap.Error(parseErr))
 		}
 		u := newOptionsUpdater(o)
+		s := make(chan os.Signal, 1)
+		signal.Notify(s, syscall.SIGUSR2)
+		go func() {
+			for {
+				<-s
+				l.Info("trying to update config")
+				if readErr := viper.ReadInConfig(); readErr != nil {
+					l.Error("failed to read config", zap.Error(readErr))
+					continue
+				}
+				newOptions := server.Options{
+					Log:      l,
+					Registry: reg,
+				}
+				if parseErr := parseOptions(l, &newOptions); parseErr != nil {
+					l.Error("failed to parse config", zap.Error(parseErr))
+					continue
+				}
+				l.Info("updating config")
+				u.Notify(newOptions)
+			}
+		}()
 		if viper.GetBool("auth.public") {
 			l.Warn("auth is public")
 		} else {
