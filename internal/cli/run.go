@@ -285,7 +285,7 @@ var rootCmd = &cobra.Command{
 			l.Fatal("failed to parse", zap.Error(parseErr))
 		}
 		u := server.NewUpdater(o)
-		n := reload.NewNotifier()
+		n := reload.NewNotifier(l.Named("reload"))
 		go func() {
 			for range n.C {
 				l.Info("trying to update config")
@@ -293,6 +293,7 @@ var rootCmd = &cobra.Command{
 					l.Error("failed to read config", zap.Error(readErr))
 					continue
 				}
+				l.Info("config read", zap.String("path", viper.ConfigFileUsed()))
 				newOptions := server.Options{
 					Log:      l,
 					Registry: reg,
@@ -301,8 +302,8 @@ var rootCmd = &cobra.Command{
 					l.Error("failed to parse config", zap.Error(parseErr))
 					continue
 				}
-				l.Info("updating config")
 				u.Set(newOptions)
+				l.Info("config updated")
 			}
 		}()
 		if viper.GetBool("auth.public") {
