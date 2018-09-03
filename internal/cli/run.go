@@ -261,7 +261,7 @@ var rootCmd = &cobra.Command{
 			parseErr error
 		)
 		fillterLog := l.Named("filter")
-		if o.PeeRule, parseErr = parseFilteringRules(fillterLog, "peer"); parseErr != nil {
+		if o.PeerRule, parseErr = parseFilteringRules(fillterLog, "peer"); parseErr != nil {
 			l.Error("failed to parse peer rules", zap.Error(parseErr))
 		}
 		if o.ClientRule, parseErr = parseFilteringRules(fillterLog, "client"); parseErr != nil {

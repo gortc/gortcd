@@ -3,11 +3,13 @@ package server
 import (
 	"time"
 
+	"github.com/gortc/gortcd/internal/filter"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
 
 type context struct {
+	cfg       config
 	time      time.Time
 	client    turn.Addr
 	server    turn.Addr
@@ -23,6 +25,14 @@ type context struct {
 	buf       []byte // buf request
 }
 
+func (c *context) allowPeer(addr turn.Addr) bool {
+	return c.cfg.peerFilter.Action(addr) == filter.Allow
+}
+
+func (c *context) allowClient(addr turn.Addr) bool {
+	return c.cfg.clientFilter.Action(addr) == filter.Allow
+}
+
 func (c *context) setTuple() {
 	c.tuple.Proto = c.proto
 	c.tuple.Client = c.client
@@ -30,6 +40,7 @@ func (c *context) setTuple() {
 }
 
 func (c *context) reset() {
+	c.cfg = config{}
 	c.time = time.Time{}
 	c.client = turn.Addr{}
 	c.server = turn.Addr{}
