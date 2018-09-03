@@ -43,7 +43,8 @@ type Server struct {
 // Currently supported:
 //	* AuthForSTUN
 //	* Software
-//  * Peer
+//	* PeerRule
+//	* ClientRule
 func (s *Server) SetOptions(opt Options) {
 	s.cfg.Store(newConfig(opt))
 }
