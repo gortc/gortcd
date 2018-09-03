@@ -20,7 +20,7 @@ lint:
 		--disable=gochecknoglobals \
 		--disable=gochecknoinits \
 		--disable=interfacer \
-		--deadline=300s \
+		--deadline=10m \
 		--dupl-threshold=70 \
 		-j $(PROCS) --vendor ./...
 	@gocritic check-project --exclude "testutil|testdata|vendor|builtin" .
