@@ -14,9 +14,6 @@ import (
 	"runtime"
 	"strings"
 	"sync"
-	"sync/atomic"
-
-	"github.com/gortc/gortcd/internal/reload"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/prometheus/client_golang/prometheus"
@@ -29,45 +26,11 @@ import (
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/filter"
+	"github.com/gortc/gortcd/internal/reload"
 	"github.com/gortc/gortcd/internal/server"
 	"github.com/gortc/ice"
 	"github.com/gortc/stun"
 )
-
-type optionsSubscriber interface {
-	SetOptions(opt server.Options)
-}
-
-type optionsUpdater struct {
-	options     atomic.Value
-	mux         sync.RWMutex
-	subscribers []optionsSubscriber
-}
-
-func newOptionsUpdater(o server.Options) *optionsUpdater {
-	u := &optionsUpdater{}
-	u.options.Store(o)
-	return u
-}
-
-func (o *optionsUpdater) Get() server.Options {
-	return o.options.Load().(server.Options)
-}
-
-func (o *optionsUpdater) Notify(opt server.Options) {
-	o.options.Store(opt)
-	o.mux.RLock()
-	for _, s := range o.subscribers {
-		s.SetOptions(opt)
-	}
-	o.mux.RUnlock()
-}
-
-func (o *optionsUpdater) Subscribe(s optionsSubscriber) {
-	o.mux.Lock()
-	o.subscribers = append(o.subscribers)
-	o.mux.Unlock()
-}
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
 func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
