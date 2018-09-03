@@ -38,14 +38,14 @@ type Server struct {
 	cfg      atomic.Value
 }
 
-// SetOptions updates subset of current server configuration.
+// setOptions updates subset of current server configuration.
 //
 // Currently supported:
 //	* AuthForSTUN
 //	* Software
 //	* PeerRule
 //	* ClientRule
-func (s *Server) SetOptions(opt Options) {
+func (s *Server) setOptions(opt Options) {
 	s.cfg.Store(newConfig(opt))
 }
 
@@ -80,7 +80,7 @@ type Options struct {
 	NonceDuration time.Duration // no nonce rotate if 0
 	NonceManager  NonceManager  // optional nonce manager implementation
 	PeerRule      filter.Rule
-	ClientRule    filter.Rule // filtering rule for clients
+	ClientRule    filter.Rule // filtering rule for listeners
 }
 
 // MetricsRegistry represents prometheus metrics registry.

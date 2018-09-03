@@ -10,13 +10,13 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"syscall"
+
+	"github.com/gortc/gortcd/internal/reload"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/prometheus/client_golang/prometheus"
@@ -70,7 +70,7 @@ func (o *optionsUpdater) Subscribe(s optionsSubscriber) {
 }
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
-func ListenUDPAndServe(serverNet, laddr string, u *optionsUpdater) error {
+func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
 	c, err := net.ListenPacket(serverNet, laddr)
 	if err != nil {
 		return err
@@ -321,12 +321,10 @@ var rootCmd = &cobra.Command{
 		if parseErr := parseOptions(l, &o); parseErr != nil {
 			l.Fatal("failed to parse", zap.Error(parseErr))
 		}
-		u := newOptionsUpdater(o)
-		s := make(chan os.Signal, 1)
-		signal.Notify(s, syscall.SIGUSR2)
+		u := server.NewUpdater(o)
+		n := reload.NewNotifier()
 		go func() {
-			for {
-				<-s
+			for range n.C {
 				l.Info("trying to update config")
 				if readErr := viper.ReadInConfig(); readErr != nil {
 					l.Error("failed to read config", zap.Error(readErr))
@@ -341,7 +339,7 @@ var rootCmd = &cobra.Command{
 					continue
 				}
 				l.Info("updating config")
-				u.Notify(newOptions)
+				u.Set(newOptions)
 			}
 		}()
 		if viper.GetBool("auth.public") {
