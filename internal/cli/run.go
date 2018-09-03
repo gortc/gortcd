@@ -3,6 +3,7 @@ package cli
 
 import (
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -25,22 +26,25 @@ import (
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/filter"
+	"github.com/gortc/gortcd/internal/reload"
 	"github.com/gortc/gortcd/internal/server"
 	"github.com/gortc/ice"
 	"github.com/gortc/stun"
 )
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
-func ListenUDPAndServe(serverNet, laddr string, opt server.Options) error {
+func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
 	c, err := net.ListenPacket(serverNet, laddr)
 	if err != nil {
 		return err
 	}
+	opt := u.Get()
 	opt.Conn = c
 	s, err := server.New(opt)
 	if err != nil {
 		return err
 	}
+	u.Subscribe(s)
 	return s.Serve()
 }
 
@@ -132,7 +136,8 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 	}
 	var rawRules []rawRuleItem
 	if keyErr := viper.UnmarshalKey("filter."+key+".rules", &rawRules); keyErr != nil {
-		l.Fatal("failed to parse rules", zap.Error(keyErr))
+		l.Error("failed to parse rules", zap.Error(keyErr))
+		return nil, keyErr
 	}
 	var rules []filter.Rule
 	for _, rawRule := range rawRules {
@@ -147,13 +152,15 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 		case "pass", "none", "":
 			action = filter.Pass
 		default:
-			l.Fatal("failed to parse action", zap.String("action", rawRule.Action))
+			l.Error("failed to parse action", zap.String("action", rawRule.Action))
+			return nil, fmt.Errorf("unknown action %s", rawRule.Action)
 		}
 		rule, ruleErr := filter.StaticNetRule(action, rawRule.Net)
 		if ruleErr != nil {
-			l.Fatal("failed to parse subnet",
+			l.Error("failed to parse subnet",
 				zap.Error(ruleErr), zap.String("net", rawRule.Net),
 			)
+			return nil, ruleErr
 		}
 		l.Info("added rule",
 			zap.Stringer("action", action),
@@ -168,13 +175,34 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 	case "drop", "forbid", "deny", "block":
 		defaultAction = filter.Deny
 	case "pass", "none":
-		l.Fatal("default action cannot be pass")
+		return nil, errors.New("default action cannot be pass")
 	default:
-		l.Fatal("unknown default action")
+		return nil, errors.New("unknown default action")
 	}
 	l.Info("default action set", zap.Stringer("action", defaultAction))
 	f := filter.NewFilter(defaultAction, rules...)
 	return f, nil
+}
+
+func parseOptions(l *zap.Logger, o *server.Options) error {
+	o.Realm = viper.GetString("server.realm")
+	o.Workers = viper.GetInt("server.workers")
+	o.AuthForSTUN = viper.GetBool("auth.stun")
+	o.Software = viper.GetString("server.software")
+	filterLog := l.Named("filter")
+	var parseErr error
+	if o.PeerRule, parseErr = parseFilteringRules(filterLog, "peer"); parseErr != nil {
+		l.Error("failed to parse peer rules", zap.Error(parseErr))
+		return parseErr
+	}
+	if o.ClientRule, parseErr = parseFilteringRules(filterLog, "client"); parseErr != nil {
+		l.Error("failed to parse client rules", zap.Error(parseErr))
+		return parseErr
+	}
+	if o.Software != "" {
+		l.Info("will be sending SOFTWARE attribute", zap.String("software", o.Software))
+	}
+	return nil
 }
 
 var rootCmd = &cobra.Command{
@@ -250,26 +278,34 @@ var rootCmd = &cobra.Command{
 		l.Info("parsed credentials", zap.Int("n", len(staticCredentials)))
 		l.Info("realm", zap.String("k", realm))
 		o := server.Options{
-			Realm:       realm,
-			Log:         l,
-			Workers:     viper.GetInt("server.workers"),
-			Registry:    reg,
-			AuthForSTUN: viper.GetBool("auth.stun"),
-			Software:    viper.GetString("server.software"),
+			Log:      l,
+			Registry: reg,
 		}
-		var (
-			parseErr error
-		)
-		fillterLog := l.Named("filter")
-		if o.PeeRule, parseErr = parseFilteringRules(fillterLog, "peer"); parseErr != nil {
-			l.Error("failed to parse peer rules", zap.Error(parseErr))
+		if parseErr := parseOptions(l, &o); parseErr != nil {
+			l.Fatal("failed to parse", zap.Error(parseErr))
 		}
-		if o.ClientRule, parseErr = parseFilteringRules(fillterLog, "client"); parseErr != nil {
-			l.Error("failed to parse client rules", zap.Error(parseErr))
-		}
-		if o.Software != "" {
-			l.Info("will be sending SOFTWARE attribute", zap.String("software", o.Software))
-		}
+		u := server.NewUpdater(o)
+		n := reload.NewNotifier(l.Named("reload"))
+		go func() {
+			for range n.C {
+				l.Info("trying to update config")
+				if readErr := viper.ReadInConfig(); readErr != nil {
+					l.Error("failed to read config", zap.Error(readErr))
+					continue
+				}
+				l.Info("config read", zap.String("path", viper.ConfigFileUsed()))
+				newOptions := server.Options{
+					Log:      l,
+					Registry: reg,
+				}
+				if parseErr := parseOptions(l, &newOptions); parseErr != nil {
+					l.Error("failed to parse config", zap.Error(parseErr))
+					continue
+				}
+				u.Set(newOptions)
+				l.Info("config updated")
+			}
+		}()
 		if viper.GetBool("auth.public") {
 			l.Warn("auth is public")
 		} else {
@@ -304,7 +340,7 @@ var rootCmd = &cobra.Command{
 							zap.String("addr", addr),
 							zap.String("network", "udp"),
 						)
-						if lErr := ListenUDPAndServe("udp", addr, o); lErr != nil {
+						if lErr := ListenUDPAndServe("udp", addr, u); lErr != nil {
 							l.Fatal("failed to listen", zap.Error(lErr))
 						}
 					}(strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1))
@@ -317,7 +353,7 @@ var rootCmd = &cobra.Command{
 				wg.Add(1)
 				go func() {
 					defer wg.Done()
-					if logErr = ListenUDPAndServe("udp", normalized, o); logErr != nil {
+					if logErr = ListenUDPAndServe("udp", normalized, u); logErr != nil {
 						l.Fatal("failed to listen", zap.Error(logErr))
 					}
 				}()

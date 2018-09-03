@@ -3,7 +3,6 @@ package filter
 
 import (
 	"net"
-	"sync"
 
 	"github.com/gortc/turn"
 )
@@ -78,23 +77,8 @@ type Rule interface {
 
 // List is list of rules with default action.
 type List struct {
-	action  Action
-	ruleMux sync.RWMutex
-	rules   []Rule
-}
-
-// SetAction replaces current default action.
-func (f *List) SetAction(action Action) {
-	f.ruleMux.Lock()
-	f.action = action
-	f.ruleMux.Unlock()
-}
-
-// SetRules replaces current rule set with provided one.
-func (f *List) SetRules(rules []Rule) {
-	f.ruleMux.Lock()
-	f.rules = append(f.rules[:0], rules...)
-	f.ruleMux.Unlock()
+	action Action
+	rules  []Rule
 }
 
 // Action implements Rule.
@@ -102,8 +86,6 @@ func (f *List) SetRules(rules []Rule) {
 // Returns first matched rule from list or default action if none found.
 // Matched is rule that returned Allow or Deny action (not "Pass").
 func (f *List) Action(addr turn.Addr) Action {
-	f.ruleMux.RLock()
-	defer f.ruleMux.RUnlock()
 	for i := range f.rules {
 		a := f.rules[i].Action(addr)
 		if a == Pass {

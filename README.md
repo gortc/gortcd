@@ -29,7 +29,7 @@ too, but not used by default.
 ## Configuration
 Please see [gortc.yml](https://github.com/gortc/gortcd/blob/master/gortcd.yml) for configuration tips. Server listens on all
 available interfaces by default, STUN is public, TURN is private and
-no valid credentials are provided.
+no valid credentials are provided. Send `SIGUSR2` to reload config (not all options support live config reload).
 
 Server searches for `gortc.yml` in current directory, in the
 `/etc/gortcd/` and in home directory.

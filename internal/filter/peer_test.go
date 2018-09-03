@@ -122,8 +122,7 @@ func TestFilter_Allowed(t *testing.T) {
 			}
 		})
 	}
-	filter.SetAction(Allow)
-	filter.SetRules([]Rule{forbidNet})
+	filter = NewFilter(Allow, forbidNet)
 	for _, tc := range []struct {
 		Addr   turn.Addr
 		Action Action

@@ -5,6 +5,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/pkg/errors"
@@ -24,19 +25,28 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	realm        stun.Realm
-	addr         turn.Addr
-	log          *zap.Logger
-	allocs       *allocator.Allocator
-	conn         net.PacketConn
-	auth         Auth
-	nonce        NonceManager
-	close        chan struct{}
-	wg           sync.WaitGroup
-	handlers     map[stun.MessageType]handleFunc
-	peerFilter   filter.Rule
-	clientFilter filter.Rule
-	cfg          *config
+	realm    stun.Realm
+	addr     turn.Addr
+	log      *zap.Logger
+	allocs   *allocator.Allocator
+	conn     net.PacketConn
+	auth     Auth
+	nonce    NonceManager
+	close    chan struct{}
+	wg       sync.WaitGroup
+	handlers map[stun.MessageType]handleFunc
+	cfg      atomic.Value
+}
+
+// setOptions updates subset of current server configuration.
+//
+// Currently supported:
+//	* AuthForSTUN
+//	* Software
+//	* PeerRule
+//	* ClientRule
+func (s *Server) setOptions(opt Options) {
+	s.cfg.Store(newConfig(opt))
 }
 
 type handleFunc = func(ctx *context) error
@@ -69,8 +79,8 @@ type Options struct {
 	Labels        prometheus.Labels
 	NonceDuration time.Duration // no nonce rotate if 0
 	NonceManager  NonceManager  // optional nonce manager implementation
-	PeeRule       filter.Rule
-	ClientRule    filter.Rule // filtering rule for clients
+	PeerRule      filter.Rule
+	ClientRule    filter.Rule // filtering rule for listeners
 }
 
 // MetricsRegistry represents prometheus metrics registry.
@@ -107,23 +117,21 @@ func New(o Options) (*Server, error) {
 	if o.NonceManager == nil {
 		o.NonceManager = auth.NewNonceAuth(o.NonceDuration)
 	}
-	if o.PeeRule == nil {
-		o.PeeRule = filter.AllowAll
+	if o.PeerRule == nil {
+		o.PeerRule = filter.AllowAll
 	}
 	if o.ClientRule == nil {
 		o.ClientRule = filter.AllowAll
 	}
 	s := &Server{
-		realm:        stun.NewRealm(o.Realm),
-		auth:         o.Auth,
-		nonce:        o.NonceManager,
-		conn:         o.Conn,
-		allocs:       allocs,
-		close:        make(chan struct{}),
-		cfg:          newConfig(o),
-		peerFilter:   o.PeeRule,
-		clientFilter: o.ClientRule,
+		realm:  stun.NewRealm(o.Realm),
+		auth:   o.Auth,
+		nonce:  o.NonceManager,
+		conn:   o.Conn,
+		allocs: allocs,
+		close:  make(chan struct{}),
 	}
+	s.cfg.Store(newConfig(o))
 	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
 		s.addr.IP = a.IP
@@ -280,7 +288,7 @@ func (s *Server) processAllocateRequest(ctx *context) error {
 	if err := transport.GetFrom(ctx.request); err != nil {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
-	lifetime := s.cfg.DefaultLifetime()
+	lifetime := ctx.cfg.defaultLifetime
 	relayedAddr, err := s.allocs.New(ctx.tuple, ctx.time.Add(lifetime), s)
 	switch err {
 	case nil:
@@ -333,12 +341,12 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 	}
 	switch err := lifetime.GetFrom(ctx.request); err {
 	case nil:
-		max := s.cfg.MaxLifetime()
+		max := ctx.cfg.maxLifetime
 		if lifetime.Duration > max {
 			lifetime.Duration = max
 		}
 	case stun.ErrAttributeNotFound:
-		lifetime.Duration = s.cfg.DefaultLifetime()
+		lifetime.Duration = ctx.cfg.defaultLifetime
 	default:
 		return errors.Wrap(err, "failed to get lifetime")
 	}
@@ -347,7 +355,7 @@ func (s *Server) processCreatePermissionRequest(ctx *context) error {
 		peerAddr = turn.Addr(addr)
 		timeout  = ctx.time.Add(lifetime.Duration)
 	)
-	if s.peerFilter.Action(peerAddr) != filter.Allow {
+	if !ctx.allowPeer(peerAddr) {
 		// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
 		return ctx.buildErr(stun.CodeForbidden)
 	}
@@ -386,7 +394,7 @@ func (s *Server) needAuth(ctx *context) bool {
 	if ctx.request.Type.Class == stun.ClassIndication {
 		return false
 	}
-	if ctx.request.Type == stun.BindingRequest && !s.cfg.RequireAuthForSTUN() {
+	if ctx.request.Type == stun.BindingRequest && !ctx.cfg.authForSTUN {
 		return false
 	}
 	return true
@@ -403,10 +411,10 @@ func (s *Server) processChannelBinding(ctx *context) error {
 	}
 	var (
 		peerAddr = turn.Addr(addr)
-		lifetime = s.cfg.DefaultLifetime()
+		lifetime = ctx.cfg.defaultLifetime
 		timeout  = ctx.time.Add(lifetime)
 	)
-	if s.peerFilter.Action(peerAddr) != filter.Allow {
+	if !ctx.allowPeer(peerAddr) {
 		// Sending 403 (Forbidden) as described in RFC 5766 Section 9.1.
 		return ctx.buildErr(stun.CodeForbidden)
 	}
@@ -443,7 +451,7 @@ func (s *Server) processMessage(ctx *context) error {
 		}
 		return nil
 	}
-	ctx.software = s.cfg.AppendSoftware(ctx.software[:0])
+	ctx.software = ctx.cfg.software
 	ctx.realm = s.realm
 	if ce := s.log.Check(zapcore.DebugLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
@@ -527,7 +535,7 @@ func (s *Server) serveConn(addr net.Addr, ctx *context) error {
 		s.log.Error("unknown addr", zap.Stringer("addr", addr))
 		return errors.Errorf("unknown addr %s", addr)
 	}
-	if s.clientFilter.Action(ctx.client) == filter.Deny {
+	if !ctx.allowClient(ctx.client) {
 		if ce := s.log.Check(zapcore.DebugLevel, "client denied"); ce != nil {
 			ce.Write(
 				zap.Stringer("addr", ctx.client),
@@ -606,6 +614,7 @@ func (s *Server) worker() {
 		copy(ctx.buf, buf)
 		ctx.buf = ctx.buf[:n]
 		ctx.server = s.addr
+		ctx.cfg = s.cfg.Load().(config)
 		// Spawning serve goroutine.
 		go func(clientAddr net.Addr, context *context) {
 			if serveErr := s.serveConn(clientAddr, context); serveErr != nil {
@@ -618,7 +627,8 @@ func (s *Server) worker() {
 
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
-	for i := 0; i < s.cfg.Workers(); i++ {
+	cfg := s.cfg.Load().(config)
+	for i := 0; i < cfg.workers; i++ {
 		s.wg.Add(1)
 		go s.worker()
 	}
