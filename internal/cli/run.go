@@ -151,9 +151,10 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 		}
 		rule, ruleErr := filter.StaticNetRule(action, rawRule.Net)
 		if ruleErr != nil {
-			l.Fatal("failed to parse subnet",
+			l.Error("failed to parse subnet",
 				zap.Error(ruleErr), zap.String("net", rawRule.Net),
 			)
+			return nil, ruleErr
 		}
 		l.Info("added rule",
 			zap.Stringer("action", action),
