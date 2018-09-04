@@ -42,7 +42,7 @@ type Server struct {
 // Currently supported:
 //	* AuthForSTUN
 //	* Software
-//  * Realm
+//	* Realm
 //	* PeerRule
 //	* ClientRule
 func (s *Server) setOptions(opt Options) {
