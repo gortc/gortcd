@@ -2,5 +2,5 @@ package reload
 
 func (n *Notifier) subscribe() {
 	// Not implemented.
-	n.log.Warn("not supported on windows")
+	n.log.Warn("signal-based notify not supported on Windows")
 }

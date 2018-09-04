@@ -14,8 +14,7 @@ func (n *Notifier) subscribe() {
 	go func() {
 		n.log.Info("subscribed to SIGUSR2")
 		for range c {
-			n.log.Info("got signal")
-			n.C <- struct{}{}
+			n.Notify()
 		}
 	}()
 }

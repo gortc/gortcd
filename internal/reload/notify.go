@@ -8,6 +8,12 @@ type Notifier struct {
 	C   chan struct{}
 }
 
+// Notify about options reload request.
+func (n *Notifier) Notify() {
+	n.log.Info("notify")
+	n.C <- struct{}{}
+}
+
 // NewNotifier initializes and returns new notifier.
 func NewNotifier(l *zap.Logger) *Notifier {
 	n := &Notifier{
