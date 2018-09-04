@@ -30,6 +30,10 @@ server:
   # prometheus:
     # addr: "localhost:3255"
 
+# Management API.
+api:
+  addr: "localhost:3257"
+
 auth:
   # if true, no credentials are checked
   public: false

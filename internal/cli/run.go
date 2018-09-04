@@ -15,6 +15,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/gortc/gortcd/internal/manage"
+
 	"github.com/mitchellh/go-homedir"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -310,6 +312,16 @@ var rootCmd = &cobra.Command{
 				l.Info("config updated")
 			}
 		}()
+		if apiAddr := viper.GetString("api.addr"); len(apiAddr) != 0 {
+			m := manage.NewManager(n)
+			l.Info("api listening", zap.String("addr", apiAddr))
+			if listenErr := http.ListenAndServe(apiAddr, m); listenErr != nil {
+				l.Error("failed to listen on management API addr",
+					zap.String("addr", apiAddr),
+					zap.Error(listenErr),
+				)
+			}
+		}
 		if viper.GetBool("auth.public") {
 			l.Warn("auth is public")
 		} else {
