@@ -30,8 +30,8 @@ too, but not used by default.
 Please see [gortc.yml](https://github.com/gortc/gortcd/blob/master/gortcd.yml)
 for configuration tips. Server listens on all available interfaces by default,
 STUN is public, TURN is private and no credentials are valid (nobody can't auth).
-Send `SIGUSR2` to reload config or use `GET /reload` endpoint (see `api.addr` in config)
-of management api (not all options support live config reload).
+Send `SIGUSR2` to reload config or use `gortcd reload` command (not all
+options support live config reload).
 
 Server searches for `gortc.yml` in current directory, in the
 `/etc/gortcd/` and in home directory.
