@@ -365,7 +365,7 @@ var rootCmd = &cobra.Command{
 
 var cfgFile string
 
-func initSnapConfig() {
+func initConfigSnap() {
 	var (
 		cfgRoot = os.Getenv("SNAP_USER_DATA")
 	)
@@ -418,7 +418,7 @@ func initConfig() {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		if os.Getenv("SNAP_NAME") != "" {
-			initSnapConfig()
+			initConfigSnap()
 		} else {
 			initConfigCommon()
 		}
