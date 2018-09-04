@@ -487,6 +487,7 @@ func TestServer_processAllocationRequest(t *testing.T) {
 		username, peer, stun.Fingerprint,
 	)
 	ctx := &context{
+		cfg:      s.cfg.Load().(config),
 		request:  new(stun.Message),
 		response: new(stun.Message),
 	}

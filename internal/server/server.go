@@ -25,7 +25,6 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	realm    stun.Realm
 	addr     turn.Addr
 	log      *zap.Logger
 	allocs   *allocator.Allocator
@@ -43,6 +42,7 @@ type Server struct {
 // Currently supported:
 //	* AuthForSTUN
 //	* Software
+//  * Realm
 //	* PeerRule
 //	* ClientRule
 func (s *Server) setOptions(opt Options) {
@@ -124,7 +124,6 @@ func New(o Options) (*Server, error) {
 		o.ClientRule = filter.AllowAll
 	}
 	s := &Server{
-		realm:  stun.NewRealm(o.Realm),
 		auth:   o.Auth,
 		nonce:  o.NonceManager,
 		conn:   o.Conn,
@@ -452,7 +451,7 @@ func (s *Server) processMessage(ctx *context) error {
 		return nil
 	}
 	ctx.software = ctx.cfg.software
-	ctx.realm = s.realm
+	ctx.realm = ctx.cfg.realm
 	if ce := s.log.Check(zapcore.DebugLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
 	}

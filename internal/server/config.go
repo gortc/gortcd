@@ -8,6 +8,7 @@ import (
 )
 
 type config struct {
+	realm           stun.Realm
 	maxLifetime     time.Duration
 	defaultLifetime time.Duration
 	workers         int
@@ -26,5 +27,6 @@ func newConfig(options Options) config {
 		software:        stun.NewSoftware(options.Software),
 		clientFilter:    options.ClientRule,
 		peerFilter:      options.PeerRule,
+		realm:           stun.NewRealm(options.Realm),
 	}
 }
