@@ -217,7 +217,11 @@ var rootCmd = &cobra.Command{
 		if buildErr != nil {
 			panic(buildErr)
 		}
-		l.Info("config file used", zap.String("path", viper.ConfigFileUsed()))
+		if cfgPath := viper.ConfigFileUsed(); len(cfgPath) > 0 {
+			l.Info("config file used", zap.String("path", viper.ConfigFileUsed()))
+		} else {
+			l.Info("default configuration used")
+		}
 		if strings.Split(viper.GetString("version"), ".")[0] != "1" {
 			l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
 		}
@@ -313,6 +317,7 @@ var rootCmd = &cobra.Command{
 		}
 		wg := new(sync.WaitGroup)
 		for _, addr := range viper.GetStringSlice("server.listen") {
+			l.Info("got addr", zap.String("addr", addr))
 			normalized := normalize(addr)
 			if strings.HasPrefix(normalized, "0.0.0.0") {
 				l.Warn("running on all interfaces")
@@ -425,8 +430,12 @@ func initConfig() {
 		viper.SetConfigName("gortcd")
 		viper.SetConfigType("yaml")
 	}
-	if err := viper.ReadInConfig(); err != nil {
-		log.Fatalln("failed to read config:", err)
+	cfgErr := viper.ReadInConfig()
+	if _, ok := cfgErr.(viper.ConfigFileNotFoundError); ok {
+		cfgErr = viper.ReadConfig(strings.NewReader(defaultConfigFileContent))
+	}
+	if cfgErr != nil {
+		log.Fatalln("failed to read config:", cfgErr)
 	}
 }
 

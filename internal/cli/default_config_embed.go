@@ -1,7 +1,6 @@
 package cli
 
 const defaultConfigFileContent = `---
----
 # The only valid version is currently 1, but there are no backward
 # compatibility until gortcd reached v1.0.0. After that, config file
 # will be versioned.
