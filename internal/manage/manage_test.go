@@ -4,6 +4,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"go.uber.org/zap"
 )
 
 type notifierFunc func()
@@ -17,7 +19,7 @@ func TestManager_ServeHTTP(t *testing.T) {
 	notifier := notifierFunc(func() {
 		notified = true
 	})
-	s := httptest.NewServer(NewManager(notifier))
+	s := httptest.NewServer(NewManager(zap.NewNop(), notifier))
 	defer s.Close()
 	c := s.Client()
 	res, err := c.Get("http://" + s.Listener.Addr().String() + "/reload")

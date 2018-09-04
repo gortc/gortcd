@@ -26,7 +26,7 @@ var reloadCmd = &cobra.Command{
 		}
 		if silent {
 			// Override level to silent logs.
-			logCfg.Level.SetLevel(zapcore.ErrorLevel)
+			logCfg.Level.SetLevel(zapcore.WarnLevel)
 		}
 		log, buildErr := logCfg.Build()
 		if buildErr != nil {
@@ -56,7 +56,9 @@ var reloadCmd = &cobra.Command{
 			)
 		}
 		body := new(bytes.Buffer)
-		io.Copy(body, res.Body)
+		if _, err = io.Copy(body, res.Body); err != nil {
+			l.Warn("failed to read body", "err", err)
+		}
 		fmt.Println("OK", "-", strings.TrimSpace(body.String()))
 	},
 }
