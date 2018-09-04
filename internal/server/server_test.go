@@ -89,7 +89,7 @@ func TestServer_processBindingRequest(t *testing.T) {
 	addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 	m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
 	ctx := &context{
-		cfg:      s.cfg.Load().(config),
+		cfg:      s.config(),
 		request:  new(stun.Message),
 		response: new(stun.Message),
 	}
@@ -123,7 +123,7 @@ func TestServer_processBindingRequest(t *testing.T) {
 		addr := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 34567}
 		m := stun.MustBuild(stun.BindingRequest, stun.Fingerprint)
 		ctx := &context{
-			cfg:      s.cfg.Load().(config),
+			cfg:      s.config(),
 			request:  new(stun.Message),
 			response: new(stun.Message),
 		}
@@ -228,6 +228,7 @@ func TestServer_processChannelData(t *testing.T) {
 	}
 	m.Encode()
 	ctx := &context{
+		cfg:      s.config(),
 		request:  new(stun.Message),
 		response: new(stun.Message),
 		cdata:    new(turn.ChannelData),
@@ -320,7 +321,7 @@ func TestServer_processChannelBinding(t *testing.T) {
 		stun.Fingerprint,
 	)
 	ctx := &context{
-		cfg:      s.cfg.Load().(config),
+		cfg:      s.config(),
 		request:  new(stun.Message),
 		response: new(stun.Message),
 		cdata:    new(turn.ChannelData),
@@ -487,7 +488,7 @@ func TestServer_processAllocationRequest(t *testing.T) {
 		username, peer, stun.Fingerprint,
 	)
 	ctx := &context{
-		cfg:      s.cfg.Load().(config),
+		cfg:      s.config(),
 		request:  new(stun.Message),
 		response: new(stun.Message),
 	}

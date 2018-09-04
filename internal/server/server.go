@@ -37,6 +37,10 @@ type Server struct {
 	cfg      atomic.Value
 }
 
+func (s *Server) config() config {
+	return s.cfg.Load().(config)
+}
+
 // setOptions updates subset of current server configuration.
 //
 // Currently supported:
@@ -612,7 +616,7 @@ func (s *Server) worker() {
 		copy(ctx.buf, buf)
 		ctx.buf = ctx.buf[:n]
 		ctx.server = s.addr
-		ctx.cfg = s.cfg.Load().(config)
+		ctx.cfg = s.config()
 		// Spawning serve goroutine.
 		go func(clientAddr net.Addr, context *context) {
 			if serveErr := s.serveConn(clientAddr, context); serveErr != nil {
@@ -625,7 +629,7 @@ func (s *Server) worker() {
 
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
-	cfg := s.cfg.Load().(config)
+	cfg := s.config()
 	for i := 0; i < cfg.workers; i++ {
 		s.wg.Add(1)
 		go s.worker()
