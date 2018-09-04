@@ -1,12 +1,33 @@
 package server
 
 import (
+	"sync"
 	"time"
 
 	"github.com/gortc/gortcd/internal/filter"
 	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
+
+var contextPool = &sync.Pool{
+	New: func() interface{} {
+		return &context{
+			cdata:    new(turn.ChannelData),
+			response: new(stun.Message),
+			request:  new(stun.Message),
+			buf:      make([]byte, 2048),
+		}
+	},
+}
+
+func acquireContext() *context {
+	return contextPool.Get().(*context)
+}
+
+func putContext(ctx *context) {
+	ctx.reset()
+	contextPool.Put(ctx)
+}
 
 type context struct {
 	cfg       config
