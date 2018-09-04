@@ -21,7 +21,6 @@ type context struct {
 	nonce     stun.Nonce
 	realm     stun.Realm
 	integrity stun.MessageIntegrity
-	software  stun.Software
 	buf       []byte // buf request
 }
 
@@ -52,7 +51,6 @@ func (c *context) reset() {
 	c.nonce = c.nonce[:0]
 	c.realm = c.realm[:0]
 	c.integrity = nil
-	c.software = c.software[:0]
 	c.buf = c.buf[:cap(c.buf)]
 	for i := range c.buf {
 		c.buf[i] = 0
@@ -91,8 +89,8 @@ func (c *context) build(class stun.MessageClass, method stun.Method, s ...stun.S
 	if err := c.apply(&c.nonce, &c.realm); err != nil {
 		return err
 	}
-	if len(c.software) > 0 {
-		if err := c.software.AddTo(c.response); err != nil {
+	if len(c.cfg.software) > 0 {
+		if err := c.cfg.software.AddTo(c.response); err != nil {
 			return err
 		}
 	}

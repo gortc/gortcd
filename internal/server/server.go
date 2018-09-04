@@ -450,7 +450,6 @@ func (s *Server) processMessage(ctx *context) error {
 		}
 		return nil
 	}
-	ctx.software = ctx.cfg.software
 	ctx.realm = ctx.cfg.realm
 	if ce := s.log.Check(zapcore.DebugLevel, "got message"); ce != nil {
 		ce.Write(zap.Stringer("m", ctx.request), zap.Stringer("addr", ctx.client))
