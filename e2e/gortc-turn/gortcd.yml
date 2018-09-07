@@ -15,7 +15,8 @@ server:
   listen:
     - 0.0.0.0:3478
   realm: realm
-
+api:
+  addr: 0.0.0.0:3257
 auth:
   public: false
   stun: true
