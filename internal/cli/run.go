@@ -9,13 +9,13 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"sync"
 
-	"github.com/gortc/gortcd/internal/manage"
+	"github.com/libp2p/go-reuseport"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,6 +28,7 @@ import (
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/filter"
+	"github.com/gortc/gortcd/internal/manage"
 	"github.com/gortc/gortcd/internal/reload"
 	"github.com/gortc/gortcd/internal/server"
 	"github.com/gortc/ice"
@@ -36,11 +37,19 @@ import (
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
 func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
-	c, err := net.ListenPacket(serverNet, laddr)
+	var (
+		c   net.PacketConn
+		err error
+	)
+	opt := u.Get()
+	if reuseport.Available() && opt.ReusePort {
+		c, err = reuseport.ListenPacket(serverNet, laddr)
+	} else {
+		c, err = net.ListenPacket(serverNet, laddr)
+	}
 	if err != nil {
 		return err
 	}
-	opt := u.Get()
 	opt.Conn = c
 	s, err := server.New(opt)
 	if err != nil {
@@ -191,6 +200,7 @@ func parseOptions(l *zap.Logger, o *server.Options) error {
 	o.Workers = viper.GetInt("server.workers")
 	o.AuthForSTUN = viper.GetBool("auth.stun")
 	o.Software = viper.GetString("server.software")
+	o.ReusePort = viper.GetBool("server.reuseport")
 	filterLog := l.Named("filter")
 	var parseErr error
 	if o.PeerRule, parseErr = parseFilteringRules(filterLog, "peer"); parseErr != nil {
@@ -246,7 +256,13 @@ var rootCmd = &cobra.Command{
 		if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
 			l.Warn("running pprof", zap.String("addr", pprofAddr))
 			go func() {
-				if listenErr := http.ListenAndServe(pprofAddr, nil); listenErr != nil {
+				pprofMux := http.NewServeMux()
+				pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+				pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+				pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+				pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+				pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+				if listenErr := http.ListenAndServe(pprofAddr, pprofMux); listenErr != nil {
 					l.Error("pprof failed to listen",
 						zap.String("addr", pprofAddr),
 						zap.Error(listenErr),
@@ -464,11 +480,14 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/gortcd.yml)")
 	rootCmd.Flags().StringArrayP("listen", "l", []string{"0.0.0.0:3478"}, "listen address")
 	rootCmd.Flags().String("pprof", "", "pprof address if specified")
+	rootCmd.Flags().String("cpuprofile", "", "write cpu profile")
 	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
 	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
-	viper.SetDefault("server.workers", runtime.GOMAXPROCS(0))
+	mustBind(viper.BindPFlag("server.cpuprofile", rootCmd.Flags().Lookup("cpuprofile")))
+	viper.SetDefault("server.workers", 100)
 	viper.SetDefault("auth.stun", false)
 	viper.SetDefault("version", "1")
+	viper.SetDefault("server.reuseport", true)
 }
 
 // Execute starts root command.

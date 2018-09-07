@@ -103,6 +103,34 @@ Supported TURN authentication mechanisms:
 
 Project supports all platforms that [supports](https://github.com/golang/go/wiki/MinimumRequirements#minimum-requirements) go.
 
+# Benchmarks
+
+Currently server is under active development, but some benchmarks are
+already available. The [stun-bench](https://github.com/gortc/stun/blob/master/cmd/stun-bench/main.go)
+is simple stun benchmark that performs binding request transactions.
+
+Results for gortcd v0.17.4 on Ubuntu 16.04, client and server share one
+machine with Intel 8700k CPU:
+```bash
+$ ./stun-bench -w 50 -d 5s
+workers started
+rps: 580606
+total: 2903188
+```
+The memory consumption was constant `13 348kb`.
+
+Just to compare, the coturn:
+```bash
+$ ./stun-bench -w 50 -d 5s
+workers started
+rps: 627709
+total: 3138656
+```
+The memory consumption was constant `15 068kb`.
+
+Please interpret results carefully, the coturn server is much more
+functional.
+
 # Testing
 
 Server behavior is tested and verified in many ways:

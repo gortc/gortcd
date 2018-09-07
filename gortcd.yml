@@ -10,10 +10,12 @@ server:
     level: "info"
     disableCaller: true
     disableStacktrace: true
-  # count of listeners on one UDP socket,
-  # each transaction is handled in separate goroutine,
-  # so can be even 1
-  workers: 4
+  # use REUSEPORT sockets if available, dramatically
+  # improves the performance on multi-threaded systems.
+  reuseport: true
+  # maximum count of concurrent workers that process request,
+  # use to limit memory consumption.
+  workers: 100
   listen:
     - 0.0.0.0:3478
   # default realm

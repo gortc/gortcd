@@ -1,6 +1,7 @@
 package server
 
 import (
+	"net"
 	"sync"
 	"time"
 
@@ -30,6 +31,8 @@ func putContext(ctx *context) {
 }
 
 type context struct {
+	addr      net.Addr
+	conn      net.PacketConn
 	cfg       config
 	time      time.Time
 	client    turn.Addr
@@ -60,6 +63,8 @@ func (c *context) setTuple() {
 }
 
 func (c *context) reset() {
+	c.addr = nil
+	c.conn = nil
 	c.cfg = config{}
 	c.time = time.Time{}
 	c.client = turn.Addr{}

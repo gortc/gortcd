@@ -1,13 +1,14 @@
 package server
 
 import (
+	"io"
 	"net"
-	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/libp2p/go-reuseport"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
@@ -25,16 +26,19 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	addr     turn.Addr
-	log      *zap.Logger
-	allocs   *allocator.Allocator
-	conn     net.PacketConn
-	auth     Auth
-	nonce    NonceManager
-	close    chan struct{}
-	wg       sync.WaitGroup
-	handlers map[stun.MessageType]handleFunc
-	cfg      atomic.Value
+	addr      turn.Addr
+	log       *zap.Logger
+	allocs    *allocator.Allocator
+	conn      net.PacketConn
+	auth      Auth
+	nonce     NonceManager
+	close     chan struct{}
+	wg        sync.WaitGroup
+	handlers  map[stun.MessageType]handleFunc
+	pool      *workerPool
+	conns     []io.Closer
+	reusePort bool
+	cfg       atomic.Value
 }
 
 func (s *Server) config() config {
@@ -63,13 +67,14 @@ type Options struct {
 	CollectRate   time.Duration
 	ManualStart   bool // don't start bg activity
 	AuthForSTUN   bool // require auth for binding requests
-	Workers       int
+	Workers       int  // maximum workers count
 	Registry      MetricsRegistry
 	Labels        prometheus.Labels
 	NonceDuration time.Duration // no nonce rotate if 0
 	NonceManager  NonceManager  // optional nonce manager implementation
 	PeerRule      filter.Rule
 	ClientRule    filter.Rule // filtering rule for listeners
+	ReusePort     bool        // spawn more sockets on same port if available
 }
 
 // Auth represents message authenticator.
@@ -93,7 +98,7 @@ func New(o Options) (*Server, error) {
 		o.Log = zap.NewNop()
 	}
 	if o.Workers == 0 {
-		o.Workers = runtime.GOMAXPROCS(0)
+		o.Workers = 100
 	}
 	if o.CollectRate == 0 {
 		o.CollectRate = time.Second
@@ -123,11 +128,12 @@ func New(o Options) (*Server, error) {
 		o.ClientRule = filter.AllowAll
 	}
 	s := &Server{
-		auth:   o.Auth,
-		nonce:  o.NonceManager,
-		conn:   o.Conn,
-		allocs: allocs,
-		close:  make(chan struct{}),
+		auth:      o.Auth,
+		nonce:     o.NonceManager,
+		conn:      o.Conn,
+		allocs:    allocs,
+		close:     make(chan struct{}),
+		reusePort: reuseport.Available() && o.ReusePort,
 	}
 	s.cfg.Store(newConfig(o))
 	s.setHandlers()
@@ -145,6 +151,11 @@ func New(o Options) (*Server, error) {
 		if err := o.Registry.Register(s.allocs); err != nil {
 			return nil, errors.Wrap(err, "failed to register")
 		}
+	}
+	s.pool = &workerPool{
+		Logger:          s.log.Named("pool"),
+		WorkerFunc:      s.serveConn,
+		MaxWorkersCount: o.Workers,
 	}
 	return s, nil
 }
@@ -188,6 +199,11 @@ func (s *Server) Close() error {
 	if err := s.conn.Close(); err != nil {
 		s.log.Warn("failed to close connection", zap.Error(err))
 	}
+	for _, conn := range s.conns {
+		if err := conn.Close(); err != nil {
+			s.log.Warn("failed to close connection", zap.Error(err))
+		}
+	}
 	s.wg.Wait()
 	return nil
 }
@@ -212,17 +228,17 @@ func (s *Server) process(ctx *context) error {
 	}
 }
 
-func (s *Server) serveConn(addr net.Addr, ctx *context) error {
+func (s *Server) serveConn(ctx *context) error {
 	ctx.time = time.Now()
 	ctx.request.Raw = ctx.buf
 	ctx.cdata.Raw = ctx.buf
-	switch a := addr.(type) {
+	switch a := ctx.addr.(type) {
 	case *net.UDPAddr:
 		ctx.client.FromUDPAddr(a)
 		ctx.proto = turn.ProtoUDP
 	default:
-		s.log.Error("unknown addr", zap.Stringer("addr", addr))
-		return errors.Errorf("unknown addr %s", addr)
+		s.log.Error("unknown addr", zap.Stringer("addr", ctx.addr))
+		return errors.Errorf("unknown addr %s", ctx.addr)
 	}
 	if !ctx.allowClient(ctx.client) {
 		if ce := s.log.Check(zapcore.DebugLevel, "client denied"); ce != nil {
@@ -243,10 +259,10 @@ func (s *Server) serveConn(addr net.Addr, ctx *context) error {
 		// Indication.
 		return nil
 	}
-	if setErr := s.conn.SetWriteDeadline(ctx.time.Add(time.Second)); setErr != nil {
+	if setErr := ctx.conn.SetWriteDeadline(ctx.time.Add(time.Second)); setErr != nil {
 		s.log.Warn("failed to set deadline", zap.Error(setErr))
 	}
-	_, writeErr := s.conn.WriteTo(ctx.response.Raw, addr)
+	_, writeErr := ctx.conn.WriteTo(ctx.response.Raw, ctx.addr)
 	if writeErr != nil && !isErrConnClosed(writeErr) {
 		s.log.Warn("writeTo failed", zap.Error(writeErr))
 		return writeErr
@@ -258,7 +274,7 @@ func isErrConnClosed(err error) bool {
 	return strings.HasSuffix(err.Error(), "use of closed network connection")
 }
 
-func (s *Server) worker() {
+func (s *Server) worker(conn net.PacketConn) {
 	defer s.wg.Done()
 	s.log.Debug("worker started")
 	defer s.log.Debug("worker done")
@@ -270,36 +286,52 @@ func (s *Server) worker() {
 		default:
 			// pass
 		}
-		n, addr, err := s.conn.ReadFrom(buf)
+		n, addr, err := conn.ReadFrom(buf)
 		if err != nil {
 			if !isErrConnClosed(err) {
 				s.log.Warn("readFrom failed", zap.Error(err))
 			}
 			break
 		}
+
 		// Preparing context.
 		ctx := acquireContext()
+		ctx.conn = conn
 		ctx.buf = ctx.buf[:cap(ctx.buf)]
 		copy(ctx.buf, buf)
+		ctx.addr = addr
 		ctx.buf = ctx.buf[:n]
 		ctx.server = s.addr
 		ctx.cfg = s.config()
-		// Spawning serve goroutine.
-		go func(clientAddr net.Addr, context *context) {
-			if serveErr := s.serveConn(clientAddr, context); serveErr != nil {
-				s.log.Error("serveConn failed", zap.Error(serveErr))
+
+		for i := 0; i < 7; i++ {
+			if s.pool.Serve(ctx) {
+				break
 			}
-			putContext(context)
-		}(addr, ctx)
+			s.log.Warn("not enough workers")
+			time.Sleep(time.Millisecond * 300)
+		}
 	}
 }
 
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
 	cfg := s.config()
+	s.pool.Start()
 	for i := 0; i < cfg.workers; i++ {
 		s.wg.Add(1)
-		go s.worker()
+		if s.reusePort {
+			s.log.Info("reusing port for worker", zap.Int("w", i))
+			laddr := s.conn.LocalAddr()
+			conn, err := reuseport.ListenPacket(laddr.Network(), laddr.String())
+			if err != nil {
+				return err
+			}
+			s.conns = append(s.conns, conn)
+			go s.worker(conn)
+		} else {
+			go s.worker(s.conn)
+		}
 	}
 	s.wg.Wait()
 	return nil
