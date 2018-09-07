@@ -36,7 +36,7 @@ func newLogger() *zap.Logger {
 	logCfg.DisableStacktrace = true
 	start := time.Now()
 	logCfg.EncoderConfig.EncodeTime = func(t time.Time, enc zapcore.PrimitiveArrayEncoder) {
-		d := int64(time.Since(start).Nanoseconds() / 1e6)
+		d := time.Since(start).Nanoseconds() / 1e6
 		enc.AppendString(fmt.Sprintf("%04d", d))
 	}
 	logger, err := logCfg.Build()
