@@ -10,7 +10,7 @@ server:
     encoderConfig:
       levelEncoder: capital
       timeEncoder: iso8601
-  workers: 1
+  workers: 100
   check_fingerprint: true
   listen:
     - 0.0.0.0:3478
