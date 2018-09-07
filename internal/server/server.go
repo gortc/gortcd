@@ -3,6 +3,7 @@ package server
 import (
 	"io"
 	"net"
+	"runtime"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -316,18 +317,19 @@ func (s *Server) worker(conn net.PacketConn) {
 
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
-	cfg := s.config()
 	s.pool.Start()
-	for i := 0; i < cfg.workers; i++ {
+	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
 		s.wg.Add(1)
 		if s.reusePort {
 			s.log.Info("reusing port for worker", zap.Int("w", i))
 			laddr := s.conn.LocalAddr()
 			conn, err := reuseport.ListenPacket(laddr.Network(), laddr.String())
 			if err != nil {
-				return err
+				s.log.Warn("failed to listen for additional socket")
+				conn = s.conn
+			} else {
+				s.conns = append(s.conns, conn)
 			}
-			s.conns = append(s.conns, conn)
 			go s.worker(conn)
 		} else {
 			go s.worker(s.conn)
