@@ -4,7 +4,7 @@ lint:
 	@echo "linting on $(PROCS) cores"
 	@gometalinter -e "\.String\(\).+gocyclo" \
 		-e "(_test.go|e2e).+(gocyclo|errcheck|dupl|lll|vetshadow)" \
-		-e "e2e\/.+(gosec)" \
+		-e "e2e\/.+(gosec|unparam)" \
 		-e "(e2e|gortcd-turn-client|gortcd-turn-client)\/.+(gosec|errcheck)" \
 		-e "commands\/.+(lll)" \
 		-e "isZeroOrMore is a pure function but its return value is ignored" \
