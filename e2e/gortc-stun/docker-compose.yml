@@ -1,0 +1,21 @@
+version: '3'
+
+services:
+  stun-client:
+    depends_on:
+      - turn-server
+    links:
+      - turn-server
+    build:
+      context: stun-client
+      dockerfile: "Dockerfile"
+      args:
+        CI_GO_VERSION: latest
+  turn-server:
+    build:
+      context: ../..
+      dockerfile: "e2e/gortc-stun/server.Dockerfile"
+networks:
+  default:
+    external:
+      name: gortcd_e2e_stun
