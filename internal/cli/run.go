@@ -303,6 +303,11 @@ var rootCmd = &cobra.Command{
 			Log:      l,
 			Registry: reg,
 		}
+		if viper.GetBool("auth.public") {
+			l.Warn("auth is public")
+		} else {
+			o.Auth = auth.NewStatic(staticCredentials)
+		}
 		if parseErr := parseOptions(l, &o); parseErr != nil {
 			l.Fatal("failed to parse", zap.Error(parseErr))
 		}
@@ -340,11 +345,7 @@ var rootCmd = &cobra.Command{
 				}
 			}()
 		}
-		if viper.GetBool("auth.public") {
-			l.Warn("auth is public")
-		} else {
-			o.Auth = auth.NewStatic(staticCredentials)
-		}
+
 		wg := new(sync.WaitGroup)
 		for _, addr := range viper.GetStringSlice("server.listen") {
 			l.Info("got addr", zap.String("addr", addr))
