@@ -16,6 +16,7 @@ lint:
 		-e "n can be fmt.Stringer" \
 		-e "server.+struct of size 184 could be 176" \
 		-e "worker_pool.+struct of size 120 could be 112" \
+		-e "reload.go.+Potential HTTP request made with variable url" \
 		--enable-all \
 		--enable="lll" --line-length=120 \
 		--disable=gocyclo \
