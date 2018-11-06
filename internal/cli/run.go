@@ -16,7 +16,6 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-reuseport"
-
 	"github.com/mitchellh/go-homedir"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
