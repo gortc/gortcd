@@ -4,9 +4,10 @@ sudo: false
 
 os:
   - linux
+  - osx
 
 go:
-  - stable
+  - "go1.11"
 
 install: true
 

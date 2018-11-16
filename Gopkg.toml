@@ -24,7 +24,7 @@ ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner",
 
 [[constraint]]
   name = "github.com/gortc/stun"
-  version = "1.17.2"
+  version = "1.18.2"
 
 [[constraint]]
   name = "github.com/pkg/errors"

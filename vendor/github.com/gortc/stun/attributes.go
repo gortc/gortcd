@@ -74,6 +74,11 @@ const (
 	AttrReservationToken   AttrType = 0x0022 // RESERVATION-TOKEN
 )
 
+// Attributes from RFC 6062 TURN Extensions for TCP Allocations.
+const (
+	AttrConnectionID AttrType = 0x002a // CONNECTION-ID
+)
+
 // Attributes from RFC 6156 TURN IPv6.
 const (
 	AttrRequestedAddressFamily AttrType = 0x0017 // REQUESTED-ADDRESS-FAMILY
@@ -114,6 +119,7 @@ var attrNames = map[AttrType]string{
 	AttrRequestedTransport:     "REQUESTED-TRANSPORT",
 	AttrDontFragment:           "DONT-FRAGMENT",
 	AttrReservationToken:       "RESERVATION-TOKEN",
+	AttrConnectionID:           "CONNECTION-ID",
 	AttrRequestedAddressFamily: "REQUESTED-ADDRESS-FAMILY",
 	AttrOrigin:                 "ORIGIN",
 }
@@ -138,6 +144,13 @@ type RawAttribute struct {
 	Type   AttrType
 	Length uint16 // ignored while encoding
 	Value  []byte
+}
+
+// AddTo implements Setter, adding attribute as a.Type with a.Value and ignoring
+// the Length field.
+func (a RawAttribute) AddTo(m *Message) error {
+	m.Add(a.Type, a.Value)
+	return nil
 }
 
 // Equal returns true if a == b.
