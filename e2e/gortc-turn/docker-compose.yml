@@ -2,6 +2,7 @@ version: '3'
 
 services:
   turn-peer:
+    container_name: ci_turn-peer_1
     entrypoint:
       - turn-client
       - peer
@@ -15,6 +16,7 @@ services:
       args:
         CI_GO_VERSION: latest
   turn-client:
+    container_name: ci_turn-client_1
     depends_on:
       - turn-server
       - turn-peer
@@ -27,6 +29,7 @@ services:
       args:
         CI_GO_VERSION: latest
   turn-server:
+    container_name: ci_turn-server_1
     build:
       context: ../..
       dockerfile: "e2e/gortc-turn/server.Dockerfile"

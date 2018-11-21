@@ -2,6 +2,7 @@ version: '3'
 
 services:
   coturn-client:
+    container_name: ci_coturn-client_1
     entrypoint:
       - ./usr/bin/turnutils_uclient
       - "-u"
@@ -20,14 +21,16 @@ services:
       - turn-server
     image: gortc/coturn
   coturn-peer:
+    container_name: ci_coturn-peer_1
     entrypoint:
       - ./usr/bin/turnutils_peer
     depends_on:
       - turn-server
     links:
       - turn-server
-    image: gortc/coturn    
+    image: gortc/coturn
   turn-server:
+    container_name: ci_turn-server_1
     build:
       context: ../..
       dockerfile: e2e/coturn-client/server.Dockerfile

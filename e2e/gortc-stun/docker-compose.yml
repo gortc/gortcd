@@ -2,6 +2,7 @@ version: '3'
 
 services:
   stun-client:
+    container_name: ci_stun-client_1
     depends_on:
       - turn-server
     links:
@@ -12,6 +13,7 @@ services:
       args:
         CI_GO_VERSION: latest
   turn-server:
+    container_name: ci_turn-server_1
     build:
       context: ../..
       dockerfile: "e2e/gortc-stun/server.Dockerfile"
