@@ -53,12 +53,12 @@
   version = "v1.18.2"
 
 [[projects]]
-  digest = "1:23026e48447810c74917745cbec993620f625396a3c88290bd27b273abc51dff"
+  digest = "1:b727140997993a29c318c421ed1e559744c17ea6756af67ce608237730144f5a"
   name = "github.com/gortc/turn"
   packages = ["."]
   pruneopts = "UT"
-  revision = "5935d57d0beb0d75a51287fdcea64a493479b691"
-  version = "v0.5.3"
+  revision = "ab450b60e25e0b0188a9337b18e8e144b910e845"
+  version = "v0.6.7"
 
 [[projects]]
   branch = "master"

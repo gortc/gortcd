@@ -1,11 +1,9 @@
 package turn
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net"
-	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -25,51 +23,6 @@ type multiplexer struct {
 	dataL, dataR net.Conn
 }
 
-type bypassWriter struct {
-	reader net.Conn
-	writer net.Conn
-}
-
-func (w bypassWriter) Close() error {
-	rErr := w.reader.Close()
-	wErr := w.writer.Close()
-	if rErr == nil && wErr == nil {
-		return nil
-	}
-	return fmt.Errorf("reader: %v, writer: %v", rErr, wErr)
-}
-
-func (w bypassWriter) LocalAddr() net.Addr {
-	return w.writer.LocalAddr()
-}
-
-func (w bypassWriter) Read(b []byte) (n int, err error) {
-	return w.reader.Read(b)
-}
-
-func (w bypassWriter) RemoteAddr() net.Addr {
-	return w.writer.RemoteAddr()
-}
-
-func (w bypassWriter) SetDeadline(t time.Time) error {
-	if err := w.writer.SetDeadline(t); err != nil {
-		return err
-	}
-	return w.reader.SetDeadline(t)
-}
-
-func (w bypassWriter) SetReadDeadline(t time.Time) error {
-	return w.reader.SetReadDeadline(t)
-}
-
-func (w bypassWriter) SetWriteDeadline(t time.Time) error {
-	return w.writer.SetWriteDeadline(t)
-}
-
-func (w bypassWriter) Write(b []byte) (n int, err error) {
-	return w.writer.Write(b)
-}
-
 func newMultiplexer(conn net.Conn, log *zap.Logger) *multiplexer {
 	m := &multiplexer{conn: conn, capacity: 1500, log: log}
 	m.stunL, m.stunR = net.Pipe()
@@ -80,22 +33,28 @@ func newMultiplexer(conn net.Conn, log *zap.Logger) *multiplexer {
 }
 
 func (m *multiplexer) discardData() {
-	_, err := io.Copy(ioutil.Discard, m.dataL)
+	discardLogged(m.log, "failed to discard dataL", m.dataL)
+}
+
+func discardLogged(l *zap.Logger, msg string, r io.Reader) {
+	l = l.WithOptions(zap.AddCallerSkip(1))
+	_, err := io.Copy(ioutil.Discard, r)
 	if err != nil {
-		m.log.Error("discard error", zap.Error(err))
+		l.Error(msg, zap.Error(err))
+	}
+}
+
+func closeLogged(l *zap.Logger, msg string, conn io.Closer) {
+	l = l.WithOptions(zap.AddCallerSkip(1))
+	if closeErr := conn.Close(); closeErr != nil {
+		l.Error(msg, zap.Error(closeErr))
 	}
 }
 
 func (m *multiplexer) close() {
-	if closeErr := m.turnR.Close(); closeErr != nil {
-		m.log.Error("failed to close turnR", zap.Error(closeErr))
-	}
-	if closeErr := m.stunR.Close(); closeErr != nil {
-		m.log.Error("failed to close stunR", zap.Error(closeErr))
-	}
-	if closeErr := m.dataR.Close(); closeErr != nil {
-		m.log.Error("failed to close dataR", zap.Error(closeErr))
-	}
+	closeLogged(m.log, "failed to close turnR", m.turnR)
+	closeLogged(m.log, "failed to close stunR", m.stunR)
+	closeLogged(m.log, "failed to close dataR", m.dataR)
 }
 
 func stunLog(ce *zapcore.CheckedEntry, data []byte) {
