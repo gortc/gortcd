@@ -4,22 +4,19 @@ services:
   coturn-client:
     container_name: ci_coturn-client_1
     entrypoint:
-      - ./usr/bin/turnutils_uclient
-      - "-u"
-      - "username"
-      - "-w"
-      - "secret"
-      - "-L"
-      - "coturn-client"
-      - "-e"
-      - "coturn-peer"
-      - "turn-server"
+      - ./usr/bin/client.sh
     depends_on:
       - turn-server
       - coturn-peer
     links:
       - turn-server
-    image: gortc/coturn
+    build:
+      context: ../..
+      dockerfile: e2e/coturn-client/client.Dockerfile
+      args:
+        CI_GO_VERSION: ${CI_GO_VERSION}
+    environment:
+      - CI_GO_VERSION
   coturn-peer:
     container_name: ci_coturn-peer_1
     entrypoint:
