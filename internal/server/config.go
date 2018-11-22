@@ -13,10 +13,10 @@ type config struct {
 	defaultLifetime time.Duration
 	workers         int
 	authForSTUN     bool
+	debugCollect    bool
 	software        stun.Software
 	peerFilter      filter.Rule
 	clientFilter    filter.Rule
-	debugCollect    bool
 }
 
 func newConfig(options Options) config {
