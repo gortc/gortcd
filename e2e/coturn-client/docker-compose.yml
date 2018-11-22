@@ -35,3 +35,7 @@ services:
         CI_GO_VERSION: ${CI_GO_VERSION}
     environment:
       - CI_GO_VERSION
+networks:
+  default:
+    external:
+      name: gortcd_e2e_stun

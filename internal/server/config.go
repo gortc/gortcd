@@ -16,6 +16,7 @@ type config struct {
 	software        stun.Software
 	peerFilter      filter.Rule
 	clientFilter    filter.Rule
+	debugCollect    bool
 }
 
 func newConfig(options Options) config {

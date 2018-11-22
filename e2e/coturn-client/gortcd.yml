@@ -15,6 +15,7 @@ server:
   listen:
     - 0.0.0.0:3478
   realm: realm
+  reuseport: false
 api:
   addr: 0.0.0.0:3257
 auth:

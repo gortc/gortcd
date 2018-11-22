@@ -179,7 +179,9 @@ func (s *Server) startCollect(rate time.Duration) {
 		for {
 			select {
 			case now := <-t.C:
-				s.log.Debug("collecting")
+				if s.config().debugCollect {
+					s.log.Debug("collecting")
+				}
 				s.collect(now)
 			case <-s.close:
 				return
