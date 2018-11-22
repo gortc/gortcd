@@ -25,7 +25,7 @@ trap 'cleanup ; printf "${RED}Tests Failed For Unexpected Reasons${NC}\n"'\
   HUP INT QUIT PIPE TERM
 
 # build and run the composed services
-docker-compose --no-ansi -p ci build && docker-compose --remove-orphans --no-ansi -p ci up -d
+docker-compose --no-ansi -p ci build && docker-compose --no-ansi -p ci up -d --remove-orphans
 if [ $? -ne 0 ] ; then
   printf "${RED}Docker Compose Failed${NC}\n"
   exit -1
