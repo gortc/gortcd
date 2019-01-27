@@ -29,5 +29,6 @@ func newConfig(options Options) config {
 		clientFilter:    options.ClientRule,
 		peerFilter:      options.PeerRule,
 		realm:           stun.NewRealm(options.Realm),
+		debugCollect:    options.DebugCollect,
 	}
 }

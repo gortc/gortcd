@@ -76,6 +76,7 @@ type Options struct {
 	PeerRule      filter.Rule
 	ClientRule    filter.Rule // filtering rule for listeners
 	ReusePort     bool        // spawn more sockets on same port if available
+	DebugCollect  bool        // debug collect calls
 }
 
 // Auth represents message authenticator.

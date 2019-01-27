@@ -26,6 +26,11 @@ server:
   # verify the FINGERPRINT attribute
   check_fingerprint: true
 
+  # options for debugging
+  debug:
+    # periodic pruning of allocations/permissions ("collect" calls)
+    collect: false
+
   # export pprof metrics
   # pprof: "localhost:3256"
   # export prometheus metrics

@@ -200,6 +200,7 @@ func parseOptions(l *zap.Logger, o *server.Options) error {
 	o.AuthForSTUN = viper.GetBool("auth.stun")
 	o.Software = viper.GetString("server.software")
 	o.ReusePort = viper.GetBool("server.reuseport")
+	o.DebugCollect = viper.GetBool("server.debug.collect")
 	filterLog := l.Named("filter")
 	var parseErr error
 	if o.PeerRule, parseErr = parseFilteringRules(filterLog, "peer"); parseErr != nil {
