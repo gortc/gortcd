@@ -54,6 +54,7 @@ func (s *Server) config() config {
 //	* Realm
 //	* PeerRule
 //	* ClientRule
+//  * DebugCollect
 func (s *Server) setOptions(opt Options) {
 	s.cfg.Store(newConfig(opt))
 }
