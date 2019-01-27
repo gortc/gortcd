@@ -279,7 +279,7 @@ func (s *Server) processMessage(ctx *context) error {
 			if ce := s.log.Check(zapcore.DebugLevel, "integrity required"); ce != nil {
 				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request))
 			}
-			return ctx.buildErr(stun.CodeUnauthorised)
+			return ctx.buildErr(stun.CodeUnauthorized)
 		}
 		if nonceErr == auth.ErrStaleNonce {
 			return ctx.buildErr(stun.CodeStaleNonce)
@@ -293,7 +293,7 @@ func (s *Server) processMessage(ctx *context) error {
 					zap.Error(err),
 				)
 			}
-			return ctx.buildErr(stun.CodeUnauthorised)
+			return ctx.buildErr(stun.CodeUnauthorized)
 		}
 	}
 	// Selecting handler based on request message type.
