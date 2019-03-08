@@ -32,7 +32,7 @@ func (d dummyErrNetPortAlloc) AllocatePort(proto turn.Protocol, network, default
 }
 
 var (
-	errDummyConnReadFrom = errors.New("ReadFrom")
+	errDummyConnReadFrom = errors.New("readFrom")
 	errDummyConnClosed   = errors.New("closed")
 )
 

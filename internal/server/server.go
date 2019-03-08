@@ -28,18 +28,18 @@ import (
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
 	addr      turn.Addr
-	log       *zap.Logger
-	allocs    *allocator.Allocator
+	conns     []io.Closer
 	conn      net.PacketConn
 	auth      Auth
 	nonce     NonceManager
+	cfg       atomic.Value
+	log       *zap.Logger
+	allocs    *allocator.Allocator
 	close     chan struct{}
-	wg        sync.WaitGroup
 	handlers  map[stun.MessageType]handleFunc
 	pool      *workerPool
-	conns     []io.Closer
+	wg        sync.WaitGroup
 	reusePort bool
-	cfg       atomic.Value
 }
 
 func (s *Server) config() config {
@@ -63,21 +63,21 @@ func (s *Server) setOptions(opt Options) {
 type Options struct {
 	Software      string // not adding SOFTWARE attribute if blank
 	Realm         string
-	Log           *zap.Logger
 	Auth          Auth // no authentication if nil
 	Conn          net.PacketConn
-	CollectRate   time.Duration
-	ManualStart   bool // don't start bg activity
-	AuthForSTUN   bool // require auth for binding requests
-	Workers       int  // maximum workers count
 	Registry      MetricsRegistry
-	Labels        prometheus.Labels
-	NonceDuration time.Duration // no nonce rotate if 0
-	NonceManager  NonceManager  // optional nonce manager implementation
+	NonceManager  NonceManager // optional nonce manager implementation
 	PeerRule      filter.Rule
 	ClientRule    filter.Rule // filtering rule for listeners
-	ReusePort     bool        // spawn more sockets on same port if available
-	DebugCollect  bool        // debug collect calls
+	Log           *zap.Logger
+	CollectRate   time.Duration
+	Workers       int // maximum workers count
+	Labels        prometheus.Labels
+	NonceDuration time.Duration // no nonce rotate if 0
+	ManualStart   bool          // don't start bg activity
+	AuthForSTUN   bool          // require auth for binding requests
+	ReusePort     bool          // spawn more sockets on same port if available
+	DebugCollect  bool          // debug collect calls
 }
 
 // Auth represents message authenticator.

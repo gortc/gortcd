@@ -42,11 +42,11 @@ var reloadCmd = &cobra.Command{
 			l.Fatalw("unsupported config file version", "v", viper.GetString("version"))
 		}
 		apiAddr := viper.GetString("api.addr")
-		if len(apiAddr) == 0 {
+		if apiAddr == "" {
 			l.Fatal("no api.addr config set")
 		}
 		u := "http://" + apiAddr + "/reload"
-		res, httpErr := http.Get(u)
+		res, httpErr := http.Get(u) // #nosec
 		if httpErr != nil {
 			l.Fatalw("failed to perform http request", "err", httpErr)
 		}

@@ -59,7 +59,7 @@ func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
 }
 
 func normalize(address string) string {
-	if len(address) == 0 {
+	if address == "" {
 		address = "0.0.0.0"
 	}
 	if !strings.Contains(address, ":") {
@@ -115,7 +115,7 @@ func getZapConfig() (zap.Config, error) {
 		// configuration.
 		d = zap.NewDevelopmentConfig()
 	}
-	if len(viper.ConfigFileUsed()) == 0 {
+	if viper.ConfigFileUsed() == "" {
 		return d, nil
 	}
 
@@ -333,7 +333,7 @@ var rootCmd = &cobra.Command{
 				l.Info("config updated")
 			}
 		}()
-		if apiAddr := viper.GetString("api.addr"); len(apiAddr) != 0 {
+		if apiAddr := viper.GetString("api.addr"); apiAddr == "" {
 			m := manage.NewManager(l.Named("api"), n)
 			go func() {
 				l.Info("api listening", zap.String("addr", apiAddr))

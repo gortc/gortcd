@@ -29,7 +29,7 @@ type nonce struct {
 	validUntil time.Time
 }
 
-func (n nonce) valid(t time.Time) bool {
+func (n *nonce) valid(t time.Time) bool {
 	return n.validUntil.IsZero() || n.validUntil.After(t)
 }
 

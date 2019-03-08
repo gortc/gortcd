@@ -30,6 +30,7 @@ func TestWorkerPoolStartStopConcurrent(t *testing.T) {
 }
 
 func testWorkerPoolStartStop(t *testing.T) {
+	t.Helper()
 	wp := &workerPool{
 		WorkerFunc:      func(c *context) error { return nil },
 		MaxWorkersCount: 10,
