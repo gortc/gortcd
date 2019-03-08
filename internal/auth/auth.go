@@ -41,10 +41,7 @@ func (s *Static) Auth(m *stun.Message) (stun.MessageIntegrity, error) {
 		return nil, err
 	}
 	s.mux.RLock()
-	i := s.credentials[staticKey{
-		username: string(username),
-		realm:    string(realm),
-	}]
+	i := s.credentials[staticKey{username: string(username), realm: string(realm)}]
 	s.mux.RUnlock()
 	if i == nil {
 		return nil, errors.New("user not found")
@@ -59,19 +56,12 @@ func NewStatic(credentials []StaticCredential) *Static {
 		credentials: make(map[staticKey]stun.MessageIntegrity, len(credentials)),
 	}
 	for _, c := range credentials {
+		k := staticKey{username: c.Username, realm: c.Realm}
 		if len(c.Key) > 0 {
-			s.credentials[staticKey{
-				username: c.Username,
-				realm:    c.Realm,
-			}] = stun.MessageIntegrity(c.Key)
+			s.credentials[k] = stun.MessageIntegrity(c.Key)
 			continue
 		}
-		s.credentials[staticKey{
-			username: c.Username,
-			realm:    c.Realm,
-		}] = stun.NewLongTermIntegrity(
-			c.Username, c.Realm, c.Password,
-		)
+		s.credentials[k] = stun.NewLongTermIntegrity(c.Username, c.Realm, c.Password)
 	}
 	return s
 }

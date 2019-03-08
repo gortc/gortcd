@@ -110,9 +110,7 @@ func New(o Options) (*Server, error) {
 		o.Labels = prometheus.Labels{}
 	}
 	o.Labels["addr"] = o.Conn.LocalAddr().String()
-	netAlloc, err := allocator.NewNetAllocator(
-		o.Log.Named("port"), o.Conn.LocalAddr(), allocator.SystemPortAllocator{},
-	)
+	netAlloc, err := allocator.NewNetAllocator(o.Log.Named("port"), o.Conn.LocalAddr(), allocator.SystemPortAllocator{})
 	if err != nil {
 		return nil, err
 	}
@@ -247,9 +245,7 @@ func (s *Server) serveConn(ctx *context) error {
 	}
 	if !ctx.allowClient(ctx.client) {
 		if ce := s.log.Check(zapcore.DebugLevel, "client denied"); ce != nil {
-			ce.Write(
-				zap.Stringer("addr", ctx.client),
-			)
+			ce.Write(zap.Stringer("addr", ctx.client))
 		}
 		return nil
 	}

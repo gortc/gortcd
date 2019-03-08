@@ -1,7 +1,8 @@
 PROCS := $(shell nproc)
 prepush: test lint test-e2e
 lint:
-	@golangci-lint run
+	@golangci-lint run ./...
+	@echo "ok"
 install:
 	go get gortc.io/api
 	go get -u github.com/go-critic/go-critic/...

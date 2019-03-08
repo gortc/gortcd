@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
 	"github.com/gortc/turn"
 )
@@ -91,10 +92,9 @@ func (a *Allocator) SendBound(tuple turn.FiveTuple, n turn.ChannelNumber, data [
 		conn net.PacketConn
 		addr turn.Addr
 	)
-	a.log.Debug("searching for bound allocation",
-		zap.Stringer("tuple", tuple),
-		zap.Stringer("n", n),
-	)
+	if ce := a.log.Check(zapcore.DebugLevel, "searching for bound allocation"); ce != nil {
+		ce.Write(zap.Stringer("tuple", tuple), zap.Stringer("n", n))
+	}
 	a.allocsMux.RLock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(tuple) {

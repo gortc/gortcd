@@ -55,9 +55,7 @@ func newNonce() stun.Nonce {
 }
 
 // Check implements NonceManager.
-func (n *NonceAuth) Check(
-	tuple turn.FiveTuple, value stun.Nonce, at time.Time,
-) (stun.Nonce, error) {
+func (n *NonceAuth) Check(tuple turn.FiveTuple, value stun.Nonce, at time.Time) (stun.Nonce, error) {
 	n.mux.Lock()
 	defer n.mux.Unlock()
 	for i := range n.nonces {

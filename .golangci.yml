@@ -28,7 +28,6 @@ linters-settings:
 
 issues:
   exclude:
-    - "`assertHMACSize` - `blocksize` always receives `64`"
     - "hugeParam: (o|options|opt) is heavy"
     - "`n` can be `expvar.Var`"
     - "use strings.ReplaceAll method"

@@ -41,9 +41,4 @@ func (m Manager) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // NewManager initializes and returns Manager.
-func NewManager(l *zap.Logger, n Notifier) Manager {
-	return Manager{
-		l:        l,
-		notifier: n,
-	}
-}
+func NewManager(l *zap.Logger, n Notifier) Manager { return Manager{l: l, notifier: n} }

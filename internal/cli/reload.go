@@ -51,9 +51,7 @@ var reloadCmd = &cobra.Command{
 			l.Fatalw("failed to perform http request", "err", httpErr)
 		}
 		if res.StatusCode != http.StatusOK {
-			l.Fatalw("unexpected status code",
-				"code", res.StatusCode, "status", res.Status,
-			)
+			l.Fatalw("unexpected status code", "code", res.StatusCode, "status", res.Status)
 		}
 		body := new(bytes.Buffer)
 		if _, err = io.Copy(body, res.Body); err != nil {

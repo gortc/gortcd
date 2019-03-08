@@ -57,10 +57,7 @@ func StaticNetRule(action Action, subnet string) (Rule, error) {
 	if err != nil {
 		return nil, err
 	}
-	return subnetRule{
-		action: action,
-		net:    parsedNet,
-	}, nil
+	return subnetRule{action: action, net: parsedNet}, nil
 }
 
 type allowAll struct{}
@@ -98,9 +95,4 @@ func (f *List) Action(addr turn.Addr) Action {
 
 // NewFilter initializes and returns new List with provided default action
 // and rule list.
-func NewFilter(action Action, rules ...Rule) *List {
-	return &List{
-		rules:  rules,
-		action: action,
-	}
-}
+func NewFilter(action Action, rules ...Rule) *List { return &List{rules: rules, action: action} }

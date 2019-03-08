@@ -289,9 +289,7 @@ func (s *Server) processMessage(ctx *context) error {
 			ctx.integrity = integrity
 		default:
 			if ce := s.log.Check(zapcore.DebugLevel, "failed to auth"); ce != nil {
-				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request),
-					zap.Error(err),
-				)
+				ce.Write(zap.Stringer("addr", ctx.client), zap.Stringer("req", ctx.request), zap.Error(err))
 			}
 			return ctx.buildErr(stun.CodeUnauthorized)
 		}
