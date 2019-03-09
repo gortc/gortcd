@@ -59,9 +59,7 @@ func (s *Server) HandlePeerData(d []byte, t turn.FiveTuple, a turn.Addr) {
 		return
 	}
 	m := stun.New()
-	if err := m.Build(
-		stun.TransactionID,
-		stun.NewType(stun.MethodData, stun.ClassIndication),
+	if err := m.Build(stun.TransactionID, stun.NewType(stun.MethodData, stun.ClassIndication),
 		turn.Data(d), turn.PeerAddress(a),
 		stun.Fingerprint,
 	); err != nil {
@@ -75,15 +73,11 @@ func (s *Server) HandlePeerData(d []byte, t turn.FiveTuple, a turn.Addr) {
 }
 
 func (s *Server) processBindingRequest(ctx *context) error {
-	return ctx.buildOk(
-		(*stun.XORMappedAddress)(&ctx.client),
-	)
+	return ctx.buildOk((*stun.XORMappedAddress)(&ctx.client))
 }
 
 func (s *Server) processAllocateRequest(ctx *context) error {
-	var (
-		transport turn.RequestedTransport
-	)
+	var transport turn.RequestedTransport
 	if err := transport.GetFrom(ctx.request); err != nil {
 		return ctx.buildErr(stun.CodeBadRequest)
 	}
@@ -179,9 +173,7 @@ func (s *Server) processSendIndication(ctx *context) error {
 	}
 	s.log.Debug("sending data", zap.Stringer("to", addr))
 	if err := s.sendByPermission(ctx, turn.Addr(addr), data); err != nil {
-		s.log.Warn("send failed",
-			zap.Error(err),
-		)
+		s.log.Warn("send failed", zap.Error(err))
 	}
 	return nil
 }
@@ -222,10 +214,7 @@ func (s *Server) processChannelData(ctx *context) error {
 		return nil
 	}
 	if ce := s.log.Check(zapcore.DebugLevel, "got channel data"); ce != nil {
-		ce.Write(
-			zap.Int("channel", int(ctx.cdata.Number)),
-			zap.Int("len", ctx.cdata.Length),
-		)
+		ce.Write(zap.Int("channel", int(ctx.cdata.Number)), zap.Int("len", ctx.cdata.Length))
 	}
 	return s.sendByBinding(ctx, ctx.cdata.Number, ctx.cdata.Data)
 }
