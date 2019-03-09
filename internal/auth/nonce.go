@@ -87,5 +87,4 @@ func (n *NonceAuth) Check(tuple turn.FiveTuple, value stun.Nonce, at time.Time) 
 	}
 	n.nonces = append(n.nonces, current)
 	return current.value, ErrStaleNonce
-
 }
