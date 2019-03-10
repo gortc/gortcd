@@ -8,7 +8,7 @@ import (
 
 // Gatherer is source for addresses.
 //
-// See RFC 5245 Section 2.1 for details on gathering.
+// See RFC 8445 Section 2.1 for details on gathering.
 type Gatherer interface {
 	Gather() ([]Addr, error)
 }

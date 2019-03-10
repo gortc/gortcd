@@ -1,8 +1,8 @@
 package stun
 
 import (
-	"crypto/md5" // #nosec
-	"crypto/sha1"
+	"crypto/md5"  // #nosec
+	"crypto/sha1" // #nosec
 	"errors"
 	"fmt"
 	"strings"
@@ -16,14 +16,7 @@ const credentialsSep = ":"
 // NewLongTermIntegrity returns new MessageIntegrity with key for long-term
 // credentials. Password, username, and realm must be SASL-prepared.
 func NewLongTermIntegrity(username, realm, password string) MessageIntegrity {
-	k := strings.Join(
-		[]string{
-			username,
-			realm,
-			password,
-		},
-		credentialsSep,
-	)
+	k := strings.Join([]string{username, realm, password}, credentialsSep)
 	// #nosec
 	h := md5.New()
 	fmt.Fprint(h, k)
@@ -36,19 +29,20 @@ func NewShortTermIntegrity(password string) MessageIntegrity {
 	return MessageIntegrity(password)
 }
 
-// MessageIntegrity represents MESSAGE-INTEGRITY attribute. AddTo and GetFrom
-// methods will allocate memory for cryptographic functions. Zero-allocation
-// version of MessageIntegrity is not implemented. Implementation and changes
-// to it is subject to security review.
+// MessageIntegrity represents MESSAGE-INTEGRITY attribute.
+//
+// AddTo and Check methods are using zero-allocation version of hmac, see
+// newHMAC function and internal/hmac/pool.go.
 //
 // RFC 5389 Section 15.4
 type MessageIntegrity []byte
 
-// ErrFingerprintBeforeIntegrity means that FINGEPRINT attribute is already in
-// message, so MESSAGE-INTEGRITY attribute cannot be added.
-var ErrFingerprintBeforeIntegrity = errors.New(
-	"FINGERPRINT before MESSAGE-INTEGRITY attribute",
-)
+func newHMAC(key, message, buf []byte) []byte {
+	mac := hmac.AcquireSHA1(key)
+	writeOrPanic(mac, message)
+	defer hmac.PutSHA1(mac)
+	return mac.Sum(buf)
+}
 
 func (i MessageIntegrity) String() string {
 	return fmt.Sprintf("KEY: 0x%x", []byte(i))
@@ -56,8 +50,13 @@ func (i MessageIntegrity) String() string {
 
 const messageIntegritySize = 20
 
-// AddTo adds MESSAGE-INTEGRITY attribute to message. Be advised, CPU
-// and allocations costly, can be cause of DOS.
+// ErrFingerprintBeforeIntegrity means that FINGERPRINT attribute is already in
+// message, so MESSAGE-INTEGRITY attribute cannot be added.
+var ErrFingerprintBeforeIntegrity = errors.New("FINGERPRINT before MESSAGE-INTEGRITY attribute")
+
+// AddTo adds MESSAGE-INTEGRITY attribute to message.
+//
+// CPU costly, see BenchmarkMessageIntegrity_AddTo.
 func (i MessageIntegrity) AddTo(m *Message) error {
 	for _, a := range m.Attributes {
 		// Message should not contain FINGERPRINT attribute
@@ -88,15 +87,9 @@ func (i MessageIntegrity) AddTo(m *Message) error {
 // ErrIntegrityMismatch means that computed HMAC differs from expected.
 var ErrIntegrityMismatch = errors.New("integrity check failed")
 
-func newHMAC(key, message, buf []byte) []byte {
-	mac := hmac.AcquireSHA1(key)
-	writeOrPanic(mac, message)
-	defer hmac.PutSHA1(mac)
-	return mac.Sum(buf)
-}
-
-// Check checks MESSAGE-INTEGRITY attribute. Be advised, CPU and allocations
-// costly, can be cause of DOS.
+// Check checks MESSAGE-INTEGRITY attribute.
+//
+// CPU costly, see BenchmarkMessageIntegrity_Check.
 func (i MessageIntegrity) Check(m *Message) error {
 	v, err := m.Get(AttrMessageIntegrity)
 	if err != nil {

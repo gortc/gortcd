@@ -5,3 +5,7 @@ benchmark.*.write
 *.test
 bench.go-*
 PACKAGES
+
+coverage.txt
+profile.out
+stun-candidate-fuzz.zip

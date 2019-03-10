@@ -2,43 +2,23 @@
 
 
 [[projects]]
-  digest = "1:c42eab13fe7c09d506781f41288beb294ae35f33f24074b988b8f83a6182f8b0"
+  digest = "1:fb8730b82b0ca9011831673e71a31f0a2334c887bea7bb1054a10a81d26d91d4"
   name = "github.com/gortc/sdp"
   packages = ["."]
   pruneopts = "UT"
-  revision = "21e0a44ffd967b135b71d316471d764d4536d2ad"
-  version = "v0.12.3"
+  revision = "175db6a768aa52c6a90485ea1d2fd5cf8468aee9"
+  version = "v0.12.5"
 
 [[projects]]
-  digest = "1:ae8d906e0d66f6a01c86766deb191507238281d3b92e74c1e1983964672c8817"
+  digest = "1:7b37d283b79da4f3ef3668fee38e64d1ecde9b35a76e529e9b382c38a29e00b6"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "3309b1d3bd0716c7a82ebf5190a8513fea107ca5"
-  version = "v1.13.1"
-
-[[projects]]
-  digest = "1:cdbed6a7b574b13bbabcd8c36c5be56d6444789bab21fcd37d39655eab0b2141"
-  name = "github.com/klauspost/compress"
-  packages = [
-    "flate",
-    "gzip",
-    "zlib",
-  ]
-  pruneopts = "UT"
-  revision = "b939724e787a27c0005cabe3f78e7ed7987ac74f"
-  version = "v1.4.0"
-
-[[projects]]
-  digest = "1:4ea0668d490ca32a38366453a486e2e8c60fbdaf1f2607c96b4a093d8a5c8de7"
-  name = "github.com/klauspost/cpuid"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "ae7887de9fa5d2db4eaa8174a7eff2c1ac00f2da"
-  version = "v1.1"
+  revision = "5c00cd797895dbd61e57efeae38223d97b676439"
+  version = "v1.17.3"
 
 [[projects]]
   digest = "1:40e195917a951a8bf867cd05de2a46aaf1806c50cf92eebf4c16f78cd196f747"
@@ -48,26 +28,6 @@
   revision = "645ef00459ed84a119197bfb8d8205042c6df63d"
   version = "v0.8.0"
 
-[[projects]]
-  branch = "master"
-  digest = "1:c468422f334a6b46a19448ad59aaffdfc0a36b08fdcc1c749a0b29b6453d7e59"
-  name = "github.com/valyala/bytebufferpool"
-  packages = ["."]
-  pruneopts = "UT"
-  revision = "e746df99fe4a3986f4d4f79e13c1e0117ce9c2f7"
-
-[[projects]]
-  digest = "1:15ad8a80098fcc7a194b9db6b26d74072a852e4faa957848c8118193d3c69230"
-  name = "github.com/valyala/fasthttp"
-  packages = [
-    ".",
-    "fasthttputil",
-    "stackless",
-  ]
-  pruneopts = "UT"
-  revision = "e5f51c11919d4f66400334047b897ef0a94c6f3c"
-  version = "v20180529"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
@@ -75,7 +35,6 @@
     "github.com/gortc/sdp",
     "github.com/gortc/stun",
     "github.com/pkg/errors",
-    "github.com/valyala/fasthttp",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1

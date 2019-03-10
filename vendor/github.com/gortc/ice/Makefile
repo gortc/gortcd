@@ -6,7 +6,7 @@ PROCS := $(shell nproc)
 cores:
 	@echo "cores: $(PROCS)"
 test:
-	go test -v
+	./go.test.sh
 bench:
 	go test -bench .
 bench-record:

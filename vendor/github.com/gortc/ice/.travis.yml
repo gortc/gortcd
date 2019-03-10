@@ -1,26 +1,14 @@
 language: go
 
 go:
-  - master
-  - 1.9.x
-  - 1.10.x
+  - 1.11.x
 
-matrix:
-  allow_failures:
-    - go: 1.9.x
-    - go: master
-  fast_finish: true
-
-before_install:
-  - go get github.com/alecthomas/gometalinter
-  - gometalinter --install
-  - go get gortc.io/api
+sudo: false
 
 install: true
 
 script:
   - ./go.test.sh
-  - make lint
 
 after_success:
   - bash <(curl -s https://codecov.io/bash)
