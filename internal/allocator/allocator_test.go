@@ -6,10 +6,37 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
 	"github.com/gortc/turn"
 )
+
+func TestAllocator_Collect(t *testing.T) {
+	d := &DummyNetPortAlloc{
+		currentPort: 5100,
+	}
+	allocateIP := net.IPv4(127, 1, 0, 2)
+	p, err := NewNetAllocator(zap.NewNop(), &net.UDPAddr{
+		IP:   allocateIP,
+		Port: 5000,
+	}, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := NewAllocator(Options{Conn: p})
+	c := make(chan prometheus.Metric)
+	go a.Collect(c)
+	expectedCount := 3
+	for i := 0; i < expectedCount; i++ {
+		select {
+		case <-time.After(time.Millisecond * 100):
+			t.Fatal("failed")
+		case <-c:
+			// OK
+		}
+	}
+}
 
 func TestAllocator_New(t *testing.T) {
 	d := &DummyNetPortAlloc{
