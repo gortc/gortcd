@@ -9,9 +9,16 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var (
-	httpAddr = flag.String("addr", "0.0.0.0:2255", "http endpoint to listen")
-)
+var httpAddr string
+
+func init() {
+	if flag.Lookup("addr") != nil {
+		// HACK: For some reason defining "addr" flag fails tests with coverage under some conditions.
+		flag.StringVar(&httpAddr, "signaling.addr", "0.0.0.0:2255", "http endpoint to listen")
+	} else {
+		flag.StringVar(&httpAddr, "addr", "0.0.0.0:2255", "http endpoint to listen")
+	}
+}
 
 var ws = websocket.Upgrader{
 	ReadBufferSize:  1024,
@@ -57,5 +64,5 @@ func main() {
 			}
 		}()
 	})
-	log.Fatal(http.ListenAndServe(*httpAddr, nil))
+	log.Fatal(http.ListenAndServe(httpAddr, nil))
 }
