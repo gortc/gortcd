@@ -42,9 +42,7 @@ type Server struct {
 	reusePort bool
 }
 
-func (s *Server) config() config {
-	return s.cfg.Load().(config)
-}
+func (s *Server) config() config { return s.cfg.Load().(config) }
 
 // setOptions updates subset of current server configuration.
 //
@@ -55,9 +53,7 @@ func (s *Server) config() config {
 //	* PeerRule
 //	* ClientRule
 //  * DebugCollect
-func (s *Server) setOptions(opt Options) {
-	s.cfg.Store(newConfig(opt))
-}
+func (s *Server) setOptions(opt Options) { s.cfg.Store(newConfig(opt)) }
 
 // Options is set of available options for Server.
 type Options struct {
@@ -162,9 +158,7 @@ func New(o Options) (*Server, error) {
 }
 
 // Start starts background activity.
-func (s *Server) Start(rate time.Duration) {
-	s.startCollect(rate)
-}
+func (s *Server) Start(rate time.Duration) { s.startCollect(rate) }
 
 func (s *Server) startCollect(rate time.Duration) {
 	s.wg.Add(1)
@@ -190,9 +184,7 @@ func (s *Server) startCollect(rate time.Duration) {
 	}()
 }
 
-func (s *Server) collect(t time.Time) {
-	s.allocs.Prune(t)
-}
+func (s *Server) collect(t time.Time) { s.allocs.Prune(t) }
 
 // Close stops background activity.
 func (s *Server) Close() error {
@@ -211,9 +203,7 @@ func (s *Server) Close() error {
 	return nil
 }
 
-var (
-	errNotSTUNMessage = errors.New("not stun message")
-)
+var errNotSTUNMessage = errors.New("not stun message")
 
 func (s *Server) process(ctx *context) error {
 	// Performing de-multiplexing of STUN and TURN's ChannelData messages.
