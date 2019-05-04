@@ -32,7 +32,7 @@ ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner",
 
 [[constraint]]
   name = "go.uber.org/zap"
-  version = "1.8.0"
+  version = "1.10"
 
 [[constraint]]
   name = "github.com/gortc/turn"

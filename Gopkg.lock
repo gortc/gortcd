@@ -253,7 +253,7 @@
   version = "v1.1.0"
 
 [[projects]]
-  digest = "1:adccce69c151272d5053505aee552c6a1ac4e7bf6d18f0206ed7453187f6284d"
+  digest = "1:2a1fe9905518611e9ce56cd7aaefb35fca78d8a721ef5eb6540e5fdd436f45bb"
   name = "go.uber.org/zap"
   packages = [
     ".",
@@ -265,8 +265,8 @@
     "zaptest/observer",
   ]
   pruneopts = "UT"
-  revision = "ff33455a0e382e8a81d14dd7c922020b6b5e7982"
-  version = "v1.9.1"
+  revision = "27376062155ad36be76b0f12cf1572a221d3a48c"
+  version = "v1.10.0"
 
 [[projects]]
   branch = "master"
