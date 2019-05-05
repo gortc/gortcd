@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/chromedp/chromedp"
 	"github.com/chromedp/chromedp/runner"
+	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/common/expfmt"
 )
 
 var (
@@ -47,6 +50,7 @@ type dpLogEntry struct {
 
 func main() {
 	flag.Parse()
+	log.SetFlags(log.Ltime | log.Lshortfile)
 	fmt.Println("bin", *bin, "addr", *httpAddr, "timeout", *timeout)
 	fs := http.FileServer(http.Dir("static"))
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
@@ -127,5 +131,61 @@ func main() {
 		log.Println("succeeded")
 	case <-ctx.Done():
 		log.Fatalln(ctx.Err())
+	}
+
+	// Checking prometheus metrics.
+	log.Println("checking metrics")
+	resp, err := http.Get("http://turn-server:3258/metrics")
+	if err != nil {
+		log.Fatalln("failed to get metrics:", err)
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+		log.Println("decoding")
+		dec := expfmt.NewDecoder(resp.Body, expfmt.FmtProtoText)
+		checked := map[string]bool{
+			"gortcd_binding_count":       false,
+			"gortcd_permission_count":    false,
+			"gortcd_allocation_count":    false,
+			"gortcd_stun_messages_count": false,
+		}
+		for {
+			m := new(dto.MetricFamily)
+			if err = dec.Decode(m); err != nil {
+				if err == io.EOF {
+					break
+				}
+				log.Fatalln("failed to decode metrics:", err)
+			}
+			switch *m.Name {
+			case "gortcd_binding_count", "gortcd_permission_count", "gortcd_allocation_count":
+				if *m.Metric[0].Gauge.Value < 1 {
+					log.Println("unexpected zero metric value for", *m.Name)
+				} else {
+					checked[*m.Name] = true
+				}
+			case "gortcd_stun_messages_count":
+				if *m.Metric[0].Counter.Value < 1 {
+					log.Println("unexpected zero metric value for", *m.Name)
+				} else {
+					checked[*m.Name] = true
+				}
+			}
+		}
+		failed := false
+		for k, v := range checked {
+			if !v {
+				failed = true
+			}
+			log.Printf("%30s %s\n", k, map[bool]string{true: "OK", false: "FAILED"}[v])
+		}
+		if failed {
+			log.Fatalln("failed to check metrics")
+		} else {
+			log.Println("OK")
+		}
+	default:
+		log.Fatalf("bad metrics code: %d", resp.StatusCode)
 	}
 }
