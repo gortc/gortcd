@@ -77,7 +77,7 @@ type staticCredElem struct {
 
 // getZapConfig decodes zap logging configuration from
 // configuration file.
-func getZapConfig() (zap.Config, error) {
+func getZapConfig(v *viper.Viper) (zap.Config, error) {
 	// server.log
 	type cfgWrapper struct {
 		Server struct {
@@ -110,19 +110,19 @@ func getZapConfig() (zap.Config, error) {
 		OutputPaths:      []string{"stderr"},
 		ErrorOutputPaths: []string{"stderr"},
 	}
-	if viper.GetBool("server.development") {
+	if v.GetBool("server.development") {
 		// If in development mode, default to development logger
 		// configuration.
 		d = zap.NewDevelopmentConfig()
 	}
-	if viper.ConfigFileUsed() == "" {
+	if v.ConfigFileUsed() == "" {
 		return d, nil
 	}
 
 	// Parsing yaml directly.
 	raw := &cfgWrapper{}
 	raw.Server.Log = d
-	f, openErr := os.Open(viper.ConfigFileUsed())
+	f, openErr := os.Open(v.ConfigFileUsed())
 	if openErr != nil {
 		return d, openErr
 	}
@@ -138,14 +138,14 @@ func getZapConfig() (zap.Config, error) {
 	return raw.Server.Log, yaml.Unmarshal(buf, &raw)
 }
 
-func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, error) {
+func parseFilteringRules(v *viper.Viper, parentLogger *zap.Logger, key string) (*filter.List, error) {
 	l := parentLogger.Named(key)
 	type rawRuleItem struct {
 		Net    string `mapstructure:"net"`
 		Action string `mapstructure:"action"`
 	}
 	var rawRules []rawRuleItem
-	if keyErr := viper.UnmarshalKey("filter."+key+".rules", &rawRules); keyErr != nil {
+	if keyErr := v.UnmarshalKey("filter."+key+".rules", &rawRules); keyErr != nil {
 		l.Error("failed to parse rules", zap.Error(keyErr))
 		return nil, keyErr
 	}
@@ -179,7 +179,7 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 		rules = append(rules, rule)
 	}
 	defaultAction := filter.Allow
-	switch strings.ToLower(viper.GetString("filter." + key + ".action")) {
+	switch strings.ToLower(v.GetString("filter." + key + ".action")) {
 	case "allow", "":
 		// Same as default.
 	case "drop", "forbid", "deny", "block":
@@ -196,21 +196,21 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 
 const keyPrometheusActive = "server.prometheus.active"
 
-func parseOptions(l *zap.Logger, o *server.Options) error {
-	o.Realm = viper.GetString("server.realm")
-	o.Workers = viper.GetInt("server.workers")
-	o.AuthForSTUN = viper.GetBool("auth.stun")
-	o.Software = viper.GetString("server.software")
-	o.ReusePort = viper.GetBool("server.reuseport")
-	o.DebugCollect = viper.GetBool("server.debug.collect")
-	o.MetricsEnabled = viper.GetBool(keyPrometheusActive)
+func parseOptions(v *viper.Viper, l *zap.Logger, o *server.Options) error {
+	o.Realm = v.GetString("server.realm")
+	o.Workers = v.GetInt("server.workers")
+	o.AuthForSTUN = v.GetBool("auth.stun")
+	o.Software = v.GetString("server.software")
+	o.ReusePort = v.GetBool("server.reuseport")
+	o.DebugCollect = v.GetBool("server.debug.collect")
+	o.MetricsEnabled = v.GetBool(keyPrometheusActive)
 	filterLog := l.Named("filter")
 	var parseErr error
-	if o.PeerRule, parseErr = parseFilteringRules(filterLog, "peer"); parseErr != nil {
+	if o.PeerRule, parseErr = parseFilteringRules(v, filterLog, "peer"); parseErr != nil {
 		l.Error("failed to parse peer rules", zap.Error(parseErr))
 		return parseErr
 	}
-	if o.ClientRule, parseErr = parseFilteringRules(filterLog, "client"); parseErr != nil {
+	if o.ClientRule, parseErr = parseFilteringRules(v, filterLog, "client"); parseErr != nil {
 		l.Error("failed to parse client rules", zap.Error(parseErr))
 		return parseErr
 	}
@@ -220,11 +220,11 @@ func parseOptions(l *zap.Logger, o *server.Options) error {
 	return nil
 }
 
-func parseStaticCredentials(l *zap.Logger, realm string) []auth.StaticCredential {
+func parseStaticCredentials(v *viper.Viper, l *zap.Logger, realm string) []auth.StaticCredential {
 	// Parsing static credentials.
 	var staticCredentials []auth.StaticCredential
 	var rawCredentials []staticCredElem
-	if keyErr := viper.UnmarshalKey("auth.static", &rawCredentials); keyErr != nil {
+	if keyErr := v.UnmarshalKey("auth.static", &rawCredentials); keyErr != nil {
 		l.Fatal("failed to parse auth.static config", zap.Error(keyErr))
 	}
 	for _, cred := range rawCredentials {
@@ -250,17 +250,17 @@ func parseStaticCredentials(l *zap.Logger, realm string) []auth.StaticCredential
 	return staticCredentials
 }
 
-func getListeners(l *zap.Logger) []listener {
-	if cfgPath := viper.ConfigFileUsed(); len(cfgPath) > 0 {
-		l.Info("config file used", zap.String("path", viper.ConfigFileUsed()))
+func getListeners(v *viper.Viper, l *zap.Logger) []listener {
+	if cfgPath := v.ConfigFileUsed(); len(cfgPath) > 0 {
+		l.Info("config file used", zap.String("path", v.ConfigFileUsed()))
 	} else {
 		l.Info("default configuration used")
 	}
-	if strings.Split(viper.GetString("version"), ".")[0] != "1" {
-		l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
+	if strings.Split(v.GetString("version"), ".")[0] != "1" {
+		l.Fatal("unsupported config file version", zap.String("v", v.GetString("version")))
 	}
 	reg := prometheus.NewPedanticRegistry()
-	if prometheusAddr := viper.GetString("server.prometheus.addr"); prometheusAddr != "" {
+	if prometheusAddr := v.GetString("server.prometheus.addr"); prometheusAddr != "" {
 		l.Warn("running prometheus metrics", zap.String("addr", prometheusAddr))
 		go func() {
 			promHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{
@@ -275,12 +275,12 @@ func getListeners(l *zap.Logger) []listener {
 			}
 		}()
 	} else {
-		viper.SetDefault(keyPrometheusActive, false)
-		if viper.GetBool(keyPrometheusActive) {
+		v.SetDefault(keyPrometheusActive, false)
+		if v.GetBool(keyPrometheusActive) {
 			l.Warn("ignoring " + keyPrometheusActive + " because prometheus http endpoint is not configured")
 		}
 	}
-	if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
+	if pprofAddr := v.GetString("server.pprof"); pprofAddr != "" {
 		l.Warn("running pprof", zap.String("addr", pprofAddr))
 		go func() {
 			pprofMux := http.NewServeMux()
@@ -297,20 +297,20 @@ func getListeners(l *zap.Logger) []listener {
 			}
 		}()
 	}
-	realm := viper.GetString("server.realm") // default realm
-	staticCredentials := parseStaticCredentials(l, realm)
+	realm := v.GetString("server.realm") // default realm
+	staticCredentials := parseStaticCredentials(v, l, realm)
 	l.Info("parsed credentials", zap.Int("n", len(staticCredentials)))
 	l.Info("realm", zap.String("k", realm))
 	o := server.Options{
 		Log:      l,
 		Registry: reg,
 	}
-	if viper.GetBool("auth.public") {
+	if v.GetBool("auth.public") {
 		l.Warn("auth is public")
 	} else {
 		o.Auth = auth.NewStatic(staticCredentials)
 	}
-	if parseErr := parseOptions(l, &o); parseErr != nil {
+	if parseErr := parseOptions(v, l, &o); parseErr != nil {
 		l.Fatal("failed to parse", zap.Error(parseErr))
 	}
 	u := server.NewUpdater(o)
@@ -318,16 +318,16 @@ func getListeners(l *zap.Logger) []listener {
 	go func() {
 		for range n.C {
 			l.Info("trying to update config")
-			if readErr := viper.ReadInConfig(); readErr != nil {
+			if readErr := v.ReadInConfig(); readErr != nil {
 				l.Error("failed to read config", zap.Error(readErr))
 				continue
 			}
-			l.Info("config read", zap.String("path", viper.ConfigFileUsed()))
+			l.Info("config read", zap.String("path", v.ConfigFileUsed()))
 			newOptions := server.Options{
 				Log:      l,
 				Registry: reg,
 			}
-			if parseErr := parseOptions(l, &newOptions); parseErr != nil {
+			if parseErr := parseOptions(v, l, &newOptions); parseErr != nil {
 				l.Error("failed to parse config", zap.Error(parseErr))
 				continue
 			}
@@ -335,7 +335,7 @@ func getListeners(l *zap.Logger) []listener {
 			l.Info("config updated")
 		}
 	}()
-	if apiAddr := viper.GetString("api.addr"); apiAddr != "" {
+	if apiAddr := v.GetString("api.addr"); apiAddr != "" {
 		m := manage.NewManager(l.Named("api"), n)
 		l.Info("api listening", zap.String("addr", apiAddr))
 		go func() {
@@ -349,7 +349,7 @@ func getListeners(l *zap.Logger) []listener {
 	}
 
 	var toListen []listener
-	for _, addr := range viper.GetStringSlice("server.listen") {
+	for _, addr := range v.GetStringSlice("server.listen") {
 		l.Info("got addr", zap.String("addr", addr))
 		normalized := normalize(addr)
 		if strings.HasPrefix(normalized, "0.0.0.0") {
@@ -389,8 +389,8 @@ func getListeners(l *zap.Logger) []listener {
 	return toListen
 }
 
-func getLogger() *zap.Logger {
-	logCfg, logErr := getZapConfig()
+func getLogger(v *viper.Viper) *zap.Logger {
+	logCfg, logErr := getZapConfig(v)
 	if logErr != nil {
 		panic(logErr)
 	}
@@ -405,9 +405,10 @@ var rootCmd = &cobra.Command{
 	Use:   "gortcd",
 	Short: "gortcd is STUN and TURN server",
 	Run: func(cmd *cobra.Command, args []string) {
-		l := getLogger()
+		v := viper.GetViper()
+		l := getLogger(v)
 		wg := new(sync.WaitGroup)
-		listeners := getListeners(l)
+		listeners := getListeners(v, l)
 		wg.Add(len(listeners))
 		for _, ln := range listeners {
 			go func() {
@@ -431,7 +432,7 @@ type listener struct {
 
 var cfgFile string
 
-func initConfigSnap() {
+func initConfigSnap(v *viper.Viper) {
 	var (
 		cfgRoot = os.Getenv("SNAP_USER_DATA")
 	)
@@ -464,36 +465,36 @@ func initConfigSnap() {
 			log.Fatalln("failed to write default config file:", writeErr)
 		}
 	}
-	viper.AddConfigPath(cfgRoot)
+	v.AddConfigPath(cfgRoot)
 }
 
-func initConfigCommon() {
+func initConfigCommon(v *viper.Viper) {
 	home, err := homedir.Dir()
 	if err != nil {
 		log.Fatalln("failed to find home directory:", err)
 	}
-	viper.AddConfigPath(".")
-	viper.AddConfigPath("/etc/gortcd/")
-	viper.AddConfigPath(home)
+	v.AddConfigPath(".")
+	v.AddConfigPath("/etc/gortcd/")
+	v.AddConfigPath(home)
 }
 
-func initConfig() {
+func initConfig(v *viper.Viper) {
 	// Don't forget to read config either from cfgFile or from home directory!
 	if cfgFile != "" {
 		// Use config file from the flag.
-		viper.SetConfigFile(cfgFile)
+		v.SetConfigFile(cfgFile)
 	} else {
 		if os.Getenv("SNAP_NAME") != "" {
-			initConfigSnap()
+			initConfigSnap(v)
 		} else {
-			initConfigCommon()
+			initConfigCommon(v)
 		}
-		viper.SetConfigName("gortcd")
-		viper.SetConfigType("yaml")
+		v.SetConfigName("gortcd")
+		v.SetConfigType("yaml")
 	}
-	cfgErr := viper.ReadInConfig()
+	cfgErr := v.ReadInConfig()
 	if _, ok := cfgErr.(viper.ConfigFileNotFoundError); ok {
-		cfgErr = viper.ReadConfig(strings.NewReader(defaultConfigFileContent))
+		cfgErr = v.ReadConfig(strings.NewReader(defaultConfigFileContent))
 	}
 	if cfgErr != nil {
 		log.Fatalln("failed to read config:", cfgErr)
@@ -506,8 +507,19 @@ func mustBind(err error) {
 	}
 }
 
+func initViper(v *viper.Viper) {
+	v.SetDefault("server.workers", 100)
+	v.SetDefault("auth.stun", false)
+	v.SetDefault("version", "1")
+	v.SetDefault("server.reuseport", true)
+	v.SetDefault(keyPrometheusActive, true)
+}
+
 func init() {
-	cobra.OnInitialize(initConfig)
+	v := viper.GetViper()
+	cobra.OnInitialize(func() {
+		initConfig(v)
+	})
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/gortcd.yml)")
 	rootCmd.Flags().StringArrayP("listen", "l", []string{"0.0.0.0:3478"}, "listen address")
 	rootCmd.Flags().String("pprof", "", "pprof address if specified")
@@ -515,11 +527,7 @@ func init() {
 	mustBind(viper.BindPFlag("server.listen", rootCmd.Flags().Lookup("listen")))
 	mustBind(viper.BindPFlag("server.pprof", rootCmd.Flags().Lookup("pprof")))
 	mustBind(viper.BindPFlag("server.cpuprofile", rootCmd.Flags().Lookup("cpuprofile")))
-	viper.SetDefault("server.workers", 100)
-	viper.SetDefault("auth.stun", false)
-	viper.SetDefault("version", "1")
-	viper.SetDefault("server.reuseport", true)
-	viper.SetDefault(keyPrometheusActive, true)
+	initViper(v)
 }
 
 // Execute starts root command.

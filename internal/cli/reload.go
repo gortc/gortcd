@@ -16,7 +16,8 @@ var reloadCmd = &cobra.Command{
 	Use:   "reload",
 	Short: "notify server about config change via api",
 	Run: func(cmd *cobra.Command, args []string) {
-		logCfg, logErr := getZapConfig()
+		v := viper.GetViper()
+		logCfg, logErr := getZapConfig(v)
 		if logErr != nil {
 			panic(logErr)
 		}
@@ -33,15 +34,15 @@ var reloadCmd = &cobra.Command{
 			panic(buildErr)
 		}
 		l := log.Sugar()
-		if cfgPath := viper.ConfigFileUsed(); len(cfgPath) > 0 {
-			l.Infow("config file used", "path", viper.ConfigFileUsed())
+		if cfgPath := v.ConfigFileUsed(); len(cfgPath) > 0 {
+			l.Infow("config file used", "path", v.ConfigFileUsed())
 		} else {
 			l.Info("default configuration used")
 		}
-		if strings.Split(viper.GetString("version"), ".")[0] != "1" {
-			l.Fatalw("unsupported config file version", "v", viper.GetString("version"))
+		if strings.Split(v.GetString("version"), ".")[0] != "1" {
+			l.Fatalw("unsupported config file version", "v", v.GetString("version"))
 		}
-		apiAddr := viper.GetString("api.addr")
+		apiAddr := v.GetString("api.addr")
 		if apiAddr == "" {
 			l.Fatal("no api.addr config set")
 		}

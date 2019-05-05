@@ -14,15 +14,21 @@ import (
 	"github.com/gortc/gortcd/internal/server"
 )
 
+func getViper() *viper.Viper {
+	v := viper.New()
+	initViper(v)
+	return v
+}
+
 func TestParseFiltering(t *testing.T) {
-	defer viper.Reset()
-	viper.Set("filter.key.rules", []map[string]string{
+	v := getViper()
+	v.Set("filter.key.rules", []map[string]string{
 		{"net": "10.0.0.0/24", "action": "allow"},
 		{"net": "20.0.0.0/24", "action": "deny"},
 		{"net": "30.0.0.0/24", "action": "pass"},
 	})
-	viper.Set("filter.key.action", "drop")
-	rules, err := parseFilteringRules(zap.NewNop(), "key")
+	v.Set("filter.key.action", "drop")
+	rules, err := parseFilteringRules(v, zap.NewNop(), "key")
 	if err != nil {
 		t.Error(err)
 	}
@@ -32,10 +38,10 @@ func TestParseFiltering(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
-	defer viper.Reset()
 	t.Run("Default", func(t *testing.T) {
-		initConfig()
-		logCfg, logErr := getZapConfig()
+		v := getViper()
+		initConfig(v)
+		logCfg, logErr := getZapConfig(v)
 		if logErr != nil {
 			t.Fatal(logErr)
 		}
@@ -44,19 +50,19 @@ func TestConfig(t *testing.T) {
 			t.Fatal(buildErr)
 		}
 		opt := server.Options{}
-		if err := parseOptions(l, &opt); err != nil {
+		if err := parseOptions(v, l, &opt); err != nil {
 			t.Fatal(err)
 		}
 	})
 }
 
 func TestParseStaticCredentials(t *testing.T) {
-	defer viper.Reset()
-	viper.Set("auth.static", []map[string]string{
+	v := getViper()
+	v.Set("auth.static", []map[string]string{
 		{"username": "user", "password": "secret"},
 		{"username": "foo", "key": "0x0F"},
 	})
-	creds := parseStaticCredentials(zap.NewNop(), "realm")
+	creds := parseStaticCredentials(v, zap.NewNop(), "realm")
 	if len(creds) == 0 {
 		t.Fatal("failed to parse")
 	}
@@ -75,6 +81,7 @@ func TestParseStaticCredentials(t *testing.T) {
 }
 
 func TestSnap(t *testing.T) {
+	v := getViper()
 	name, err := ioutil.TempDir("", "gortcd_snap")
 	if err != nil {
 		t.Fatal(err)
@@ -90,11 +97,13 @@ func TestSnap(t *testing.T) {
 	if err = os.Setenv("SNAP_USER_DATA", name); err != nil {
 		t.Fatal(err)
 	}
-	initConfigSnap()
+
+	initConfigSnap(v)
 }
 
 func TestGetListeners(t *testing.T) {
-	defer viper.Reset()
+	v := getViper()
+
 	tf, err := ioutil.TempFile("", "gortcd-temp-cfg.*.yml")
 	if err != nil {
 		t.Fatal(err)
@@ -111,15 +120,15 @@ func TestGetListeners(t *testing.T) {
 	defer func(oldCfgFile string) { cfgFile = oldCfgFile }(cfgFile)
 	cfgFile = tfName
 
-	initConfig()
+	initConfig(v)
 
-	viper.SetDefault("server.prometheus.addr", "127.0.0.0:0")
-	viper.SetDefault("server.pprof", "127.0.0.0:0")
-	viper.SetDefault("api.addr", "127.0.0.0:0")
+	v.SetDefault("server.prometheus.addr", "127.0.0.0:0")
+	v.SetDefault("server.pprof", "127.0.0.0:0")
+	v.SetDefault("api.addr", "127.0.0.0:0")
 
 	core, logs := observer.New(zap.DebugLevel)
 	l := zap.New(core)
-	listeners := getListeners(l)
+	listeners := getListeners(v, l)
 	if len(listeners) == 0 {
 		t.Error("no listeners")
 	}
@@ -128,6 +137,7 @@ func TestGetListeners(t *testing.T) {
 		"api":         false,
 	}
 	for _, e := range logs.All() {
+		t.Log(e.Message)
 		switch e.Message {
 		case "config file used":
 			cfgPath := ""
