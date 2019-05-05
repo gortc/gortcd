@@ -65,6 +65,7 @@ func newServer(t testing.TB, opts ...Options) (*Server, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	s.start()
 	return s, func() {
 		if err := s.Close(); err != nil {
 			t.Error(err)

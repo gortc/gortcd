@@ -198,6 +198,7 @@ func (s *Server) Close() error {
 	// TODO(ar): Free resources.
 	close(s.close)
 	s.log.Debug("closing")
+	s.pool.Stop()
 	if err := s.conn.Close(); err != nil {
 		s.log.Warn("failed to close connection", zap.Error(err))
 	}
@@ -313,9 +314,13 @@ func (s *Server) worker(conn net.PacketConn) {
 	}
 }
 
+func (s *Server) start() {
+	s.pool.Start()
+}
+
 // Serve reads packets from connections and responds to BINDING requests.
 func (s *Server) Serve() error {
-	s.pool.Start()
+	s.start()
 	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
 		s.wg.Add(1)
 		if s.reusePort {
