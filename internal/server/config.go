@@ -17,10 +17,14 @@ type config struct {
 	software        stun.Software
 	peerFilter      filter.Rule
 	clientFilter    filter.Rule
+	metrics         metrics
+	metricsEnabled  bool
 }
 
-func newConfig(options Options) config {
-	return config{
+var metricsNoop = noopMetrics{}
+
+func (s *Server) newConfig(options Options) config {
+	cfg := config{
 		maxLifetime:     time.Hour,
 		defaultLifetime: time.Minute,
 		workers:         options.Workers,
@@ -30,5 +34,14 @@ func newConfig(options Options) config {
 		peerFilter:      options.PeerRule,
 		realm:           stun.NewRealm(options.Realm),
 		debugCollect:    options.DebugCollect,
+		metrics:         metricsNoop,
 	}
+	if options.MetricsEnabled {
+		cfg.metrics = s.promMetrics
+	}
+	return cfg
+}
+
+type metrics interface {
+	incSTUNMessages()
 }

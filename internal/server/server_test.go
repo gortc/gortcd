@@ -131,6 +131,8 @@ func TestServer_notStun(t *testing.T) {
 	})
 }
 
+var cfgNoop = config{metrics: metricsNoop}
+
 func TestServer_badRequest(t *testing.T) {
 	s, stop := newServer(t)
 	defer stop()
@@ -140,6 +142,7 @@ func TestServer_badRequest(t *testing.T) {
 	ctx := &context{
 		request:  new(stun.Message),
 		response: new(stun.Message),
+		cfg:      cfgNoop,
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]
@@ -165,6 +168,7 @@ func TestServer_badFingerprint(t *testing.T) {
 	ctx := &context{
 		request:  new(stun.Message),
 		response: new(stun.Message),
+		cfg:      cfgNoop,
 	}
 	ctx.request.Raw = make([]byte, len(m.Raw))
 	ctx.request.Raw = ctx.request.Raw[:len(m.Raw)]

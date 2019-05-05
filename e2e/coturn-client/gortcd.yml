@@ -16,6 +16,9 @@ server:
     - 0.0.0.0:3478
   realm: realm
   reuseport: false
+  prometheus:
+    addr: 0.0.0.0:3258
+
 api:
   addr: 0.0.0.0:3257
 auth:

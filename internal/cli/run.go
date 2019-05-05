@@ -194,6 +194,8 @@ func parseFilteringRules(parentLogger *zap.Logger, key string) (*filter.List, er
 	return f, nil
 }
 
+const keyPrometheusActive = "server.prometheus.active"
+
 func parseOptions(l *zap.Logger, o *server.Options) error {
 	o.Realm = viper.GetString("server.realm")
 	o.Workers = viper.GetInt("server.workers")
@@ -201,6 +203,7 @@ func parseOptions(l *zap.Logger, o *server.Options) error {
 	o.Software = viper.GetString("server.software")
 	o.ReusePort = viper.GetBool("server.reuseport")
 	o.DebugCollect = viper.GetBool("server.debug.collect")
+	o.MetricsEnabled = viper.GetBool(keyPrometheusActive)
 	filterLog := l.Named("filter")
 	var parseErr error
 	if o.PeerRule, parseErr = parseFilteringRules(filterLog, "peer"); parseErr != nil {
@@ -252,6 +255,11 @@ var rootCmd = &cobra.Command{
 					)
 				}
 			}()
+		} else {
+			viper.SetDefault(keyPrometheusActive, false)
+			if viper.GetBool(keyPrometheusActive) {
+				l.Warn("ignoring " + keyPrometheusActive + " because prometheus http endpoint is not configured")
+			}
 		}
 		if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
 			l.Warn("running pprof", zap.String("addr", pprofAddr))
@@ -489,6 +497,7 @@ func init() {
 	viper.SetDefault("auth.stun", false)
 	viper.SetDefault("version", "1")
 	viper.SetDefault("server.reuseport", true)
+	viper.SetDefault(keyPrometheusActive, true)
 }
 
 // Execute starts root command.

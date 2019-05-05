@@ -36,6 +36,7 @@ server:
   # export prometheus metrics
   # prometheus:
     # addr: "localhost:3255"
+    # active: true # disable or enable metrics collection overhead
 
 # Management API.
 api:

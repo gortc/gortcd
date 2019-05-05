@@ -27,19 +27,20 @@ import (
 // Current implementation is UDP only and not ALTERNATE-SERVER.
 // It does not support backwards compatibility with RFC 3489.
 type Server struct {
-	addr      turn.Addr
-	conns     []io.Closer
-	conn      net.PacketConn
-	auth      Auth
-	nonce     NonceManager
-	cfg       atomic.Value
-	log       *zap.Logger
-	allocs    *allocator.Allocator
-	close     chan struct{}
-	handlers  map[stun.MessageType]handleFunc
-	pool      *workerPool
-	wg        sync.WaitGroup
-	reusePort bool
+	addr        turn.Addr
+	conns       []io.Closer
+	conn        net.PacketConn
+	auth        Auth
+	nonce       NonceManager
+	cfg         atomic.Value
+	log         *zap.Logger
+	allocs      *allocator.Allocator
+	close       chan struct{}
+	handlers    map[stun.MessageType]handleFunc
+	pool        *workerPool
+	wg          sync.WaitGroup
+	reusePort   bool
+	promMetrics *promMetrics
 }
 
 func (s *Server) config() config { return s.cfg.Load().(config) }
@@ -52,28 +53,30 @@ func (s *Server) config() config { return s.cfg.Load().(config) }
 //	* Realm
 //	* PeerRule
 //	* ClientRule
-//  * DebugCollect
-func (s *Server) setOptions(opt Options) { s.cfg.Store(newConfig(opt)) }
+//	* DebugCollect
+//	* MetricsEnabled
+func (s *Server) setOptions(opt Options) { s.cfg.Store(s.newConfig(opt)) }
 
 // Options is set of available options for Server.
 type Options struct {
-	Software      string // not adding SOFTWARE attribute if blank
-	Realm         string
-	Auth          Auth // no authentication if nil
-	Conn          net.PacketConn
-	Registry      MetricsRegistry
-	NonceManager  NonceManager // optional nonce manager implementation
-	PeerRule      filter.Rule
-	ClientRule    filter.Rule // filtering rule for listeners
-	Log           *zap.Logger
-	CollectRate   time.Duration
-	Workers       int // maximum workers count
-	Labels        prometheus.Labels
-	NonceDuration time.Duration // no nonce rotate if 0
-	ManualStart   bool          // don't start bg activity
-	AuthForSTUN   bool          // require auth for binding requests
-	ReusePort     bool          // spawn more sockets on same port if available
-	DebugCollect  bool          // debug collect calls
+	Software       string // not adding SOFTWARE attribute if blank
+	Realm          string
+	Auth           Auth // no authentication if nil
+	Conn           net.PacketConn
+	Labels         prometheus.Labels // prometheus labels
+	Registry       MetricsRegistry   // prometheus registry
+	MetricsEnabled bool              // enable prometheus metrics (adds overhead)
+	NonceManager   NonceManager      // optional nonce manager implementation
+	PeerRule       filter.Rule
+	ClientRule     filter.Rule // filtering rule for listeners
+	Log            *zap.Logger
+	CollectRate    time.Duration
+	Workers        int           // maximum workers count
+	NonceDuration  time.Duration // no nonce rotate if 0
+	ManualStart    bool          // don't start bg activity
+	AuthForSTUN    bool          // require auth for binding requests
+	ReusePort      bool          // spawn more sockets on same port if available
+	DebugCollect   bool          // debug collect calls
 }
 
 // Auth represents message authenticator.
@@ -125,14 +128,15 @@ func New(o Options) (*Server, error) {
 		o.ClientRule = filter.AllowAll
 	}
 	s := &Server{
-		auth:      o.Auth,
-		nonce:     o.NonceManager,
-		conn:      o.Conn,
-		allocs:    allocs,
-		close:     make(chan struct{}),
-		reusePort: reuseport.Available() && o.ReusePort,
+		auth:        o.Auth,
+		nonce:       o.NonceManager,
+		conn:        o.Conn,
+		allocs:      allocs,
+		close:       make(chan struct{}),
+		reusePort:   reuseport.Available() && o.ReusePort,
+		promMetrics: newPromMetrics(o.Labels),
 	}
-	s.cfg.Store(newConfig(o))
+	s.cfg.Store(s.newConfig(o))
 	s.setHandlers()
 	if a, ok := o.Conn.LocalAddr().(*net.UDPAddr); ok {
 		s.addr.IP = a.IP
@@ -147,6 +151,9 @@ func New(o Options) (*Server, error) {
 	if o.Registry != nil {
 		if err := o.Registry.Register(s.allocs); err != nil {
 			return nil, errors.Wrap(err, "failed to register")
+		}
+		if err := o.Registry.Register(s.promMetrics); err != nil {
+			return nil, errors.Wrap(err, "failed to register server metrics")
 		}
 	}
 	s.pool = &workerPool{
@@ -210,6 +217,7 @@ func (s *Server) process(ctx *context) error {
 	// The checks are ordered from faster to slower one.
 	switch {
 	case stun.IsMessage(ctx.request.Raw):
+		ctx.cfg.metrics.incSTUNMessages()
 		return s.processMessage(ctx)
 	case turn.IsChannelData(ctx.request.Raw):
 		return s.processChannelData(ctx)
