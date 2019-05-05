@@ -128,7 +128,6 @@ func TestGetListeners(t *testing.T) {
 		"api":         false,
 	}
 	for _, e := range logs.All() {
-		t.Logf("%s %v", e.Message, e.Context)
 		switch e.Message {
 		case "config file used":
 			cfgPath := ""
