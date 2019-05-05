@@ -319,7 +319,7 @@ func (s *Server) Serve() error {
 	for i := 0; i < runtime.GOMAXPROCS(-1); i++ {
 		s.wg.Add(1)
 		if s.reusePort {
-			s.log.Info("reusing port for worker", zap.Int("w", i))
+			s.log.Debug("reusing port for worker", zap.Int("w", i))
 			laddr := s.conn.LocalAddr()
 			conn, err := reuseport.ListenPacket(laddr.Network(), laddr.String())
 			if err != nil {
