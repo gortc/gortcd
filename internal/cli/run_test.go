@@ -157,7 +157,7 @@ func TestGetListeners(t *testing.T) {
 				time.Sleep(time.Millisecond * 20)
 			}
 			if err != nil {
-				t.Error(err)
+				t.Fatal(err)
 			}
 			switch resp.StatusCode {
 			case http.StatusOK:
