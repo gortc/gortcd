@@ -8,6 +8,7 @@ Wants=network-online.target
 # You can use "gortcd-pie" binary if provided.
 # ExecStart=/usr/local/bin/gortcd-pie --config /etc/gortcd/gortcd.yml
 ExecStart=/usr/local/bin/gortcd --config /etc/gortcd/gortcd.yml
+ExecReload=/bin/kill -USR2 $MAINPID
 Restart=on-failure
 LimitNOFILE=65536
 RestartSec=5s
