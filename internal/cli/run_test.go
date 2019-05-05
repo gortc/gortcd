@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
@@ -12,6 +13,23 @@ import (
 
 	"github.com/gortc/gortcd/internal/server"
 )
+
+func TestParseFiltering(t *testing.T) {
+	defer viper.Reset()
+	viper.Set("filter.key.rules", []map[string]string{
+		{"net": "10.0.0.0/24", "action": "allow"},
+		{"net": "20.0.0.0/24", "action": "deny"},
+		{"net": "30.0.0.0/24", "action": "pass"},
+	})
+	viper.Set("filter.key.action", "drop")
+	rules, err := parseFilteringRules(zap.NewNop(), "key")
+	if err != nil {
+		t.Error(err)
+	}
+	if rules == nil {
+		t.Error(err)
+	}
+}
 
 func TestConfig(t *testing.T) {
 	defer viper.Reset()
@@ -130,9 +148,16 @@ func TestGetListeners(t *testing.T) {
 					apiURL = "http://" + field.String + "/reload"
 				}
 			}
-			resp, err := http.Get(apiURL)
+			var resp *http.Response
+			for i := 0; i < 7; i++ {
+				resp, err = http.Get(apiURL)
+				if err == nil {
+					break
+				}
+				time.Sleep(time.Millisecond * 20)
+			}
 			if err != nil {
-				t.Fatal(err)
+				t.Error(err)
 			}
 			switch resp.StatusCode {
 			case http.StatusOK:
