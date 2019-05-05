@@ -27,17 +27,17 @@ func getIntegrityHexFromFlags(f *pflag.FlagSet) string {
 	return hex.EncodeToString(stun.NewLongTermIntegrity(u, r, p))
 }
 
-var keyCmd = &cobra.Command{
-	Use:   "key",
-	Short: "generate long-term integrity key",
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Printf("0x%s\n", getIntegrityHexFromFlags(cmd.Flags()))
-	},
-}
+func getKeyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "key",
+		Short: "generate long-term integrity key",
+		Run: func(cmd *cobra.Command, args []string) {
+			fmt.Printf("0x%s\n", getIntegrityHexFromFlags(cmd.Flags()))
+		},
+	}
+	cmd.Flags().StringP("user", "u", "", "username")
+	cmd.Flags().StringP("password", "p", "", "password")
+	cmd.Flags().StringP("realm", "r", "", "realm")
 
-func init() {
-	keyCmd.Flags().StringP("user", "u", "", "username")
-	keyCmd.Flags().StringP("password", "p", "", "password")
-	keyCmd.Flags().StringP("realm", "r", "", "realm")
-	rootCmd.AddCommand(keyCmd)
+	return cmd
 }

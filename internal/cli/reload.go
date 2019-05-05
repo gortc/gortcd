@@ -61,19 +61,14 @@ func execReload(v *viper.Viper, f *pflag.FlagSet, stdout io.Writer) {
 	}
 }
 
-var reloadCmd = &cobra.Command{
-	Use:   "reload",
-	Short: "notify server about config change via api",
-	Run: func(cmd *cobra.Command, args []string) {
-		v := viper.GetViper()
-		execReload(v, cmd.Flags(), cmd.OutOrStdout())
-	},
-}
-
-func init() {
-	{
-		f := reloadCmd.Flags()
-		f.BoolP("silent", "s", true, "log only errors")
+func getReloadCmd(v *viper.Viper) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reload",
+		Short: "notify server about config change via api",
+		Run: func(cmd *cobra.Command, args []string) {
+			execReload(v, cmd.Flags(), cmd.OutOrStdout())
+		},
 	}
-	rootCmd.AddCommand(reloadCmd)
+	cmd.Flags().BoolP("silent", "s", true, "log only errors")
+	return cmd
 }

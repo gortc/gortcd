@@ -24,7 +24,7 @@ func TestReload(t *testing.T) {
 
 	v := getViper()
 	v.Set("api.addr", server.Listener.Addr())
-	flags := reloadCmd.Flags()
+	flags := getReloadCmd(v).Flags()
 	_ = flags.Set("silent", "false")
 	buf := new(bytes.Buffer)
 	execReload(v, flags, buf)

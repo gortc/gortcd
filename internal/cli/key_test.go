@@ -5,7 +5,7 @@ import (
 )
 
 func TestGetKey(t *testing.T) {
-	flags := keyCmd.Flags()
+	flags := getKeyCmd().Flags()
 	_ = flags.Set("user", "user")
 	_ = flags.Set("password", "secret")
 	_ = flags.Set("realm", "realm")
