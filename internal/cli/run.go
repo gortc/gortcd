@@ -220,191 +220,213 @@ func parseOptions(l *zap.Logger, o *server.Options) error {
 	return nil
 }
 
+func parseStaticCredentials(l *zap.Logger, realm string) []auth.StaticCredential {
+	// Parsing static credentials.
+	var staticCredentials []auth.StaticCredential
+	var rawCredentials []staticCredElem
+	if keyErr := viper.UnmarshalKey("auth.static", &rawCredentials); keyErr != nil {
+		l.Fatal("failed to parse auth.static config", zap.Error(keyErr))
+	}
+	for _, cred := range rawCredentials {
+		var a auth.StaticCredential
+		if cred.Realm == "" {
+			cred.Realm = realm
+		}
+		if strings.HasPrefix(cred.Key, "0x") {
+			key, decodeErr := hex.DecodeString(cred.Key[2:])
+			if decodeErr != nil {
+				l.Error("failed to parse credential",
+					zap.String("cred", fmt.Sprintf("%+v", cred)),
+					zap.Error(decodeErr),
+				)
+			}
+			a.Key = key
+		}
+		a.Username = cred.Username
+		a.Password = cred.Password
+		a.Realm = cred.Realm
+		staticCredentials = append(staticCredentials, a)
+	}
+	return staticCredentials
+}
+
+func getListeners(l *zap.Logger) []listener {
+	if cfgPath := viper.ConfigFileUsed(); len(cfgPath) > 0 {
+		l.Info("config file used", zap.String("path", viper.ConfigFileUsed()))
+	} else {
+		l.Info("default configuration used")
+	}
+	if strings.Split(viper.GetString("version"), ".")[0] != "1" {
+		l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
+	}
+	reg := prometheus.NewPedanticRegistry()
+	if prometheusAddr := viper.GetString("server.prometheus.addr"); prometheusAddr != "" {
+		l.Warn("running prometheus metrics", zap.String("addr", prometheusAddr))
+		go func() {
+			promHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{
+				ErrorLog:      zap.NewStdLog(l),
+				ErrorHandling: promhttp.HTTPErrorOnError,
+			})
+			if listenErr := http.ListenAndServe(prometheusAddr, promHandler); listenErr != nil {
+				l.Error("prometheus failed to listen",
+					zap.String("addr", prometheusAddr),
+					zap.Error(listenErr),
+				)
+			}
+		}()
+	} else {
+		viper.SetDefault(keyPrometheusActive, false)
+		if viper.GetBool(keyPrometheusActive) {
+			l.Warn("ignoring " + keyPrometheusActive + " because prometheus http endpoint is not configured")
+		}
+	}
+	if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
+		l.Warn("running pprof", zap.String("addr", pprofAddr))
+		go func() {
+			pprofMux := http.NewServeMux()
+			pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
+			pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+			pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+			pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+			pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+			if listenErr := http.ListenAndServe(pprofAddr, pprofMux); listenErr != nil {
+				l.Error("pprof failed to listen",
+					zap.String("addr", pprofAddr),
+					zap.Error(listenErr),
+				)
+			}
+		}()
+	}
+	realm := viper.GetString("server.realm") // default realm
+	staticCredentials := parseStaticCredentials(l, realm)
+	l.Info("parsed credentials", zap.Int("n", len(staticCredentials)))
+	l.Info("realm", zap.String("k", realm))
+	o := server.Options{
+		Log:      l,
+		Registry: reg,
+	}
+	if viper.GetBool("auth.public") {
+		l.Warn("auth is public")
+	} else {
+		o.Auth = auth.NewStatic(staticCredentials)
+	}
+	if parseErr := parseOptions(l, &o); parseErr != nil {
+		l.Fatal("failed to parse", zap.Error(parseErr))
+	}
+	u := server.NewUpdater(o)
+	n := reload.NewNotifier(l.Named("reload"))
+	go func() {
+		for range n.C {
+			l.Info("trying to update config")
+			if readErr := viper.ReadInConfig(); readErr != nil {
+				l.Error("failed to read config", zap.Error(readErr))
+				continue
+			}
+			l.Info("config read", zap.String("path", viper.ConfigFileUsed()))
+			newOptions := server.Options{
+				Log:      l,
+				Registry: reg,
+			}
+			if parseErr := parseOptions(l, &newOptions); parseErr != nil {
+				l.Error("failed to parse config", zap.Error(parseErr))
+				continue
+			}
+			u.Set(newOptions)
+			l.Info("config updated")
+		}
+	}()
+	if apiAddr := viper.GetString("api.addr"); apiAddr != "" {
+		m := manage.NewManager(l.Named("api"), n)
+		go func() {
+			l.Info("api listening", zap.String("addr", apiAddr))
+			if listenErr := http.ListenAndServe(apiAddr, m); listenErr != nil {
+				l.Error("failed to listen on management API addr",
+					zap.String("addr", apiAddr),
+					zap.Error(listenErr),
+				)
+			}
+		}()
+	}
+
+	var toListen []listener
+	for _, addr := range viper.GetStringSlice("server.listen") {
+		l.Info("got addr", zap.String("addr", addr))
+		normalized := normalize(addr)
+		if strings.HasPrefix(normalized, "0.0.0.0") {
+			l.Warn("running on all interfaces")
+			l.Warn("picking addr from ICE")
+			addrs, iceErr := ice.Gather()
+			if iceErr != nil {
+				log.Fatal(iceErr)
+			}
+			for _, a := range addrs {
+				l.Warn("got", zap.Stringer("a", a))
+				if a.IP.IsLoopback() {
+					continue
+				}
+				if a.IP.IsLinkLocalMulticast() || a.IP.IsLinkLocalUnicast() {
+					continue
+				}
+				if a.IP.To4() == nil {
+					continue
+				}
+				l.Warn("using", zap.Stringer("a", a))
+				toListen = append(toListen, listener{
+					adrr: strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1),
+					net:  "udp",
+					u:    u,
+				})
+			}
+		} else {
+			toListen = append(toListen, listener{
+				net:  "udp",
+				adrr: normalized,
+				u:    u,
+			})
+		}
+	}
+
+	return toListen
+}
+
+func getLogger() *zap.Logger {
+	logCfg, logErr := getZapConfig()
+	if logErr != nil {
+		panic(logErr)
+	}
+	l, buildErr := logCfg.Build()
+	if buildErr != nil {
+		panic(buildErr)
+	}
+	return l
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "gortcd",
 	Short: "gortcd is STUN and TURN server",
 	Run: func(cmd *cobra.Command, args []string) {
-		logCfg, logErr := getZapConfig()
-		if logErr != nil {
-			panic(logErr)
-		}
-		l, buildErr := logCfg.Build()
-		if buildErr != nil {
-			panic(buildErr)
-		}
-		if cfgPath := viper.ConfigFileUsed(); len(cfgPath) > 0 {
-			l.Info("config file used", zap.String("path", viper.ConfigFileUsed()))
-		} else {
-			l.Info("default configuration used")
-		}
-		if strings.Split(viper.GetString("version"), ".")[0] != "1" {
-			l.Fatal("unsupported config file version", zap.String("v", viper.GetString("version")))
-		}
-		reg := prometheus.NewPedanticRegistry()
-		if prometheusAddr := viper.GetString("server.prometheus.addr"); prometheusAddr != "" {
-			l.Warn("running prometheus metrics", zap.String("addr", prometheusAddr))
-			go func() {
-				promHandler := promhttp.HandlerFor(reg, promhttp.HandlerOpts{
-					ErrorLog:      zap.NewStdLog(l),
-					ErrorHandling: promhttp.HTTPErrorOnError,
-				})
-				if listenErr := http.ListenAndServe(prometheusAddr, promHandler); listenErr != nil {
-					l.Error("prometheus failed to listen",
-						zap.String("addr", prometheusAddr),
-						zap.Error(listenErr),
-					)
-				}
-			}()
-		} else {
-			viper.SetDefault(keyPrometheusActive, false)
-			if viper.GetBool(keyPrometheusActive) {
-				l.Warn("ignoring " + keyPrometheusActive + " because prometheus http endpoint is not configured")
-			}
-		}
-		if pprofAddr := viper.GetString("server.pprof"); pprofAddr != "" {
-			l.Warn("running pprof", zap.String("addr", pprofAddr))
-			go func() {
-				pprofMux := http.NewServeMux()
-				pprofMux.HandleFunc("/debug/pprof/", pprof.Index)
-				pprofMux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
-				pprofMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
-				pprofMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
-				pprofMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
-				if listenErr := http.ListenAndServe(pprofAddr, pprofMux); listenErr != nil {
-					l.Error("pprof failed to listen",
-						zap.String("addr", pprofAddr),
-						zap.Error(listenErr),
-					)
-				}
-			}()
-		}
-		realm := viper.GetString("server.realm") // default realm
-		// Parsing static credentials.
-		var staticCredentials []auth.StaticCredential
-		var rawCredentials []staticCredElem
-		if keyErr := viper.UnmarshalKey("auth.static", &rawCredentials); keyErr != nil {
-			l.Fatal("failed to parse auth.static config", zap.Error(keyErr))
-		}
-		for _, cred := range rawCredentials {
-			var a auth.StaticCredential
-			if cred.Realm == "" {
-				cred.Realm = realm
-			}
-			if strings.HasPrefix(cred.Key, "0x") {
-				key, decodeErr := hex.DecodeString(cred.Key[2:])
-				if decodeErr != nil {
-					l.Error("failed to parse credential",
-						zap.String("cred", fmt.Sprintf("%+v", cred)),
-						zap.Error(decodeErr),
-					)
-				}
-				a.Key = key
-			}
-			a.Username = cred.Username
-			a.Password = cred.Password
-			a.Realm = cred.Realm
-			staticCredentials = append(staticCredentials, a)
-		}
-		l.Info("parsed credentials", zap.Int("n", len(staticCredentials)))
-		l.Info("realm", zap.String("k", realm))
-		o := server.Options{
-			Log:      l,
-			Registry: reg,
-		}
-		if viper.GetBool("auth.public") {
-			l.Warn("auth is public")
-		} else {
-			o.Auth = auth.NewStatic(staticCredentials)
-		}
-		if parseErr := parseOptions(l, &o); parseErr != nil {
-			l.Fatal("failed to parse", zap.Error(parseErr))
-		}
-		u := server.NewUpdater(o)
-		n := reload.NewNotifier(l.Named("reload"))
-		go func() {
-			for range n.C {
-				l.Info("trying to update config")
-				if readErr := viper.ReadInConfig(); readErr != nil {
-					l.Error("failed to read config", zap.Error(readErr))
-					continue
-				}
-				l.Info("config read", zap.String("path", viper.ConfigFileUsed()))
-				newOptions := server.Options{
-					Log:      l,
-					Registry: reg,
-				}
-				if parseErr := parseOptions(l, &newOptions); parseErr != nil {
-					l.Error("failed to parse config", zap.Error(parseErr))
-					continue
-				}
-				u.Set(newOptions)
-				l.Info("config updated")
-			}
-		}()
-		if apiAddr := viper.GetString("api.addr"); apiAddr == "" {
-			m := manage.NewManager(l.Named("api"), n)
-			go func() {
-				l.Info("api listening", zap.String("addr", apiAddr))
-				if listenErr := http.ListenAndServe(apiAddr, m); listenErr != nil {
-					l.Error("failed to listen on management API addr",
-						zap.String("addr", apiAddr),
-						zap.Error(listenErr),
-					)
-				}
-			}()
-		}
-
+		l := getLogger()
 		wg := new(sync.WaitGroup)
-		for _, addr := range viper.GetStringSlice("server.listen") {
-			l.Info("got addr", zap.String("addr", addr))
-			normalized := normalize(addr)
-			if strings.HasPrefix(normalized, "0.0.0.0") {
-				l.Warn("running on all interfaces")
-				l.Warn("picking addr from ICE")
-				addrs, iceErr := ice.Gather()
-				if iceErr != nil {
-					log.Fatal(iceErr)
+		listeners := getListeners(l)
+		wg.Add(len(listeners))
+		for _, ln := range listeners {
+			go func() {
+				defer wg.Done()
+				l.Info("gortc/gortcd listening", zap.String("addr", ln.adrr),
+					zap.String("network", "udp"))
+				if err := ListenUDPAndServe(ln.net, ln.adrr, ln.u); err != nil {
+					l.Fatal("failed to listen", zap.Error(err))
 				}
-				for _, a := range addrs {
-					l.Warn("got", zap.Stringer("a", a))
-					if a.IP.IsLoopback() {
-						continue
-					}
-					if a.IP.IsLinkLocalMulticast() || a.IP.IsLinkLocalUnicast() {
-						continue
-					}
-					if a.IP.To4() == nil {
-						continue
-					}
-					l.Warn("using", zap.Stringer("a", a))
-					wg.Add(1)
-					go func(addr string) {
-						defer wg.Done()
-						l.Info("gortc/gortcd listening",
-							zap.String("addr", addr),
-							zap.String("network", "udp"),
-						)
-						if lErr := ListenUDPAndServe("udp", addr, u); lErr != nil {
-							l.Fatal("failed to listen", zap.Error(lErr))
-						}
-					}(strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1))
-				}
-			} else {
-				l.Info("gortc/gortcd listening",
-					zap.String("addr", normalized),
-					zap.String("network", "udp"),
-				)
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					if logErr = ListenUDPAndServe("udp", normalized, u); logErr != nil {
-						l.Fatal("failed to listen", zap.Error(logErr))
-					}
-				}()
-			}
+			}()
 		}
 		wg.Wait()
 	},
+}
+
+type listener struct {
+	net  string
+	adrr string
+	u    *server.Updater
 }
 
 var cfgFile string
