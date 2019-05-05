@@ -337,8 +337,8 @@ func getListeners(l *zap.Logger) []listener {
 	}()
 	if apiAddr := viper.GetString("api.addr"); apiAddr != "" {
 		m := manage.NewManager(l.Named("api"), n)
+		l.Info("api listening", zap.String("addr", apiAddr))
 		go func() {
-			l.Info("api listening", zap.String("addr", apiAddr))
 			if listenErr := http.ListenAndServe(apiAddr, m); listenErr != nil {
 				l.Error("failed to listen on management API addr",
 					zap.String("addr", apiAddr),
