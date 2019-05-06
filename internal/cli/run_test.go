@@ -4,6 +4,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -201,11 +202,14 @@ func TestRootRun(t *testing.T) {
 	})
 	t.Run("Multi-listen", func(t *testing.T) {
 		v := getViper()
+		var mux sync.Mutex // for addrMet
 		addrMet := map[string]bool{
 			"127.0.0.1:12111": false,
 			"127.0.0.1:12112": false,
 		}
 		cmd := getRoot(v, func(serverNet, laddr string, u *server.Updater) error {
+			mux.Lock()
+			defer mux.Unlock()
 			if addrMet[laddr] {
 				t.Errorf("already met %q", laddr)
 			}
