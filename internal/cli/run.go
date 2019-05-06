@@ -354,8 +354,8 @@ func getRoot(v *viper.Viper) *cobra.Command {
 			wg := new(sync.WaitGroup)
 			listeners := getListeners(v, l)
 			wg.Add(len(listeners))
-			for _, ln := range listeners {
-				go func() {
+			for _, lr := range listeners {
+				go func(ln listener) {
 					defer wg.Done()
 					lg := l.With(zap.String("addr", ln.adrr), zap.String("network", "udp"))
 					lg.Info("gortc/gortcd listening")
@@ -368,14 +368,14 @@ func getRoot(v *viper.Viper) *cobra.Command {
 							lg.Fatal("failed to listen", zap.Error(err))
 						}
 					}
-				}()
+				}(lr)
 			}
 			wg.Wait()
 		},
 	}
 
 	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/gortcd.yml)")
-	cmd.Flags().StringArrayP("listen", "l", []string{"0.0.0.0:3478"}, "listen address")
+	cmd.Flags().StringSliceP("listen", "l", []string{"0.0.0.0:3478"}, "listen address")
 	cmd.Flags().String("pprof", "", "pprof address if specified")
 	cmd.Flags().String("cpuprofile", "", "write cpu profile")
 
