@@ -180,7 +180,7 @@ func initViper(v *viper.Viper) {
 func Execute() {
 	v := viper.GetViper()
 	initViper(v)
-	rootCmd := getRoot(v)
+	rootCmd := getRoot(v, ListenUDPAndServe)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

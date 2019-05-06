@@ -342,36 +342,36 @@ func protocolNotSupported(err error) bool {
 	return false
 }
 
-func getRoot(v *viper.Viper) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "gortcd",
-		Short: "gortcd is STUN and TURN server",
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			initConfig(v)
-		},
-		Run: func(cmd *cobra.Command, args []string) {
-			l := getLogger(v)
-			wg := new(sync.WaitGroup)
-			listeners := getListeners(v, l)
-			wg.Add(len(listeners))
-			for _, lr := range listeners {
-				go func(ln listener) {
-					defer wg.Done()
-					lg := l.With(zap.String("addr", ln.adrr), zap.String("network", "udp"))
-					lg.Info("gortc/gortcd listening")
-					if err := ListenUDPAndServe(ln.net, ln.adrr, ln.u); err != nil {
-						if ln.fromAny && protocolNotSupported(err) {
-							// See https://github.com/gortc/gortcd/issues/32
-							// Should be ok to make it non configurable.
-							lg.Warn("failed to listen", zap.Error(err))
-						} else {
-							lg.Fatal("failed to listen", zap.Error(err))
-						}
-					}
-				}(lr)
+func runRoot(v *viper.Viper, listenFunc func(serverNet, laddr string, u *server.Updater) error) {
+	l := getLogger(v)
+	wg := new(sync.WaitGroup)
+	listeners := getListeners(v, l)
+	wg.Add(len(listeners))
+	for _, lr := range listeners {
+		go func(ln listener) {
+			defer wg.Done()
+			lg := l.With(zap.String("addr", ln.adrr), zap.String("network", "udp"))
+			lg.Info("gortc/gortcd listening")
+			if err := listenFunc(ln.net, ln.adrr, ln.u); err != nil {
+				if ln.fromAny && protocolNotSupported(err) {
+					// See https://github.com/gortc/gortcd/issues/32
+					// Should be ok to make it non configurable.
+					lg.Warn("failed to listen", zap.Error(err))
+				} else {
+					lg.Fatal("failed to listen", zap.Error(err))
+				}
 			}
-			wg.Wait()
-		},
+		}(lr)
+	}
+	wg.Wait()
+}
+
+func getRoot(v *viper.Viper, listenFunc func(serverNet, laddr string, u *server.Updater) error) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:              "gortcd",
+		Short:            "gortcd is STUN and TURN server",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) { initConfig(v) },
+		Run:              func(cmd *cobra.Command, args []string) { runRoot(v, listenFunc) },
 	}
 
 	cmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/gortcd.yml)")

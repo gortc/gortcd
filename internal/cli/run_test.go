@@ -183,3 +183,54 @@ func TestGetListeners(t *testing.T) {
 		}
 	}
 }
+
+func TestRootRun(t *testing.T) {
+	t.Run("Listen by flag", func(t *testing.T) {
+		v := getViper()
+		cmd := getRoot(v, func(serverNet, laddr string, u *server.Updater) error {
+			if laddr != "127.0.0.1:0" {
+				t.Errorf("unexpected laddr %q", laddr)
+			}
+			return nil
+		})
+		f := cmd.Flags()
+		if err := f.Set("listen", "127.0.0.1:0"); err != nil {
+			t.Fatal(err)
+		}
+		cmd.Run(cmd, []string{})
+	})
+	t.Run("Multi-listen", func(t *testing.T) {
+		v := getViper()
+		addrMet := map[string]bool{
+			"127.0.0.1:12111": false,
+			"127.0.0.1:12112": false,
+		}
+		cmd := getRoot(v, func(serverNet, laddr string, u *server.Updater) error {
+			if addrMet[laddr] {
+				t.Errorf("already met %q", laddr)
+			}
+			if _, ok := addrMet[laddr]; !ok {
+				t.Errorf("unexpected laddr %q", laddr)
+			} else {
+				addrMet[laddr] = true
+			}
+			return nil
+		})
+		v.Set("server.listen", []string{"127.0.0.1:12111", "127.0.0.1:12112"})
+		cmd.Run(cmd, []string{})
+	})
+}
+
+func TestNormalize(t *testing.T) {
+	for _, tc := range []struct {
+		in, out string
+	}{
+		{"", "0.0.0.0:3478"},
+		{"127.0.0.1", "127.0.0.1:3478"},
+		{"10.0.0.5:10364", "10.0.0.5:10364"},
+	} {
+		if v := normalize(tc.in); v != tc.out {
+			t.Errorf("normalize(%q): %q (got) != %q (expected)", tc.in, v, tc.out)
+		}
+	}
+}
