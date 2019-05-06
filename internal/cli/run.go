@@ -9,8 +9,10 @@ import (
 	"net"
 	"net/http"
 	"net/http/pprof"
+	"os"
 	"strings"
 	"sync"
+	"syscall"
 
 	"github.com/libp2p/go-reuseport"
 	"github.com/prometheus/client_golang/prometheus"
@@ -303,9 +305,10 @@ func getListeners(v *viper.Viper, l *zap.Logger) []listener {
 				}
 				l.Warn("using", zap.Stringer("a", a))
 				toListen = append(toListen, listener{
-					adrr: strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1),
-					net:  "udp",
-					u:    u,
+					fromAny: true,
+					adrr:    strings.Replace(normalized, "0.0.0.0", a.IP.String(), -1),
+					net:     "udp",
+					u:       u,
 				})
 			}
 		} else {
@@ -318,6 +321,25 @@ func getListeners(v *viper.Viper, l *zap.Logger) []listener {
 	}
 
 	return toListen
+}
+
+func protocolNotSupported(err error) bool {
+	switch err := err.(type) {
+	case syscall.Errno:
+		switch err {
+		case syscall.EPROTONOSUPPORT, syscall.ENOPROTOOPT:
+			return true
+		}
+	case *os.SyscallError:
+		switch err := err.Err.(type) {
+		case syscall.Errno:
+			switch err {
+			case syscall.EPROTONOSUPPORT, syscall.ENOPROTOOPT:
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func getRoot(v *viper.Viper) *cobra.Command {
@@ -335,10 +357,16 @@ func getRoot(v *viper.Viper) *cobra.Command {
 			for _, ln := range listeners {
 				go func() {
 					defer wg.Done()
-					l.Info("gortc/gortcd listening", zap.String("addr", ln.adrr),
-						zap.String("network", "udp"))
+					lg := l.With(zap.String("addr", ln.adrr), zap.String("network", "udp"))
+					lg.Info("gortc/gortcd listening")
 					if err := ListenUDPAndServe(ln.net, ln.adrr, ln.u); err != nil {
-						l.Fatal("failed to listen", zap.Error(err))
+						if ln.fromAny && protocolNotSupported(err) {
+							// See https://github.com/gortc/gortcd/issues/32
+							// Should be ok to make it non configurable.
+							lg.Warn("failed to listen", zap.Error(err))
+						} else {
+							lg.Fatal("failed to listen", zap.Error(err))
+						}
 					}
 				}()
 			}
@@ -362,7 +390,8 @@ func getRoot(v *viper.Viper) *cobra.Command {
 }
 
 type listener struct {
-	net  string
-	adrr string
-	u    *server.Updater
+	net     string
+	adrr    string
+	u       *server.Updater
+	fromAny bool // as part of 0.0.0.0
 }
