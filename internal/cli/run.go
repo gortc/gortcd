@@ -331,13 +331,9 @@ func protocolNotSupported(err error) bool {
 			return true
 		}
 	case *os.SyscallError:
-		switch err := err.Err.(type) {
-		case syscall.Errno:
-			switch err {
-			case syscall.EPROTONOSUPPORT, syscall.ENOPROTOOPT:
-				return true
-			}
-		}
+		return protocolNotSupported(err.Err)
+	case *net.OpError:
+		return protocolNotSupported(err.Err)
 	}
 	return false
 }
