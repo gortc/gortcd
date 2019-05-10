@@ -1,10 +1,13 @@
 package cli
 
 import (
+	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"sync"
+	"syscall"
 	"testing"
 	"time"
 
@@ -236,5 +239,15 @@ func TestNormalize(t *testing.T) {
 		if v := normalize(tc.in); v != tc.out {
 			t.Errorf("normalize(%q): %q (got) != %q (expected)", tc.in, v, tc.out)
 		}
+	}
+}
+
+func TestProtocolNotSupported(t *testing.T) {
+	if protocolNotSupported(io.EOF) {
+		t.Error("EOF considered as protocol not supported")
+	}
+	err := &net.OpError{Op: "listen", Err: syscall.EPROTONOSUPPORT}
+	if !protocolNotSupported(err) {
+		t.Errorf("result for %v should be true", err)
 	}
 }
