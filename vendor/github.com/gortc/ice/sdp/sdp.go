@@ -1,4 +1,8 @@
-// Package sdp implements SDP parsing for ICE.
+// Package sdp implements  Session Description Protocol (SDP) Offer/Answer
+// procedures for Interactive Connectivity Establishment (ICE).
+//
+// Currently this implementation is based on the following Internet Draft:
+// https://tools.ietf.org/html/draft-ietf-mmusic-ice-sip-sdp-21
 package sdp
 
 import (
@@ -8,15 +12,41 @@ import (
 	"strconv"
 	"unsafe"
 
-	c "github.com/gortc/ice/candidate"
-	"github.com/pkg/errors"
+	ct "github.com/gortc/ice/candidate"
 )
+
+// AddressType is type for Address.
+type AddressType byte
+
+// Possible address types.
+const (
+	AddressIPv4 AddressType = iota
+	AddressIPv6
+	AddressFQDN
+)
+
+func strOrUnknown(str string) string {
+	if len(str) == 0 {
+		return "unknown"
+	}
+	return str
+}
+
+var addressTypeToStr = map[AddressType]string{
+	AddressIPv4: "IPv4",
+	AddressIPv6: "IPv6",
+	AddressFQDN: "FQDN",
+}
+
+func (a AddressType) String() string {
+	return strOrUnknown(addressTypeToStr[a])
+}
 
 // Address represents address that can be ipv4/6 or FQDN.
 type Address struct {
 	Host []byte
 	IP   net.IP
-	Type c.AddressType
+	Type AddressType
 }
 
 // reset sets all fields to zero values.
@@ -25,7 +55,7 @@ func (a *Address) reset() {
 	for i := range a.IP {
 		a.IP[i] = 0
 	}
-	a.Type = c.AddressIPv4
+	a.Type = AddressIPv4
 }
 
 // Equal returns true if b equals to a.
@@ -34,7 +64,7 @@ func (a Address) Equal(b Address) bool {
 		return false
 	}
 	switch a.Type {
-	case c.AddressFQDN:
+	case AddressFQDN:
 		return bytes.Equal(a.Host, b.Host)
 	default:
 		return a.IP.Equal(b.IP)
@@ -43,7 +73,7 @@ func (a Address) Equal(b Address) bool {
 
 func (a Address) str() string {
 	switch a.Type {
-	case c.AddressFQDN:
+	case AddressFQDN:
 		return string(a.Host)
 	default:
 		return a.IP.String()
@@ -71,12 +101,12 @@ const (
 type Candidate struct {
 	ConnectionAddress Address
 	Port              int
-	Transport         c.TransportType
+	Transport         ct.Protocol
 	TransportValue    []byte
 	Foundation        int
 	ComponentID       int
 	Priority          int
-	Type              c.Type
+	Type              ct.Type
 	RelatedAddress    Address
 	RelatedPort       int
 
@@ -89,50 +119,50 @@ type Candidate struct {
 }
 
 // Reset sets all fields to zero values.
-func (ct *Candidate) Reset() {
-	ct.ConnectionAddress.reset()
-	ct.RelatedAddress.reset()
-	ct.RelatedPort = 0
-	ct.NetworkCost = 0
-	ct.Generation = 0
-	ct.Transport = c.TransportUnknown
-	ct.TransportValue = ct.TransportValue[:0]
-	ct.Attributes = ct.Attributes[:0]
+func (c *Candidate) Reset() {
+	c.ConnectionAddress.reset()
+	c.RelatedAddress.reset()
+	c.RelatedPort = 0
+	c.NetworkCost = 0
+	c.Generation = 0
+	c.Transport = ct.ProtocolUnknown
+	c.TransportValue = c.TransportValue[:0]
+	c.Attributes = c.Attributes[:0]
 }
 
-// Equal returns true if b candidate is equal to c.
-func (ct Candidate) Equal(b *Candidate) bool {
-	if !ct.ConnectionAddress.Equal(b.ConnectionAddress) {
+// Equal returns true if b candidate is equal to ct.
+func (c Candidate) Equal(b *Candidate) bool {
+	if !c.ConnectionAddress.Equal(b.ConnectionAddress) {
 		return false
 	}
-	if ct.Port != b.Port {
+	if c.Port != b.Port {
 		return false
 	}
-	if ct.Transport != b.Transport {
+	if c.Transport != b.Transport {
 		return false
 	}
-	if !bytes.Equal(ct.TransportValue, b.TransportValue) {
+	if !bytes.Equal(c.TransportValue, b.TransportValue) {
 		return false
 	}
-	if ct.Foundation != b.Foundation {
+	if c.Foundation != b.Foundation {
 		return false
 	}
-	if ct.ComponentID != b.ComponentID {
+	if c.ComponentID != b.ComponentID {
 		return false
 	}
-	if ct.Priority != b.Priority {
+	if c.Priority != b.Priority {
 		return false
 	}
-	if ct.Type != b.Type {
+	if c.Type != b.Type {
 		return false
 	}
-	if ct.NetworkCost != b.NetworkCost {
+	if c.NetworkCost != b.NetworkCost {
 		return false
 	}
-	if ct.Generation != b.Generation {
+	if c.Generation != b.Generation {
 		return false
 	}
-	if !ct.Attributes.Equal(b.Attributes) {
+	if !c.Attributes.Equal(b.Attributes) {
 		return false
 	}
 	return true
@@ -216,7 +246,7 @@ func parseInt(v []byte) (int, error) {
 func (p *candidateParser) parseFoundation(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse foundation")
+		return fmt.Errorf("failed to parse foundation: %v", err)
 	}
 	p.c.Foundation = i
 	return nil
@@ -225,7 +255,7 @@ func (p *candidateParser) parseFoundation(v []byte) error {
 func (p *candidateParser) parseComponentID(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse component ID")
+		return fmt.Errorf("failed to parse component ID: %v", err)
 	}
 	p.c.ComponentID = i
 	return nil
@@ -234,7 +264,7 @@ func (p *candidateParser) parseComponentID(v []byte) error {
 func (p *candidateParser) parsePriority(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse priority")
+		return fmt.Errorf("failed to parse priority: %v", err)
 	}
 	p.c.Priority = i
 	return nil
@@ -243,7 +273,7 @@ func (p *candidateParser) parsePriority(v []byte) error {
 func (p *candidateParser) parsePort(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse port")
+		return fmt.Errorf("failed to parse port: %v", err)
 	}
 	p.c.Port = i
 	return nil
@@ -252,7 +282,7 @@ func (p *candidateParser) parsePort(v []byte) error {
 func (p *candidateParser) parseRelatedPort(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse port")
+		return fmt.Errorf("failed to parse port: %v", err)
 	}
 	p.c.RelatedPort = i
 	return nil
@@ -275,12 +305,12 @@ func (candidateParser) parseAddress(v []byte, target *Address) error {
 	target.IP = parseIP(target.IP, v)
 	if target.IP == nil {
 		target.Host = v
-		target.Type = c.AddressFQDN
+		target.Type = AddressFQDN
 		return nil
 	}
-	target.Type = c.AddressIPv6
+	target.Type = AddressIPv6
 	if target.IP.To4() != nil {
-		target.Type = c.AddressIPv4
+		target.Type = AddressIPv4
 	}
 	return nil
 }
@@ -295,9 +325,9 @@ func (p *candidateParser) parseRelatedAddress(v []byte) error {
 
 func (p *candidateParser) parseTransport(v []byte) error {
 	if bytes.Equal(v, []byte("udp")) || bytes.Equal(v, []byte("UDP")) {
-		p.c.Transport = c.TransportUDP
+		p.c.Transport = ct.UDP
 	} else {
-		p.c.Transport = c.TransportUnknown
+		p.c.Transport = ct.ProtocolUnknown
 		p.c.TransportValue = v
 	}
 	return nil
@@ -339,7 +369,7 @@ const (
 // parse populates internal Candidate from buffer.
 func (p *candidateParser) parse() error {
 	if len(p.buf) < minBufLen {
-		return errors.Errorf("buffer too small (%d < %d)", len(p.buf), minBufLen)
+		return fmt.Errorf("buffer too small (%d < %d)", len(p.buf), minBufLen)
 	}
 	// special cases for raw value support:
 	if p.buf[0] == 'a' {
@@ -374,8 +404,8 @@ func (p *candidateParser) parse() error {
 		}
 		// space character reached
 		if err := fns[pos](p.buf[i-l : i]); err != nil {
-			return errors.Wrapf(err, "failed to parse char %d, pos %d",
-				i, pos,
+			return fmt.Errorf("failed to parse char %d, pos %d: %v",
+				i, pos, err,
 			)
 		}
 		pos++ // next element
@@ -432,8 +462,8 @@ func (p *candidateParser) parse() error {
 			Value: buf[vStart:i],
 		}
 		if err := p.parseAttribute(a); err != nil {
-			return errors.Wrapf(err, "failed to parse attribute at char %d",
-				i+last,
+			return fmt.Errorf("failed to parse attribute at char %d: %v",
+				i+last, err,
 			)
 		}
 		// reset offset
@@ -447,7 +477,7 @@ func (p *candidateParser) parse() error {
 func (p *candidateParser) parseNetworkCost(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse network cost")
+		return fmt.Errorf("failed to parse network cost: %v", err)
 	}
 	p.c.NetworkCost = i
 	return nil
@@ -456,7 +486,7 @@ func (p *candidateParser) parseNetworkCost(v []byte) error {
 func (p *candidateParser) parseGeneration(v []byte) error {
 	i, err := parseInt(v)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse generation")
+		return fmt.Errorf("failed to parse generation: %v", err)
 	}
 	p.c.Generation = i
 	return nil
@@ -465,20 +495,20 @@ func (p *candidateParser) parseGeneration(v []byte) error {
 func (p *candidateParser) parseType(v []byte) error {
 	switch string(v) {
 	case sdpCandidateHost:
-		p.c.Type = c.Host
+		p.c.Type = ct.Host
 	case sdpCandidatePeerReflexive:
-		p.c.Type = c.PeerReflexive
+		p.c.Type = ct.PeerReflexive
 	case sdpCandidateRelay:
-		p.c.Type = c.Relay
+		p.c.Type = ct.Relayed
 	case sdpCandidateServerReflexive:
-		p.c.Type = c.ServerReflexive
+		p.c.Type = ct.ServerReflexive
 	default:
-		return errors.Errorf("unknown candidate %q", v)
+		return fmt.Errorf("unknown candidate %q", v)
 	}
 	return nil
 }
 
-// ParseAttribute parses v into c and returns error if any.
+// ParseAttribute parses v into ct and returns error if any.
 func ParseAttribute(v []byte, c *Candidate) error {
 	p := candidateParser{
 		buf: v,

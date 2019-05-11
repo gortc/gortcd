@@ -29,28 +29,28 @@ func (a *tieBreaker) GetFromAs(m *stun.Message, t stun.AttrType) error {
 	return nil
 }
 
-// Controlled represents ICE-CONTROLLED attribute.
-type Controlled uint64
+// AttrControlled represents ICE-CONTROLLED attribute.
+type AttrControlled uint64
 
 // AddTo adds ICE-CONTROLLED to message.
-func (c Controlled) AddTo(m *stun.Message) error {
+func (c AttrControlled) AddTo(m *stun.Message) error {
 	return tieBreaker(c).AddToAs(m, stun.AttrICEControlled)
 }
 
 // GetFrom decodes ICE-CONTROLLED from message.
-func (c *Controlled) GetFrom(m *stun.Message) error {
+func (c *AttrControlled) GetFrom(m *stun.Message) error {
 	return (*tieBreaker)(c).GetFromAs(m, stun.AttrICEControlled)
 }
 
-// Controlling represents ICE-CONTROLLING attribute.
-type Controlling uint64
+// AttrControlling represents ICE-CONTROLLING attribute.
+type AttrControlling uint64
 
 // AddTo adds ICE-CONTROLLING to message.
-func (c Controlling) AddTo(m *stun.Message) error {
+func (c AttrControlling) AddTo(m *stun.Message) error {
 	return tieBreaker(c).AddToAs(m, stun.AttrICEControlling)
 }
 
 // GetFrom decodes ICE-CONTROLLING from message.
-func (c *Controlling) GetFrom(m *stun.Message) error {
+func (c *AttrControlling) GetFrom(m *stun.Message) error {
 	return (*tieBreaker)(c).GetFromAs(m, stun.AttrICEControlling)
 }

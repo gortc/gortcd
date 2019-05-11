@@ -26,16 +26,18 @@
   version = "v1.3.0"
 
 [[projects]]
-  digest = "1:6492d57459aa3e79999c58f5283f2ebfdfebeb13f834e76bab815e1b489069c9"
+  digest = "1:919da3b8fb3ce3cc5727081078417c95fabb7070c995e4305ab889099c476174"
   name = "github.com/gortc/ice"
   packages = [
     ".",
     "candidate",
+    "gather",
+    "internal",
     "sdp",
   ]
   pruneopts = "UT"
-  revision = "4925c4f36fe938eb6e331db95268b8cb8129ee36"
-  version = "v0.5.3"
+  revision = "0502d448b37789b0bed1d54ccd0adefaa9cefca0"
+  version = "v0.6.3"
 
 [[projects]]
   digest = "1:4e01f79919d7c4a558229a4e33f4e89aa19b1d9bbbbace348becf9e54b3d14a7"
@@ -314,7 +316,10 @@
     "github.com/pkg/errors",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
+    "github.com/prometheus/client_model/go",
+    "github.com/prometheus/common/expfmt",
     "github.com/spf13/cobra",
+    "github.com/spf13/pflag",
     "github.com/spf13/viper",
     "go.uber.org/zap",
     "go.uber.org/zap/zapcore",

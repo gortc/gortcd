@@ -16,6 +16,7 @@ fuzz-prepare-candidate:
 fuzz-candidate:
 	go-fuzz -bin=./stun-candidate-fuzz.zip -workdir=fuzz/stun-setters
 lint:
+	@gocritic check-project .
 	@echo "linting on $(PROCS) cores"
 	@gometalinter \
 		--enable-all \
@@ -27,6 +28,7 @@ lint:
 		--disable="gochecknoglobals" \
 		--disable="gochecknoinits" \
 		--disable="maligned" \
+		--disable="unparam" \
 		--deadline=300s \
 		-j $(PROCS)
 	@echo "ok"

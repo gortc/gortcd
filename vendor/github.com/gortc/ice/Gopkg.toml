@@ -26,15 +26,12 @@
 
 [[constraint]]
   name = "github.com/gortc/stun"
-  version = "1.17.3"
+  version = "1.18"
 
 [[constraint]]
   name = "github.com/gortc/sdp"
   version = "0.12"
 
-[[constraint]]
-  name = "github.com/pkg/errors"
-  version = "0.8.0"
 
 [prune]
   go-tests = true

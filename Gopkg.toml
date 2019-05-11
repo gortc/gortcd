@@ -40,7 +40,7 @@ ignored = ["github.com/chromedp/chromedp","github.com/chromedp/chromedp/runner",
 
 [[constraint]]
   name = "github.com/gortc/ice"
-  version = "0.5"
+  version = "0.6"
 
 [prune]
   go-tests = true

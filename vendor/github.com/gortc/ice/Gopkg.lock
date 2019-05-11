@@ -10,15 +10,15 @@
   version = "v0.12.5"
 
 [[projects]]
-  digest = "1:7b37d283b79da4f3ef3668fee38e64d1ecde9b35a76e529e9b382c38a29e00b6"
+  digest = "1:8ff0a6a4a26da40ff5bd97e55b693edfd294800e5b8c572a53a043d524c49cc4"
   name = "github.com/gortc/stun"
   packages = [
     ".",
     "internal/hmac",
   ]
   pruneopts = "UT"
-  revision = "5c00cd797895dbd61e57efeae38223d97b676439"
-  version = "v1.17.3"
+  revision = "ce9f38fbf5043cdeecb89fd74cafdfb6fb1f4351"
+  version = "v1.18.2"
 
 [[projects]]
   digest = "1:40e195917a951a8bf867cd05de2a46aaf1806c50cf92eebf4c16f78cd196f747"
@@ -34,7 +34,6 @@
   input-imports = [
     "github.com/gortc/sdp",
     "github.com/gortc/stun",
-    "github.com/pkg/errors",
   ]
   solver-name = "gps-cdcl"
   solver-version = 1
