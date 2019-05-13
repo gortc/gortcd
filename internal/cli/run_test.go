@@ -191,7 +191,7 @@ func TestGetListeners(t *testing.T) {
 func TestRootRun(t *testing.T) {
 	t.Run("Listen by flag", func(t *testing.T) {
 		v := getViper()
-		cmd := getRoot(v, func(serverNet, laddr string, u *server.Updater) error {
+		cmd := getRoot(v, func(log *zap.Logger, serverNet, laddr string, u *server.Updater) error {
 			if laddr != "127.0.0.1:0" {
 				t.Errorf("unexpected laddr %q", laddr)
 			}
@@ -210,7 +210,7 @@ func TestRootRun(t *testing.T) {
 			"127.0.0.1:12111": false,
 			"127.0.0.1:12112": false,
 		}
-		cmd := getRoot(v, func(serverNet, laddr string, u *server.Updater) error {
+		cmd := getRoot(v, func(log *zap.Logger, serverNet, laddr string, u *server.Updater) error {
 			mux.Lock()
 			defer mux.Unlock()
 			if addrMet[laddr] {

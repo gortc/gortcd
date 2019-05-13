@@ -31,7 +31,7 @@ import (
 )
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
-func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
+func ListenUDPAndServe(log *zap.Logger, serverNet, laddr string, u *server.Updater) error {
 	var (
 		c   net.PacketConn
 		err error
@@ -39,6 +39,17 @@ func ListenUDPAndServe(serverNet, laddr string, u *server.Updater) error {
 	opt := u.Get()
 	if reuseport.Available() && opt.ReusePort {
 		c, err = reuseport.ListenPacket(serverNet, laddr)
+		if err != nil {
+			// Trying to listen without reuseport.
+			// Sometimes reuseport.Available() can be true, but for subset
+			// of interfaces it is not available.
+			reusePortErr := err
+			c, err = net.ListenPacket(serverNet, laddr)
+			if err == nil {
+				opt.ReusePort = false
+				log.Warn("failed to use REUSEPORT, falling back to non-reuseport", zap.Error(reusePortErr))
+			}
+		}
 	} else {
 		c, err = net.ListenPacket(serverNet, laddr)
 	}
@@ -338,7 +349,7 @@ func protocolNotSupported(err error) bool {
 	return false
 }
 
-func runRoot(v *viper.Viper, listenFunc func(serverNet, laddr string, u *server.Updater) error) {
+func runRoot(v *viper.Viper, listenFunc func(log *zap.Logger, serverNet, laddr string, u *server.Updater) error) {
 	l := getLogger(v)
 	wg := new(sync.WaitGroup)
 	listeners := getListeners(v, l)
@@ -348,7 +359,7 @@ func runRoot(v *viper.Viper, listenFunc func(serverNet, laddr string, u *server.
 			defer wg.Done()
 			lg := l.With(zap.String("addr", ln.adrr), zap.String("network", "udp"))
 			lg.Info("gortc/gortcd listening")
-			if err := listenFunc(ln.net, ln.adrr, ln.u); err != nil {
+			if err := listenFunc(lg, ln.net, ln.adrr, ln.u); err != nil {
 				if ln.fromAny && protocolNotSupported(err) {
 					// See https://github.com/gortc/gortcd/issues/32
 					// Should be ok to make it non configurable.
@@ -362,7 +373,7 @@ func runRoot(v *viper.Viper, listenFunc func(serverNet, laddr string, u *server.
 	wg.Wait()
 }
 
-func getRoot(v *viper.Viper, listenFunc func(serverNet, laddr string, u *server.Updater) error) *cobra.Command {
+func getRoot(v *viper.Viper, listenFunc func(log *zap.Logger, serverNet, laddr string, u *server.Updater) error) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:              "gortcd",
 		Short:            "gortcd is STUN and TURN server",
