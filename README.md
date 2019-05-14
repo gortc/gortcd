@@ -70,6 +70,10 @@ $ docker run --name turn -d -p 3478:3478/udp gortc/gortcd
 $ docker run --name turn -d -p 3478:3478/udp \
   -v $(pwd)/gortcd.yml:/etc/gortc/gortc.yml \
   gortc/gortcd --config /etc/gortc/gortc.yml
+  
+# To allow gortcd to listen directly on your public interface instead
+# of using docker port publishing, pass --net=host to docker run.
+$ docker run --name turn --net=host -d -p 3478:3478/udp  
 ```
 
 # Supported specifications
