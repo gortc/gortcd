@@ -66,7 +66,7 @@ func TestAllocator_New(t *testing.T) {
 	}
 	peer2 := turn.Addr{
 		Port: 202,
-		IP:   net.IPv4(127, 0, 0, 1),
+		IP:   net.IPv4(127, 0, 0, 2),
 	}
 	timeout := now.Add(time.Second * 10)
 	tuple := turn.FiveTuple{

@@ -4,6 +4,7 @@
 package allocator
 
 import (
+	"fmt"
 	"net"
 	"sync"
 	"time"
@@ -101,16 +102,21 @@ func (a *Allocator) SendBound(tuple turn.FiveTuple, n turn.ChannelNumber, data [
 			continue
 		}
 		for _, p := range a.allocs[i].Permissions {
-			if p.Binding != n {
+			if len(p.Bindings) == 0 {
 				continue
 			}
-			conn = a.allocs[i].Conn
-			// Copy p.Addr to turn.Addr.
-			addr = turn.Addr{
-				Port: p.Addr.Port,
-				IP:   make(net.IP, len(p.Addr.IP)),
+			for _, b := range p.Bindings {
+				if b.Channel != n {
+					continue
+				}
+				conn = a.allocs[i].Conn
+				// Copy p.Addr to turn.Addr.
+				addr = turn.Addr{
+					Port: b.Port,
+					IP:   make(net.IP, len(p.IP)),
+				}
+				copy(addr.IP, p.IP)
 			}
-			copy(addr.IP, p.Addr.IP)
 		}
 	}
 	a.allocsMux.RUnlock()
@@ -150,7 +156,7 @@ func (a *Allocator) Send(tuple turn.FiveTuple, peer turn.Addr, data []byte) (int
 			continue
 		}
 		for _, p := range a.allocs[i].Permissions {
-			if !peer.Equal(p.Addr) {
+			if !peer.IP.Equal(p.IP) {
 				continue
 			}
 			conn = a.allocs[i].Conn
@@ -210,6 +216,13 @@ func (a *Allocator) Prune(t time.Time) {
 	for i := range a.allocs {
 		var newPermissions []Permission
 		for _, p := range a.allocs[i].Permissions {
+			var newBindings []Binding
+			for _, b := range p.Bindings {
+				if b.Timeout.After(t) {
+					newBindings = append(newBindings, b)
+				}
+			}
+			p.Bindings = newBindings
 			if p.Timeout.After(t) {
 				newPermissions = append(newPermissions, p)
 				continue
@@ -310,8 +323,8 @@ func (a *Allocator) New(tuple turn.FiveTuple, timeout time.Time, callback PeerHa
 func (a *Allocator) CreatePermission(tuple turn.FiveTuple, peer turn.Addr, timeout time.Time) error {
 	permission := Permission{
 		Timeout: timeout,
-		Addr:    peer,
 	}
+	permission.IP = append(permission.IP, peer.IP...)
 	var (
 		found   bool
 		updated bool
@@ -323,7 +336,7 @@ func (a *Allocator) CreatePermission(tuple turn.FiveTuple, peer turn.Addr, timeo
 		}
 		found = true
 		for k := range a.allocs[i].Permissions {
-			if !a.allocs[i].Permissions[k].Addr.Equal(peer) {
+			if !a.allocs[i].Permissions[k].IP.Equal(peer.IP) {
 				continue
 			}
 			// Updating.
@@ -354,63 +367,92 @@ func (a *Allocator) CreatePermission(tuple turn.FiveTuple, peer turn.Addr, timeo
 // channel binding.
 //
 // Allocator implementation does not assume any default timeout.
-func (a *Allocator) ChannelBind(
-	tuple turn.FiveTuple, n turn.ChannelNumber, peer turn.Addr, timeout time.Time,
-) error {
+func (a *Allocator) ChannelBind(tuple turn.FiveTuple, n turn.ChannelNumber, peer turn.Addr, timeout time.Time) error {
 	if !n.Valid() {
 		return turn.ErrInvalidChannelNumber
 	}
 	updated := false
 	found := false
+	allocFound := false
 	a.allocsMux.Lock()
 	defer a.allocsMux.Unlock()
 	for i := range a.allocs {
 		if !a.allocs[i].Tuple.Equal(tuple) {
 			continue
 		}
-		// Searching for existing binding.
+		// Searching for existing permission.
 		for k := range a.allocs[i].Permissions {
-			var (
-				cN    = a.allocs[i].Permissions[k].Binding
-				cAddr = a.allocs[i].Permissions[k].Addr
-			)
-			if (cN != n || cN == 0) && !cAddr.Equal(peer) {
-				// Skipping permission for different peer turn.Address if it is unbound
-				// or has different channel number.
+			pIP := a.allocs[i].Permissions[k].IP
+			if !pIP.Equal(peer.IP) {
 				continue
 			}
 			// Checking for binding conflicts.
 			if a.allocs[i].Permissions[k].conflicts(n, peer) {
 				// There is existing binding with same channel number or peer turn.Address.
+				fmt.Printf("Conflict %+v: %d %s",
+					a.allocs[i].Permissions[k],
+					n, peer,
+				)
 				return ErrAllocationMismatch
 			}
-			a.allocs[i].Permissions[k].Timeout = timeout
-			a.allocs[i].Permissions[k].Binding = n
-			a.log.Debug("updated binding",
-				zap.Stringer("addr", peer),
-				zap.Stringer("tuple", tuple),
-				zap.Stringer("binding", n),
-			)
-			updated = true
+			for j := range a.allocs[i].Permissions[k].Bindings {
+				if a.allocs[i].Permissions[k].Bindings[j].Channel != n {
+					continue
+				}
+				// Updating existing binding and permission.
+				a.allocs[i].Permissions[k].Bindings[j].Timeout = timeout
+				if timeout.After(a.allocs[i].Permissions[k].Timeout) {
+					a.allocs[i].Permissions[k].Timeout = timeout
+				}
+				a.log.Debug("updated binding",
+					zap.Stringer("addr", peer),
+					zap.Stringer("tuple", tuple),
+					zap.Stringer("binding", n),
+				)
+				updated = true
+				break
+			}
+			if !updated {
+				// No binding found, creating new one.
+				a.log.Debug("created binding",
+					zap.Stringer("addr", peer),
+					zap.Stringer("tuple", tuple),
+					zap.Stringer("binding", n),
+				)
+				if timeout.After(a.allocs[i].Permissions[k].Timeout) {
+					a.allocs[i].Permissions[k].Timeout = timeout
+				}
+				a.allocs[i].Permissions[k].Bindings = append(a.allocs[i].Permissions[k].Bindings, Binding{
+					Port:    peer.Port,
+					Channel: n,
+					Timeout: timeout,
+				})
+			}
+			found = true
 			break
 		}
-		if !updated {
-			// No binding found, creating new one.
-			a.log.Debug("created binding",
+		if !found {
+			// No permission found, creating new one.
+			a.log.Debug("created permission via binding",
 				zap.Stringer("addr", peer),
 				zap.Stringer("tuple", tuple),
 				zap.Stringer("binding", n),
 			)
 			a.allocs[i].Permissions = append(a.allocs[i].Permissions, Permission{
-				Addr:    peer,
-				Binding: n,
+				IP:      peer.IP,
 				Timeout: timeout,
+				Bindings: []Binding{
+					{
+						Timeout: timeout,
+						Channel: n,
+						Port:    peer.Port,
+					},
+				},
 			})
 		}
-		found = true
-		break
+		allocFound = true
 	}
-	if !found {
+	if !allocFound {
 		// No allocation found.
 		return ErrAllocationMismatch
 	}
@@ -426,14 +468,14 @@ func (a *Allocator) Bound(tuple turn.FiveTuple, peer turn.Addr) (turn.ChannelNum
 			continue
 		}
 		for k := range a.allocs[i].Permissions {
-			var (
-				cN    = a.allocs[i].Permissions[k].Binding
-				cAddr = a.allocs[i].Permissions[k].Addr
-			)
-			if !cAddr.Equal(peer) || cN == 0 {
+			if !a.allocs[i].Permissions[k].IP.Equal(peer.IP) {
 				continue
 			}
-			return cN, nil
+			for j := range a.allocs[i].Permissions[k].Bindings {
+				if a.allocs[i].Permissions[k].Bindings[j].Port == peer.Port {
+					return a.allocs[i].Permissions[k].Bindings[j].Channel, nil
+				}
+			}
 		}
 	}
 	return 0, ErrAllocationMismatch
@@ -473,10 +515,7 @@ func (a *Allocator) Stats() Stats {
 	for i := range a.allocs {
 		s.Permissions += len(a.allocs[i].Permissions)
 		for k := range a.allocs[i].Permissions {
-			if a.allocs[i].Permissions[k].Binding == 0 {
-				continue
-			}
-			s.Bindings++
+			s.Bindings += len(a.allocs[i].Permissions[k].Bindings)
 		}
 	}
 	a.allocsMux.Unlock()
