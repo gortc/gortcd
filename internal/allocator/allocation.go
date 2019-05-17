@@ -19,6 +19,8 @@ type PeerHandler interface {
 }
 
 // Binding wraps channel binding port, channel number and timeout.
+//
+// The full transport address is permission ip + binding port.
 type Binding struct {
 	Port    int
 	Channel turn.ChannelNumber
@@ -27,6 +29,9 @@ type Binding struct {
 
 // Permission as described in "Permissions" section, mimics the
 // address-restricted filtering mechanism of NAT's.
+//
+// Note that permission is per IP address, and bindings are per transport
+// address. Permission should ignore port.
 //
 // See RFC 5766 Section 2.3
 type Permission struct {
