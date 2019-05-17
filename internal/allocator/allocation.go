@@ -18,28 +18,48 @@ type PeerHandler interface {
 	HandlePeerData(d []byte, t turn.FiveTuple, a turn.Addr)
 }
 
+// Binding wraps channel binding port, channel number and timeout.
+//
+// The full transport address is permission ip + binding port.
+type Binding struct {
+	Port    int
+	Channel turn.ChannelNumber
+	Timeout time.Time
+}
+
 // Permission as described in "Permissions" section, mimics the
 // address-restricted filtering mechanism of NAT's.
 //
+// Note that permission is per IP address, and bindings are per transport
+// address. Permission should ignore port.
+//
 // See RFC 5766 Section 2.3
 type Permission struct {
-	Addr    turn.Addr
-	Timeout time.Time
-	Binding turn.ChannelNumber // 0 or valid channel number
+	IP       net.IP
+	Timeout  time.Time
+	Bindings []Binding
 }
 
 func (p Permission) String() string {
-	if p.Binding == 0 {
-		return fmt.Sprintf("%s [%s]", p.Addr, p.Timeout.Format(time.RFC3339))
+	if len(p.Bindings) == 0 {
+		return fmt.Sprintf("%s [%s]", p.IP, p.Timeout.Format(time.RFC3339))
 	}
-	return fmt.Sprintf("%s (0x%x) [%s]", p.Addr, int(p.Binding), p.Timeout.Format(time.RFC3339))
+	return fmt.Sprintf("%s (b:%d) [%s]", p.IP, len(p.Bindings), p.Timeout.Format(time.RFC3339))
 }
 
 func (p *Permission) conflicts(n turn.ChannelNumber, peer turn.Addr) bool {
-	if p.Addr.Equal(peer) && (p.Binding == n || p.Binding == 0) {
+	if p.IP.Equal(peer.IP) && len(p.Bindings) == 0 {
 		return false
 	}
-	return !p.Addr.Equal(peer) || p.Binding == n
+	if !p.IP.Equal(peer.IP) {
+		return false
+	}
+	for _, b := range p.Bindings {
+		if b.Port == peer.Port {
+			return b.Channel != n
+		}
+	}
+	return false
 }
 
 // Allocation as described in "Allocations" section.
