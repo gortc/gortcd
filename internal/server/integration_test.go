@@ -6,12 +6,12 @@ import (
 	"net"
 	"testing"
 
+	"github.com/pion/turnc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/testutil"
-	"github.com/gortc/turn"
 )
 
 func TestServerIntegration(t *testing.T) {
@@ -65,10 +65,7 @@ func TestServerIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to dial to TURN server: %v", err)
 	}
-	clientCore, clientLogs := observer.New(zap.DebugLevel)
-	defer testutil.EnsureNoErrors(t, clientLogs)
-	client, err := turn.NewClient(turn.ClientOptions{
-		Log:      zap.New(clientCore),
+	client, err := turnc.New(turnc.Options{
 		Conn:     c,
 		Username: username,
 		Password: password,

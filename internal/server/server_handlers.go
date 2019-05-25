@@ -8,9 +8,10 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/pion/stun"
+
 	"github.com/gortc/gortcd/internal/allocator"
 	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/stun"
 	"github.com/gortc/turn"
 )
 

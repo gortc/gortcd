@@ -9,7 +9,7 @@ The gortcd is work-in-progress TURN [[RFC5776](https://tools.ietf.org/html/rfc57
 As part of [gortc](https://gortc.io) project, gortcd shares
 it's [goals](https://gortc.io#goals) and
 [principles](https://gortc.io#principles).
-Based on [gortc/stun](https://github.com/gortc/stun) package.
+Based on [pion/stun](https://github.com/pion/stun) package.
 
 The goal is [feature parity](https://github.com/gortc/gortcd/issues/6) with [coturn](https://github.com/coturn/coturn).
 Please use only for experiments until [beta](https://github.com/gortc/gortcd/milestone/2).
@@ -110,7 +110,7 @@ Project supports all platforms that [supports](https://github.com/golang/go/wiki
 # Benchmarks
 
 Currently server is under active development, but some benchmarks are
-already available. The [stun-bench](https://github.com/gortc/stun/blob/master/cmd/stun-bench/main.go)
+already available. The [stun-bench](https://github.com/pion/stun/blob/master/cmd/stun-bench/main.go)
 is simple stun benchmark that performs binding request transactions.
 
 Results for gortcd v0.17.4 on Ubuntu 16.04, client and server share one

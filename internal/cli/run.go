@@ -21,13 +21,14 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
+	"github.com/pion/stun"
+
 	"github.com/gortc/gortcd/internal/auth"
 	"github.com/gortc/gortcd/internal/filter"
 	"github.com/gortc/gortcd/internal/manage"
 	"github.com/gortc/gortcd/internal/reload"
 	"github.com/gortc/gortcd/internal/server"
 	"github.com/gortc/ice"
-	"github.com/gortc/stun"
 )
 
 // ListenUDPAndServe listens on laddr and process incoming packets.

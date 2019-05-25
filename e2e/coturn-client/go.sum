@@ -1,2 +1,4 @@
-github.com/gortc/stun v1.19.0 h1:6qy7zGGk0tdMOdEzK7hLeAVZEHllJC8+OOBpPAyjY1c=
-github.com/gortc/stun v1.19.0/go.mod h1:dZ0O/fYCkg9Z0Pvl6WDpNhRFTAU0X1CPOsJiZqn6EHo=
+github.com/pion/stun v0.3.0 h1:hKadT0I+ijxKkVXqU+rPHKLt+Sw6dQ8D+HhvuoYMoxQ=
+github.com/pion/stun v0.3.0/go.mod h1:xrCld6XM+6GWDZdvjPlLMsTU21rNxnO6UO8XsAvHr/M=
+github.com/pkg/errors v0.8.1 h1:iURUrRGxPUNPdy5/HRSm+Yj6okJ6UtLINN0Q9M4+h3I=
+github.com/pkg/errors v0.8.1/go.mod h1:bwawxfHBFNV+L2hUp1rHADufV3IMtnDRdf1r5NINEl0=

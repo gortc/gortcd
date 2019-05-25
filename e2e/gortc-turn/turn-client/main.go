@@ -11,6 +11,8 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/gortc/turn"
+
+	"github.com/pion/turnc"
 )
 
 const (
@@ -104,8 +106,7 @@ func main() {
 		zap.Stringer("raddr", c.RemoteAddr()),
 		zap.Stringer("peer", echoAddr),
 	)
-	client, err := turn.NewClient(turn.ClientOptions{
-		Log:      logger.Named("client"),
+	client, err := turnc.New(turnc.Options{
 		Conn:     c,
 		Username: "user",
 		Password: "secret",
@@ -143,9 +144,7 @@ func main() {
 	if !p.Bound() {
 		logger.Fatal("should be bound")
 	}
-	logger.Info("bound to channel",
-		turn.ZapChannelNumber("number", p.Binding()),
-	)
+	logger.Info("bound to channel")
 	// Sending and receiving "hello" message.
 	if _, err := fmt.Fprint(p, "hello"); err != nil {
 		logger.Fatal("failed to write data")

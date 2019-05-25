@@ -3,8 +3,9 @@ package auth
 import (
 	"testing"
 
+	"github.com/pion/stun"
+
 	"github.com/gortc/gortcd/internal/testutil"
-	"github.com/gortc/stun"
 )
 
 func TestStatic_Auth(t *testing.T) {

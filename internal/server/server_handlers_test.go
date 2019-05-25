@@ -5,7 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gortc/stun"
+	"github.com/pion/stun"
+
 	"github.com/gortc/turn"
 )
 

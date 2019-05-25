@@ -3,8 +3,9 @@ package server
 import (
 	"time"
 
+	"github.com/pion/stun"
+
 	"github.com/gortc/gortcd/internal/filter"
-	"github.com/gortc/stun"
 )
 
 type config struct {
