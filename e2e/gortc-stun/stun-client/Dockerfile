@@ -1,8 +1,13 @@
 ARG CI_GO_VERSION
 FROM golang:${CI_GO_VERSION}
 
-ADD . /go/src/github.com/gortc/gortcd/e2e/gortc-turn/turn-client
-WORKDIR /go/src/github.com/gortc/gortcd/e2e/gortc-turn/turn-client
+ADD go.mod /src/stun-client/
+ADD go.sum /src/stun-client/
+WORKDIR /src/stun-client/
+RUN go mod download
+
+ADD main.go /src/stun-client/
+
 RUN go install .
 
 CMD ["turn-client"]
