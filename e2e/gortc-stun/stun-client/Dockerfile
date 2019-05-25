@@ -10,4 +10,4 @@ ADD main.go /src/stun-client/
 
 RUN go install .
 
-CMD ["turn-client"]
+CMD ["stun-client"]
