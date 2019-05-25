@@ -1,8 +1,11 @@
 ARG CI_GO_VERSION
 FROM golang:${CI_GO_VERSION}
-ADD vendor /go/src/github.com/gortc/gortcd/e2e/vendor
-WORKDIR /go/src/github.com/gortc/gortcd/e2e/
-ADD signaling/main.go signaling/main.go
-WORKDIR /go/src/github.com/gortc/gortcd/e2e/signaling
-RUN go install .
+ADD go.mod /src/signaling/
+ADD go.sum /src/signaling/
+WORKDIR /src/signaling/
+RUN go mod download
+
+ADD main.go /src/signaling/
+
+RUN go build -o /usr/bin/signaling
 CMD ["signaling"]

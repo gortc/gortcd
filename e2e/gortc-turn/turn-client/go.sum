@@ -1,0 +1,10 @@
+github.com/gortc/stun v1.17.2 h1:1D9djwheCldBkcalnT1mSHz/7KbtvP8D9h3ts7NoSKY=
+github.com/gortc/stun v1.17.2/go.mod h1:dZ0O/fYCkg9Z0Pvl6WDpNhRFTAU0X1CPOsJiZqn6EHo=
+github.com/gortc/turn v0.5.3 h1:Kd3BSVpj3WL6KSOm0Hs/RkO9eqoaRdE0Eo63Srm70Ak=
+github.com/gortc/turn v0.5.3/go.mod h1:oChREnOebaYgxAmZd5xUS6MkKS/N5mJ9onT5Glv8mT4=
+go.uber.org/atomic v1.2.0 h1:yVVGhClJ8Xi1y4TxhJZE6QFPrz76BrzhWA01n47mSFk=
+go.uber.org/atomic v1.2.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
+go.uber.org/multierr v1.1.0 h1:HoEmRHQPVSqub6w2z2d2EOVs2fjyFRGyofhKuyDq0QI=
+go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=
+go.uber.org/zap v1.9.1 h1:XCJQEf3W6eZaVwhRBof6ImoYGJSITeKWsyeh3HFu/5o=
+go.uber.org/zap v1.9.1/go.mod h1:vwi/ZaCAaUcBkycHslxD9B2zi4UTXhF60s6SWpuDF0Q=
