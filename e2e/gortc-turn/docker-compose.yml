@@ -34,7 +34,7 @@ services:
     container_name: ci_turn-server_1
     build:
       context: ../..
-      network: host
+      network: transparent
       dockerfile: "e2e/gortc-turn/server.Dockerfile"
 networks:
   default:
