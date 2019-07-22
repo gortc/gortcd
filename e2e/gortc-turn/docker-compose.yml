@@ -13,7 +13,7 @@ services:
     build:
       context: turn-client
       dockerfile: "Dockerfile"
-      network: host
+      network: transparent
       args:
         CI_GO_VERSION: latest
   turn-client:
@@ -27,7 +27,7 @@ services:
     build:
       context: turn-client
       dockerfile: "Dockerfile"
-      network: host
+      network: transparent
       args:
         CI_GO_VERSION: latest
   turn-server:
