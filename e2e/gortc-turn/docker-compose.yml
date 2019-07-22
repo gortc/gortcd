@@ -13,7 +13,7 @@ services:
     build:
       context: turn-client
       dockerfile: "Dockerfile"
-      network: transparent
+      network: nat
       args:
         CI_GO_VERSION: latest
   turn-client:
@@ -27,14 +27,14 @@ services:
     build:
       context: turn-client
       dockerfile: "Dockerfile"
-      network: transparent
+      network: nat
       args:
         CI_GO_VERSION: latest
   turn-server:
     container_name: ci_turn-server_1
     build:
       context: ../..
-      network: transparent
+      network: nat
       dockerfile: "e2e/gortc-turn/server.Dockerfile"
 networks:
   default:
