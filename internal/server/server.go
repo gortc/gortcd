@@ -15,12 +15,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/pion/stun"
-
-	"github.com/gortc/gortcd/internal/allocator"
-	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/gortcd/internal/filter"
-	"github.com/gortc/turn"
+	"gortc.io/gortcd/internal/allocator"
+	"gortc.io/gortcd/internal/auth"
+	"gortc.io/gortcd/internal/filter"
+	"gortc.io/stun"
+	"gortc.io/turn"
 )
 
 // Server is RFC 5389 basic server implementation.

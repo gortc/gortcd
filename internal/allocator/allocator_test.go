@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"go.uber.org/zap"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func TestAllocator_Collect(t *testing.T) {

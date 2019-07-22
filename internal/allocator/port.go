@@ -7,7 +7,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // NetAllocation represents allocated port.

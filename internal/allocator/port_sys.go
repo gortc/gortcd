@@ -3,7 +3,7 @@ package allocator
 import (
 	"net"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // SystemPortAllocator allocates port directly on system.

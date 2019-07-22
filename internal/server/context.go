@@ -5,10 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/gortcd/internal/filter"
-	"github.com/gortc/turn"
+	"gortc.io/gortcd/internal/filter"
+	"gortc.io/turn"
 )
 
 var contextPool = &sync.Pool{

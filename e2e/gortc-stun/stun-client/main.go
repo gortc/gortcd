@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"

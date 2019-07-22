@@ -10,7 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // DummyNetPortAlloc is dummy allocator for testing purposes.

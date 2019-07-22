@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func TestNonceAuth_Check(t *testing.T) {

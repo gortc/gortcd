@@ -4,7 +4,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func (s *Server) sendByBinding(ctx *context, n turn.ChannelNumber, data []byte) error {

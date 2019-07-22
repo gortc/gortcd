@@ -3,7 +3,7 @@ package allocator
 import (
 	"testing"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func TestSystemPortAllocator_AllocatePort(t *testing.T) {

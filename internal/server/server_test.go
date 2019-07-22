@@ -9,11 +9,11 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/gortcd/internal/testutil"
-	"github.com/gortc/turn"
+	"gortc.io/gortcd/internal/auth"
+	"gortc.io/gortcd/internal/testutil"
+	"gortc.io/turn"
 )
 
 func listenUDP(t testing.TB, addrs ...string) (*net.UDPConn, *net.UDPAddr) {

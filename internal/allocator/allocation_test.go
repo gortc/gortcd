@@ -9,7 +9,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func TestAddr_FromUDPAddr(t *testing.T) {

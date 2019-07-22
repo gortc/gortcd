@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 )
 
 func getIntegrityHexFromFlags(f *pflag.FlagSet) string {

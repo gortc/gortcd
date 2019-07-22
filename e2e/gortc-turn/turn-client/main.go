@@ -10,9 +10,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/gortc/turn"
-
-	"github.com/pion/turnc"
+	"gortc.io/turn"
+	"gortc.io/turnc"
 )
 
 const (

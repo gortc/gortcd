@@ -9,9 +9,9 @@ import (
 
 	"github.com/pkg/errors"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // NewNonceAuth initializes new nonce manager.

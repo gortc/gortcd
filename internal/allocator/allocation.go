@@ -9,7 +9,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // PeerHandler represents handler for data that is sent to relayed address

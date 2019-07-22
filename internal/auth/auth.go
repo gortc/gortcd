@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 )
 
 // StaticCredential wraps plain Username, Password and Realm,

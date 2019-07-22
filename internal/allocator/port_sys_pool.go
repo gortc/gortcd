@@ -11,7 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 type pooledPort struct {

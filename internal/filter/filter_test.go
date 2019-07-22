@@ -4,7 +4,7 @@ import (
 	"net"
 	"testing"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func TestAllowAll_Allowed(t *testing.T) {

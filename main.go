@@ -1,6 +1,6 @@
 package main
 
-import "github.com/gortc/gortcd/internal/cli"
+import "gortc.io/gortcd/internal/cli"
 
 func main() {
 	cli.Execute()

@@ -4,7 +4,7 @@ package filter
 import (
 	"net"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // Action is possible action that can be applied to address.

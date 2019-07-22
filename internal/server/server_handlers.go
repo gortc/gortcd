@@ -8,11 +8,11 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/gortcd/internal/allocator"
-	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/turn"
+	"gortc.io/gortcd/internal/allocator"
+	"gortc.io/gortcd/internal/auth"
+	"gortc.io/turn"
 )
 
 type handleFunc = func(ctx *context) error

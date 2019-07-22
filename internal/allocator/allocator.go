@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 // Options contain possible settings for Allocator.

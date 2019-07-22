@@ -21,14 +21,14 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/gortcd/internal/filter"
-	"github.com/gortc/gortcd/internal/manage"
-	"github.com/gortc/gortcd/internal/reload"
-	"github.com/gortc/gortcd/internal/server"
-	"github.com/gortc/ice"
+	"gortc.io/gortcd/internal/auth"
+	"gortc.io/gortcd/internal/filter"
+	"gortc.io/gortcd/internal/manage"
+	"gortc.io/gortcd/internal/reload"
+	"gortc.io/gortcd/internal/server"
+	"gortc.io/ice"
 )
 
 // ListenUDPAndServe listens on laddr and process incoming packets.
@@ -362,7 +362,7 @@ func runRoot(v *viper.Viper, listenFunc func(log *zap.Logger, serverNet, laddr s
 			lg.Info("gortc/gortcd listening")
 			if err := listenFunc(lg, ln.net, ln.adrr, ln.u); err != nil {
 				if ln.fromAny && protocolNotSupported(err) {
-					// See https://github.com/gortc/gortcd/issues/32
+					// See https://gortc.io/gortcd/issues/32
 					// Should be ok to make it non configurable.
 					lg.Warn("failed to listen", zap.Error(err))
 				} else {

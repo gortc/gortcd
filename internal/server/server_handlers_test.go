@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 
-	"github.com/gortc/turn"
+	"gortc.io/turn"
 )
 
 func TestServer_processAllocationRequest(t *testing.T) {

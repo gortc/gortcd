@@ -6,12 +6,12 @@ import (
 	"net"
 	"testing"
 
-	"github.com/pion/turnc"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"gortc.io/turnc"
 
-	"github.com/gortc/gortcd/internal/auth"
-	"github.com/gortc/gortcd/internal/testutil"
+	"gortc.io/gortcd/internal/auth"
+	"gortc.io/gortcd/internal/testutil"
 )
 
 func TestServerIntegration(t *testing.T) {

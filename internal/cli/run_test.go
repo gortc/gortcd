@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/gortc/gortcd/internal/server"
+	"gortc.io/gortcd/internal/server"
 )
 
 func getViper() *viper.Viper {

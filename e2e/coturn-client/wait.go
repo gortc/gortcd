@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/pion/stun"
+	"gortc.io/stun"
 )
 
 func resolve(a string) *net.UDPAddr {

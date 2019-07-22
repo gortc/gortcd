@@ -1,4 +1,4 @@
-module github.com/gortc/gortcd/e2e/webrtc-chrome
+module gortc.io/gortcd/e2e/webrtc-chrome
 
 go 1.12
 
