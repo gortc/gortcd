@@ -160,5 +160,27 @@ $ grep -F "$(sha256sum gortcd-*-linux-amd64.deb)" gortcd-*-checksums.txt
 4316f8f7b66bdba636a991198701914e12d11935748547fca1d97386808ce323  gortcd-0.4.0-linux-amd64.deb
 ```
 
+# Monitoring
+You export metrics in prometheus format:
+```yaml
+server:
+  prometheus:
+    addr: localhost:9200
+```
+```bash
+$ curl http://localhost:3255/metrics
+```
+```bash
+# HELP gortcd_allocation_count Total number of allocations.
+# TYPE gortcd_allocation_count gauge
+gortcd_allocation_count{addr="159.69.47.227:3478"} 0
+# HELP gortcd_binding_count Total number of bindings.
+# TYPE gortcd_binding_count gauge
+gortcd_binding_count{addr="159.69.47.227:3478"} 0
+# HELP gortcd_permission_count Total number of permissions.
+# TYPE gortcd_permission_count gauge
+gortcd_permission_count{addr="159.69.47.227:3478"} 0
+```
+
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgortc%2Fgortcd.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgortc%2Fgortcd?ref=badge_large)
