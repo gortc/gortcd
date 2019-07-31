@@ -88,7 +88,7 @@ snapcraft:
   # we live in tweetspace and your description wants to look good in the snap
   # store.
   description: |
-    The work-in-progress TURN and STUN server in go from gortс project.
+    The work-in-progress TURN and STUN server in go from gortc project.
 
   # A guardrail to prevent you from releasing a snap to all your users before
   # it is ready.
