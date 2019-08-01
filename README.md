@@ -161,14 +161,14 @@ $ grep -F "$(sha256sum gortcd-*-linux-amd64.deb)" gortcd-*-checksums.txt
 ```
 
 # Monitoring
-You export metrics in prometheus format:
+You can export metrics in prometheus format:
 ```yaml
 server:
   prometheus:
     addr: localhost:9200
 ```
 ```bash
-$ curl http://localhost:3255/metrics
+$ curl http://localhost:9200/metrics
 ```
 ```bash
 # HELP gortcd_allocation_count Total number of allocations.
