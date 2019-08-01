@@ -1,9 +1,6 @@
 [![Master status](https://tc.gortc.io/app/rest/builds/buildType:(id:gortcd_MasterStatus)/statusIcon.svg)](https://tc.gortc.io/project.html?projectId=gortcd&tab=projectOverview&guest=1)
-[![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 [![codecov](https://codecov.io/gh/gortc/gortcd/branch/master/graph/badge.svg)](https://codecov.io/gh/gortc/gortcd)
-[![stability-wip](https://img.shields.io/badge/stability-wip-lightgrey.svg)](https://github.com/mkenney/software-guides/blob/master/STABILITY-BADGES.md#work-in-progress)
 [![GitHub release](https://img.shields.io/github/release/gortc/gortcd.svg)](https://github.com/gortc/gortcd/releases/latest)
-[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgortc%2Fgortcd.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgortc%2Fgortcd?ref=badge_shield)
 # gortcd
 The gortcd is work-in-progress TURN [[RFC5776](https://tools.ietf.org/html/rfc5766)] and STUN [[RFC5389](https://tools.ietf.org/html/rfc5389)] server implementation in go.
 As part of [gortc](https://gortc.io) project, gortcd shares
@@ -181,6 +178,9 @@ gortcd_binding_count{addr="159.69.47.227:3478"} 0
 # TYPE gortcd_permission_count gauge
 gortcd_permission_count{addr="159.69.47.227:3478"} 0
 ```
+
+## Build status
+[![Build Status](https://travis-ci.com/gortc/gortcd.svg?branch=master)](https://travis-ci.com/gortc/gortcd)
 
 ## License
 [![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2Fgortc%2Fgortcd.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2Fgortc%2Fgortcd?ref=badge_large)
