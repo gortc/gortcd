@@ -77,17 +77,21 @@ func TestServerIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create allocation: %v", err)
 	}
-	p, err := a.Create(echoUDPAddr)
+	p, err := a.Create(echoUDPAddr.IP)
 	if err != nil {
 		t.Fatalf("failed to create permission: %v", err)
 	}
+	conn, err := p.CreateUDP(echoUDPAddr)
+	if err != nil {
+		t.Fatal(err)
+	}
 	// Sending and receiving "hello" message.
-	if _, err := fmt.Fprint(p, "hello"); err != nil {
+	if _, err := fmt.Fprint(conn, "hello"); err != nil {
 		t.Fatal("failed to write data")
 	}
 	sent := []byte("hello")
 	got := make([]byte, len(sent))
-	if _, err = p.Read(got); err != nil {
+	if _, err = conn.Read(got); err != nil {
 		t.Fatalf("failed to read data: %v", err)
 	}
 	if !bytes.Equal(got, sent) {
@@ -97,17 +101,17 @@ func TestServerIntegration(t *testing.T) {
 	for i := range got {
 		got[i] = 0
 	}
-	if bindErr := p.Bind(); bindErr != nil {
+	if bindErr := conn.Bind(); bindErr != nil {
 		t.Fatal("failed to bind", zap.Error(err))
 	}
-	if !p.Bound() {
+	if !conn.Bound() {
 		t.Fatal("should be bound")
 	}
-	t.Logf("bound to channel: 0x%x", int(p.Binding()))
-	if _, err := fmt.Fprint(p, "hello"); err != nil {
+	t.Logf("bound to channel: 0x%x", int(conn.Binding()))
+	if _, err := fmt.Fprint(conn, "hello"); err != nil {
 		t.Fatalf("failed to write data: %v", err)
 	}
-	if _, err = p.Read(got); err != nil {
+	if _, err = conn.Read(got); err != nil {
 		t.Fatalf("failed to read data: %v", err)
 	}
 	t.Logf("client: got message: %s", string(got))

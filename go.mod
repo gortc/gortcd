@@ -25,5 +25,5 @@ require (
 	gortc.io/ice v0.7.0
 	gortc.io/stun v1.21.0
 	gortc.io/turn v0.10.0
-	gortc.io/turnc v0.1.2
+	gortc.io/turnc v0.2.0
 )
