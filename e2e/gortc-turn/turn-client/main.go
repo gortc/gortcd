@@ -117,17 +117,21 @@ func main() {
 	if err != nil {
 		logger.Fatal("failed to create allocation", zap.Error(err))
 	}
-	p, err := a.Create(echoAddr)
+	p, err := a.Create(echoAddr.IP)
 	if err != nil {
 		logger.Fatal("failed to create permission", zap.Error(err))
 	}
+	conn, err := p.CreateUDP(echoAddr)
+	if err != nil {
+		logger.Fatal("failed to create connection", zap.Error(err))
+	}
 	// Sending and receiving "hello" message.
-	if _, err := fmt.Fprint(p, "hello"); err != nil {
+	if _, err := fmt.Fprint(conn, "hello"); err != nil {
 		logger.Fatal("failed to write data")
 	}
 	sent := []byte("hello")
 	got := make([]byte, len(sent))
-	if _, err = p.Read(got); err != nil {
+	if _, err = conn.Read(got); err != nil {
 		logger.Fatal("failed to read data", zap.Error(err))
 	}
 	if !bytes.Equal(got, sent) {
@@ -137,18 +141,18 @@ func main() {
 	for i := range got {
 		got[i] = 0
 	}
-	if bindErr := p.Bind(); bindErr != nil {
+	if bindErr := conn.Bind(); bindErr != nil {
 		logger.Fatal("failed to bind", zap.Error(err))
 	}
-	if !p.Bound() {
+	if !conn.Bound() {
 		logger.Fatal("should be bound")
 	}
 	logger.Info("bound to channel")
 	// Sending and receiving "hello" message.
-	if _, err := fmt.Fprint(p, "hello"); err != nil {
+	if _, err := fmt.Fprint(conn, "hello"); err != nil {
 		logger.Fatal("failed to write data")
 	}
-	if _, err = p.Read(got); err != nil {
+	if _, err = conn.Read(got); err != nil {
 		logger.Fatal("failed to read data", zap.Error(err))
 	}
 	if !bytes.Equal(got, sent) {
