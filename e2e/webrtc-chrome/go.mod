@@ -3,7 +3,7 @@ module gortc.io/gortcd/e2e/webrtc-chrome
 go 1.12
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20180731224315-b8925c84f3c4
+	github.com/chromedp/cdproto v0.0.0-20190816224924-39ef923dcb8d
 	github.com/chromedp/chromedp v0.1.2
 	github.com/disintegration/imaging v1.4.2
 	github.com/golang/protobuf v1.3.1
