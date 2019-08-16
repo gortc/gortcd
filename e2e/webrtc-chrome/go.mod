@@ -9,7 +9,7 @@ require (
 	github.com/golang/protobuf v1.3.1
 	github.com/gorilla/websocket v1.2.0
 	github.com/knq/snaker v0.0.0-20180306023312-d9ad1e7f342a
-	github.com/knq/sysutil v0.0.0-20180306023629-0218e141a794
+	github.com/knq/sysutil v0.0.0-20190816233710-f05b59f0f307
 	github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
