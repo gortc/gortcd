@@ -2,7 +2,9 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"sync"
 
@@ -35,6 +37,17 @@ var (
 
 func main() {
 	flag.Parse()
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		panic(err)
+	}
+	for _, addr := range addresses {
+		ip := addr.(*net.IPNet).IP
+		if ip.IsLoopback() {
+			continue
+		}
+		fmt.Printf("addr: %s\n", ip)
+	}
 	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		log.Println("WS:", r.RemoteAddr)
 		h := http.Header{}

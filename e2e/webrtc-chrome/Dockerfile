@@ -1,8 +1,7 @@
 ARG CI_GO_VERSION
 FROM golang:${CI_GO_VERSION}
 
-ADD go.mod /src/e2e/
-ADD go.sum /src/e2e/
+ADD go.mod go.sum /src/e2e/
 WORKDIR /src/e2e/
 RUN go mod download
 

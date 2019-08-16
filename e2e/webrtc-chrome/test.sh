@@ -43,7 +43,7 @@ docker run -e INTERFACE=${CAPTURE_INTERFACE} -e SUBNET=${NETWORK_SUBNET} -d \
 
 
 # build and run the composed services
-docker-compose --no-ansi -p ci build && docker-compose --no-ansi -p ci up -d
+docker-compose --no-ansi -p ci build && docker-compose --no-ansi -p ci up --remove-orphans -d
 if [ $? -ne 0 ] ; then
   printf "${RED}Docker Compose Failed${NC}\n"
   exit -1
@@ -57,6 +57,7 @@ docker logs ci_turn-controlling_1 &> log-controlling.txt
 docker logs ci_turn-controlled_1 &> log-controlled.txt
 docker logs ci_turn-server_1 &> log-server.txt
 docker logs ci_gortcd_tcpdump &> log-tcpdump.txt
+docker logs ci_signaling_1 &> log-signaling.txt
 
 cat log-controlling.txt
 

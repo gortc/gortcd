@@ -34,8 +34,9 @@ func resolve(a string) *net.TCPAddr {
 			return addr
 		}
 		time.Sleep(time.Millisecond * 100 * time.Duration(i))
+		log.Printf("unable to resolve %s: %v", a, err)
 	}
-	panic("failed to resolve")
+	panic(fmt.Sprintf("failed to resolve %q", a))
 }
 
 type dpLogEntry struct {
@@ -50,8 +51,28 @@ type dpLogEntry struct {
 
 func main() {
 	flag.Parse()
+
 	log.SetFlags(log.Ltime | log.Lshortfile)
 	fmt.Println("bin", *bin, "addr", *httpAddr, "timeout", *timeout)
+	client := http.Client{
+		Timeout: time.Second * 10,
+		Transport: &http.Transport{
+			ResponseHeaderTimeout: time.Second * 5,
+		},
+	}
+
+	addresses, err := net.InterfaceAddrs()
+	if err != nil {
+		panic(err)
+	}
+	for _, addr := range addresses {
+		ip := addr.(*net.IPNet).IP
+		if ip.IsLoopback() {
+			continue
+		}
+		fmt.Printf("addr: %s\n", ip)
+	}
+
 	fs := http.FileServer(http.Dir("static"))
 	http.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
 		log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr)
@@ -61,6 +82,7 @@ func main() {
 	initialized := make(chan struct{})
 	http.HandleFunc("/initialized", func(writer http.ResponseWriter, request *http.Request) {
 		log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr)
+		defer log.Println("http:", request.Method, request.URL.Path, request.RemoteAddr, "OK")
 		switch request.Method {
 		case http.MethodPost:
 			// Should be called by browser after initializing websocket conn.
@@ -69,6 +91,7 @@ func main() {
 			// Should be called by controlling agent to wait until controlled init.
 			<-initialized
 		}
+		_, _ = fmt.Fprintln(writer, "OK")
 	})
 	http.HandleFunc("/success", func(writer http.ResponseWriter, request *http.Request) {
 		gotSuccess <- struct{}{}
@@ -80,7 +103,7 @@ func main() {
 			log.Println("waiting for controlled agent init")
 			getAddr := resolve("turn-controlled:8080")
 			getURL := fmt.Sprintf("http://%s/initialized", getAddr)
-			res, getErr := http.Get(getURL)
+			res, getErr := client.Get(getURL)
 			if getErr != nil {
 				log.Fatalln("failed to get:", getErr)
 			}
@@ -135,7 +158,7 @@ func main() {
 
 	// Checking prometheus metrics.
 	log.Println("checking metrics")
-	resp, err := http.Get("http://turn-server:3258/metrics")
+	resp, err := client.Get("http://turn-server:3258/metrics")
 	if err != nil {
 		log.Fatalln("failed to get metrics:", err)
 	}

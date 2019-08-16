@@ -1,8 +1,7 @@
 ARG CI_GO_VERSION
 FROM golang:${CI_GO_VERSION}
 
-ADD go.mod /src/gortcd/
-ADD go.sum /src/gortcd/
+ADD go.mod go.sum /src/gortcd/
 WORKDIR /src/gortcd/
 RUN go mod download
 
