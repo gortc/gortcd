@@ -13,6 +13,6 @@ require (
 	github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/prometheus/client_model v0.0.0-20190129233127-fd36f4220a90
-	github.com/prometheus/common v0.3.0
+	github.com/prometheus/common v0.6.0
 	golang.org/x/image v0.0.0-20180708004352-c73c2afc3b81
 )
