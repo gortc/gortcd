@@ -15,3 +15,5 @@ go.uber.org/zap v1.9.1 h1:XCJQEf3W6eZaVwhRBof6ImoYGJSITeKWsyeh3HFu/5o=
 go.uber.org/zap v1.9.1/go.mod h1:vwi/ZaCAaUcBkycHslxD9B2zi4UTXhF60s6SWpuDF0Q=
 gortc.io/stun v1.21.0 h1:hFUdDaQAlnRcrPcUhwPkV+XJWrY1shDjAPG4f8vu5Hw=
 gortc.io/stun v1.21.0/go.mod h1:XD5lpONVyjvV3BgOyJFNo0iv6R2oZB4L+weMqxts+zg=
+gortc.io/stun v1.21.1 h1:r7t/G5MIBWjsKbs7CTXK4DWjuaaJhuWYTbcL0xMlF9U=
+gortc.io/stun v1.21.1/go.mod h1:XD5lpONVyjvV3BgOyJFNo0iv6R2oZB4L+weMqxts+zg=
