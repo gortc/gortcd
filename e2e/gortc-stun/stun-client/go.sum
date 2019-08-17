@@ -18,3 +18,5 @@ gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gortc.io/stun v1.21.0 h1:hFUdDaQAlnRcrPcUhwPkV+XJWrY1shDjAPG4f8vu5Hw=
 gortc.io/stun v1.21.0/go.mod h1:XD5lpONVyjvV3BgOyJFNo0iv6R2oZB4L+weMqxts+zg=
+gortc.io/stun v1.21.1 h1:r7t/G5MIBWjsKbs7CTXK4DWjuaaJhuWYTbcL0xMlF9U=
+gortc.io/stun v1.21.1/go.mod h1:XD5lpONVyjvV3BgOyJFNo0iv6R2oZB4L+weMqxts+zg=
