@@ -30,6 +30,7 @@ github.com/gorilla/websocket v1.4.0/go.mod h1:E7qHFY5m1UJ88s3WnNqhKjPHQ0heANvMoA
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
 github.com/knq/snaker v0.0.0-20180306023312-d9ad1e7f342a/go.mod h1:f0Dmq8fkddh8nOsVabYmtOHHdxlq2q4X+LQ1xWQEdUU=
+github.com/knq/snaker v0.0.0-20190818125249-2bc8a4db4687/go.mod h1:f0Dmq8fkddh8nOsVabYmtOHHdxlq2q4X+LQ1xWQEdUU=
 github.com/knq/sysutil v0.0.0-20180306023629-0218e141a794 h1:hgWKTlyruPI7k8W+0FmTMLf+8d2KPxyzTxsfDDQhNp8=
 github.com/knq/sysutil v0.0.0-20180306023629-0218e141a794/go.mod h1:BjPj+aVjl9FW/cCGiF3nGh5v+9Gd3VCgBQbod/GlMaQ=
 github.com/knq/sysutil v0.0.0-20190816233710-f05b59f0f307 h1:bKs1P94XJf83nnJUMX7eRMexv0NxNotfQ5nwDFSsnu0=
