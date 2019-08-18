@@ -37,6 +37,8 @@ github.com/kr/logfmt v0.0.0-20140226030751-b84e30acd515/go.mod h1:+0opPa2QZZtGFB
 github.com/mailru/easyjson v0.0.0-20180606163543-3fdea8d05856/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5 h1:0x4qcEHDpruK6ML/m/YSlFUUu0UpRD3I2PHsNCuGnyA=
 github.com/mailru/easyjson v0.0.0-20180730094502-03f2033d19d5/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
+github.com/mailru/easyjson v0.0.0-20190818110508-b2ccc519800e h1:NTx5/nZEfiyHba3lPPF6Pf2OhSTz/Awpgq2n8QD6MKY=
+github.com/mailru/easyjson v0.0.0-20190818110508-b2ccc519800e/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/matttproud/golang_protobuf_extensions v1.0.1 h1:4hp9jkHxhMHkqkrB3Ix0jegS5sx/RkqARlsWZ6pIwiU=
 github.com/matttproud/golang_protobuf_extensions v1.0.1/go.mod h1:D8He9yQNgCq6Z5Ld7szi9bcBfOoFv/3dc6xSMkL2PC0=
 github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd/go.mod h1:6dJC0mAP4ikYIbvyc7fijjWJddQyLn8Ig3JB5CqoB9Q=
