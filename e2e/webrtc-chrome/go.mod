@@ -14,5 +14,5 @@ require (
 	github.com/matttproud/golang_protobuf_extensions v1.0.1
 	github.com/prometheus/client_model v0.0.0-20190817103357-14fe0d1b01d4
 	github.com/prometheus/common v0.6.0
-	golang.org/x/image v0.0.0-20190817103807-cff245a6509b
+	golang.org/x/image v0.0.0-20190823065228-3a9bac650e44
 )
