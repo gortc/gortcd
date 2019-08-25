@@ -7,7 +7,7 @@ require (
 	github.com/chromedp/chromedp v0.1.2
 	github.com/disintegration/imaging v1.6.1
 	github.com/golang/protobuf v1.3.2
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.1
 	github.com/knq/snaker v0.0.0-20190818125249-2bc8a4db4687
 	github.com/knq/sysutil v0.0.0-20190816233710-f05b59f0f307
 	github.com/mailru/easyjson v0.0.0-20190818110508-b2ccc519800e
