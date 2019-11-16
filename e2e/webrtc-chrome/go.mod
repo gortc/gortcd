@@ -5,7 +5,7 @@ go 1.12
 require (
 	github.com/chromedp/cdproto v0.0.0-20180731224315-b8925c84f3c4
 	github.com/chromedp/chromedp v0.1.2
-	github.com/disintegration/imaging v1.6.1
+	github.com/disintegration/imaging v1.6.2
 	github.com/golang/protobuf v1.3.2
 	github.com/gorilla/websocket v1.4.1
 	github.com/knq/snaker v0.0.0-20190818125249-2bc8a4db4687
