@@ -37,6 +37,7 @@ CAPTURE_INTERFACE="br-${NETWORK_ID:0:12}"
 
 echo "will capture traffic on $CAPTURE_INTERFACE$"
 
+docker rm -f ci_gortcd_tcpdump
 docker run -e INTERFACE=${CAPTURE_INTERFACE} -e SUBNET=${NETWORK_SUBNET} -d \
     -v $(pwd):/root/dump \
     --name ci_gortcd_tcpdump --net=host gortc/tcpdump
