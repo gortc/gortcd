@@ -4,7 +4,7 @@ go 1.12
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20180731224315-b8925c84f3c4 // indirect
-	github.com/chromedp/chromedp v0.1.2
+	github.com/chromedp/chromedp v0.5.3
 	github.com/disintegration/imaging v1.6.1 // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/mailru/easyjson v0.7.0 // indirect
