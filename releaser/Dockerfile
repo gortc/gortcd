@@ -4,6 +4,7 @@ RUN apt-get update && \
   apt-get dist-upgrade --yes && \
   apt-get install --yes \
   curl sudo jq squashfs-tools ca-certificates snapd rsync gpg software-properties-common \
+  python3 \
   apt-transport-https wget && \
   curl -L $(curl -H 'X-Ubuntu-Series: 16' 'https://api.snapcraft.io/api/v1/snaps/details/core' | jq '.download_url' -r) --output core.snap && \
   mkdir -p /snap/core && unsquashfs -d /snap/core/current core.snap && rm core.snap && \
@@ -29,4 +30,4 @@ apt-get update && \
 apt-get -y install docker-ce
 
 # Installing goreleaser.
-RUN wget -q https://github.com/goreleaser/goreleaser/releases/download/v0.102.0/goreleaser_amd64.deb && dpkg -i goreleaser_amd64.deb
+RUN wget -q https://github.com/goreleaser/goreleaser/releases/download/v0.132.0/goreleaser_amd64.deb && dpkg -i goreleaser_amd64.deb
