@@ -30,4 +30,4 @@ apt-get update && \
 apt-get -y install docker-ce
 
 # Installing goreleaser.
-RUN wget -q https://github.com/goreleaser/goreleaser/releases/download/v0.132.0/goreleaser_amd64.deb && dpkg -i goreleaser_amd64.deb
+RUN wget -q https://github.com/goreleaser/goreleaser/releases/download/v0.133.0/goreleaser_amd64.deb && dpkg -i goreleaser_amd64.deb
