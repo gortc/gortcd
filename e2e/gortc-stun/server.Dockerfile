@@ -1,4 +1,4 @@
-FROM golang:1.12
+FROM golang:1.15
 
 ADD go.mod /src/gortcd/
 ADD go.sum /src/gortcd/
