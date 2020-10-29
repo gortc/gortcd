@@ -9,13 +9,12 @@ require (
 	github.com/pkg/errors v0.8.1
 	github.com/prometheus/client_golang v1.3.0
 	github.com/spf13/afero v1.2.2 // indirect
-	github.com/spf13/cobra v1.0.0
+	github.com/spf13/cobra v1.1.1
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.7.0
 	go.uber.org/zap v1.15.0
-	golang.org/x/text v0.3.2 // indirect
-	gopkg.in/yaml.v2 v2.2.7
+	gopkg.in/yaml.v2 v2.2.8
 	gortc.io/ice v0.7.0
 	gortc.io/stun v1.22.1
 	gortc.io/turn v0.11.2
