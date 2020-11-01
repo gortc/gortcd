@@ -8,6 +8,7 @@ require (
 	github.com/disintegration/imaging v1.6.1 // indirect
 	github.com/gorilla/websocket v1.4.1
 	github.com/mailru/easyjson v0.7.0 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/prometheus/client_model v0.2.0
-	github.com/prometheus/common v0.10.0
+	github.com/prometheus/common v0.14.0
 )
