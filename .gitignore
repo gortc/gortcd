@@ -13,3 +13,9 @@ dist
 
 # coverage
 coverage.txt
+
+# e2e
+e2e/gortc-stun/stun-client/stun-client
+e2e/gortc-turn/turn-client/turn-client
+e2e/webrtc-chrome/webrtc-chrome
+
